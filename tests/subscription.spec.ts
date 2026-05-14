@@ -1,5 +1,5 @@
 import { Blockchain, SandboxContract, TreasuryWallet } from "@ton/sandbox";
-import { Cell, toNano } from "@ton/core";
+import { Address, Cell, toNano } from "@ton/core";
 import { compile } from "@ton/blueprint";
 import {
     Subscription, SubscriptionInitData, buildSubscriptionData, Status, Ops,
@@ -40,10 +40,11 @@ describe("Subscription — happy path", () => {
         feeCollector = await blockchain.treasury("feeCollector");
 
         const factoryCfg: FactoryConfig = {
-            relayerPubkey: 0n, // not used in tests (no external messages)
-            serviceAddr:   serviceOwner.address,
-            feeCollector:  feeCollector.address,
-            feeBps:        FEE_BPS,
+            relayerPubkey:        0n, // not used in tests (no external messages)
+            serviceAddr:          serviceOwner.address,
+            feeCollector:         feeCollector.address,
+            feeBps:               FEE_BPS,
+            protocolFeeCollector: new Address(0, Buffer.alloc(32)), // test placeholder
             subCode,
             plans: [
                 { price: AMOUNT_TON, period: PERIOD_MONTH, trialPeriod: 0 },
@@ -109,8 +110,9 @@ describe("Subscription — happy path", () => {
             subscriberAddr:  subscriber.address,
             factoryAddr:     serviceOwner.address,
             feeCollector:    feeCollector.address,
-            jettonWallet:    null,
-            relayerPubkey:   0n,
+            jettonWallet:           null,
+            relayerPubkey:          0n,
+            protocolFeeCollector:   new Address(0, Buffer.alloc(32)),
         };
 
         subscription = blockchain.openContract(
@@ -160,8 +162,9 @@ describe("Subscription — happy path", () => {
             subscriberAddr:  subscriber.address,
             factoryAddr:     serviceOwner.address,
             feeCollector:    feeCollector.address,
-            jettonWallet:    null,
-            relayerPubkey:   0n,
+            jettonWallet:           null,
+            relayerPubkey:          0n,
+            protocolFeeCollector:   new Address(0, Buffer.alloc(32)),
         };
 
         subscription = blockchain.openContract(
@@ -201,8 +204,9 @@ describe("Subscription — happy path", () => {
             subscriberAddr:  subscriber.address,
             factoryAddr:     serviceOwner.address,
             feeCollector:    feeCollector.address,
-            jettonWallet:    null,
-            relayerPubkey:   0n,
+            jettonWallet:           null,
+            relayerPubkey:          0n,
+            protocolFeeCollector:   new Address(0, Buffer.alloc(32)),
         };
 
         subscription = blockchain.openContract(

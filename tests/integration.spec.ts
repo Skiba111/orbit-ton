@@ -63,9 +63,10 @@ function baseInit(
         serviceAddr:     service.address,
         subscriberAddr:  subscriber.address,
         factoryAddr:     service.address,  // stand-in
-        feeCollector:    feeCollector.address,
-        jettonWallet:    null,
-        relayerPubkey:   BigInt("0x" + Buffer.from(keyPair.publicKey).toString("hex")),
+        feeCollector:           feeCollector.address,
+        jettonWallet:           null,
+        relayerPubkey:          BigInt("0x" + Buffer.from(keyPair.publicKey).toString("hex")),
+        protocolFeeCollector:   new Address(0, Buffer.alloc(32)),
     };
 }
 
@@ -110,10 +111,11 @@ beforeEach(async () => {
 describe("Factory → Subscription deployment", () => {
     it("deploys subscription at the getter-predicted address", async () => {
         const cfg: FactoryConfig = {
-            relayerPubkey: BigInt("0x" + Buffer.from(keyPair.publicKey).toString("hex")),
-            serviceAddr:   service.address,
-            feeCollector:  feeCollector.address,
-            feeBps:        FEE_BPS,
+            relayerPubkey:        BigInt("0x" + Buffer.from(keyPair.publicKey).toString("hex")),
+            serviceAddr:          service.address,
+            feeCollector:         feeCollector.address,
+            feeBps:               FEE_BPS,
+            protocolFeeCollector: new Address(0, Buffer.alloc(32)),
             subCode,
             plans: [{ price: AMOUNT, period: PERIOD, trialPeriod: 0, nameHash: 0n }],
         };
@@ -140,10 +142,11 @@ describe("Factory → Subscription deployment", () => {
 
     it("get_subscription_address returns same address on repeated calls", async () => {
         const cfg: FactoryConfig = {
-            relayerPubkey: 0n,
-            serviceAddr:   service.address,
-            feeCollector:  feeCollector.address,
-            feeBps:        FEE_BPS,
+            relayerPubkey:        0n,
+            serviceAddr:          service.address,
+            feeCollector:         feeCollector.address,
+            feeBps:               FEE_BPS,
+            protocolFeeCollector: new Address(0, Buffer.alloc(32)),
             subCode,
             plans: [{ price: AMOUNT, period: PERIOD, trialPeriod: 0, nameHash: 0n }],
         };
@@ -422,10 +425,11 @@ describe("OP_SET_MAX_PERIODS", () => {
 describe("OP_CHANGE_PLAN — factory routing", () => {
     it("rejects change_plan for unknown subscriber", async () => {
         const cfg: FactoryConfig = {
-            relayerPubkey: 0n,
-            serviceAddr:   service.address,
-            feeCollector:  feeCollector.address,
-            feeBps:        FEE_BPS,
+            relayerPubkey:        0n,
+            serviceAddr:          service.address,
+            feeCollector:         feeCollector.address,
+            feeBps:               FEE_BPS,
+            protocolFeeCollector: new Address(0, Buffer.alloc(32)),
             subCode,
             plans: [
                 { price: AMOUNT,        period: PERIOD, trialPeriod: 0, nameHash: 0n },

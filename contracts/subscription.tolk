@@ -46,7 +46,7 @@ fun recv_external(in_msg: slice) {
         retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
         amount, deposit, storage_reserve, fee_bps, trial_period,
         service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-        relayer_pubkey
+        relayer_pubkey, protocol_fee_collector
     ) = load_storage();
 
     var keeper_wallet: slice = begin_cell().store_uint(0, 2).end_cell().begin_parse();
@@ -82,7 +82,7 @@ fun recv_external(in_msg: slice) {
         retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
         amount, deposit, storage_reserve, fee_bps, trial_period,
         service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-        relayer_pubkey, keeper_wallet
+        relayer_pubkey, protocol_fee_collector, keeper_wallet
     );
 }
 
@@ -96,14 +96,14 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
             retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
             amount, deposit, storage_reserve, fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey
+            relayer_pubkey, protocol_fee_collector
         ) = load_storage();
         save_storage(
             seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
             retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
             amount, safe_add(deposit, msg_value), storage_reserve, fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey
+            relayer_pubkey, protocol_fee_collector
         );
         return;
     }
@@ -131,37 +131,56 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
                 retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
                 amount, deposit, storage_reserve, fee_bps, trial_period,
                 service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-                relayer_pubkey
+                relayer_pubkey, protocol_fee_collector
             ) = load_storage();
             on_charge_bounced(
                 seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
                 retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
                 amount, deposit, storage_reserve, fee_bps, trial_period,
                 service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-                relayer_pubkey
+                relayer_pubkey, protocol_fee_collector
             );
         }
 
-        // OP_FEE_PAYMENT bounce: fee_collector was frozen/unreachable.
-        // Restore the fee amount to deposit so tracked balance stays accurate.
-        // Body layout: OP(32)[already consumed] + query_id(64) + fee_amount(coins)
-        // fee_amount is within the first 256 bits, so it survives TON's bounce truncation.
+        // OP_FEE_PAYMENT bounce: service fee_collector was frozen/unreachable.
+        // OP_PROTOCOL_FEE_PAYMENT bounce: ORBIT protocol collector was unreachable.
+        // Both: restore the fee amount to deposit so tracked balance stays accurate.
+        // Body layout: OP(32)[consumed] + query_id(64) + fee_amount(coins) — within 256-bit bounce window.
         if (op == OP_FEE_PAYMENT) {
             var (
                 seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
                 retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
                 amount, deposit, storage_reserve, fee_bps, trial_period,
                 service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-                relayer_pubkey
+                relayer_pubkey, protocol_fee_collector
             ) = load_storage();
-            in_msg_body~load_uint(64);            // skip query_id
+            in_msg_body~load_uint(64);
             var fee_recovered: int = in_msg_body.load_coins();
             save_storage(
                 seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
                 retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
                 amount, safe_add(deposit, fee_recovered), storage_reserve, fee_bps, trial_period,
                 service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-                relayer_pubkey
+                relayer_pubkey, protocol_fee_collector
+            );
+        }
+
+        if (op == OP_PROTOCOL_FEE_PAYMENT) {
+            var (
+                seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
+                retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
+                amount, deposit, storage_reserve, fee_bps, trial_period,
+                service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+                relayer_pubkey, protocol_fee_collector
+            ) = load_storage();
+            in_msg_body~load_uint(64);
+            var protocol_fee_recovered: int = in_msg_body.load_coins();
+            save_storage(
+                seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
+                retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
+                amount, safe_add(deposit, protocol_fee_recovered), storage_reserve, fee_bps, trial_period,
+                service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+                relayer_pubkey, protocol_fee_collector
             );
         }
 
@@ -177,7 +196,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
         amount, deposit, storage_reserve, fee_bps, trial_period,
         service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-        relayer_pubkey
+        relayer_pubkey, protocol_fee_collector
     ) = load_storage();
 
     // ── OP_CANCEL ─────────────────────────────────────────────────────────────
@@ -192,7 +211,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
             retry_count, period, next_billing_time, 0, plan_id, max_periods, periods_charged,
             amount, 0, storage_reserve, fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey
+            relayer_pubkey, protocol_fee_collector
         );
 
         // For Jetton subscriptions, refund Jetton tokens + remaining TON separately.
@@ -236,7 +255,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
             0, period, next_billing_time, 0, plan_id, max_periods, periods_charged,
             amount, new_deposit, storage_reserve, fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey
+            relayer_pubkey, protocol_fee_collector
         );
         return;
     }
@@ -251,7 +270,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
             retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
             amount, deposit, storage_reserve, fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey
+            relayer_pubkey, protocol_fee_collector
         );
         return;
     }
@@ -266,7 +285,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
             retry_count, period, now() + period, 0, plan_id, max_periods, periods_charged,
             amount, deposit, storage_reserve, fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey
+            relayer_pubkey, protocol_fee_collector
         );
         return;
     }
@@ -279,7 +298,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
             retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
             amount, deposit, storage_reserve, fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey
+            relayer_pubkey, protocol_fee_collector
         );
         return;
     }
@@ -325,7 +344,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
             new_plan_id, max_periods, 0,
             new_amount, deposit, storage_reserve, fee_bps, new_trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey
+            relayer_pubkey, protocol_fee_collector
         );
         return;
     }
@@ -346,7 +365,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
             plan_id, new_max, periods_charged,
             amount, deposit, storage_reserve, fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey
+            relayer_pubkey, protocol_fee_collector
         );
         return;
     }
@@ -406,53 +425,53 @@ get fun get_subscription_data(): (int, int, int, int, int, int, int) {
         seqno, status, _, _, _, _,
         retry_count, period, next_billing_time, _, plan_id, _, _,
         amount, deposit, _, _, _,
-        _, _, _, _, _, _
+        _, _, _, _, _, _, _
     ) = load_storage();
     return (status, plan_id, amount, deposit, next_billing_time, period, retry_count);
 }
 
 get fun get_status(): int {
-    var (_, status, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    var (_, status, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
     return status;
 }
 
 get fun get_seqno(): int {
-    var (seqno, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    var (seqno, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
     return seqno;
 }
 
 get fun get_deposit(): int {
-    var (_, _, _, _, _, _, _, _, _, _, _, _, _, _, deposit, _, _, _, _, _, _, _, _, _) = load_storage();
+    var (_, _, _, _, _, _, _, _, _, _, _, _, _, _, deposit, _, _, _, _, _, _, _, _, _, _) = load_storage();
     return deposit;
 }
 
 get fun get_next_billing_time(): int {
-    var (_, _, _, _, _, _, _, _, next_billing_time, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    var (_, _, _, _, _, _, _, _, next_billing_time, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
     return next_billing_time;
 }
 
 get fun is_paused(): int {
-    var (_, _, _, _, paused_global, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    var (_, _, _, _, paused_global, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
     return paused_global;
 }
 
 get fun get_relayer_pubkey(): int {
-    var (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, relayer_pubkey) = load_storage();
+    var (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, relayer_pubkey, _) = load_storage();
     return relayer_pubkey;
 }
 
 get fun get_periods_charged(): int {
-    var (_, _, _, _, _, _, _, _, _, _, _, _, periods_charged, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    var (_, _, _, _, _, _, _, _, _, _, _, _, periods_charged, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
     return periods_charged;
 }
 
 get fun is_keeper_mode(): int {
-    var (_, _, _, _, _, keeper_mode, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    var (_, _, _, _, _, keeper_mode, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
     return keeper_mode;
 }
 
 get fun get_payment_type(): int {
-    var (_, _, payment_type, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    var (_, _, payment_type, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
     return payment_type;
 }
 

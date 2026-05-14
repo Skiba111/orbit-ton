@@ -4,16 +4,17 @@ import {
 } from "@ton/core";
 
 export const FactoryOps = {
-    SUBSCRIBE:           0x4F520001,
-    ADD_PLAN:            0x4F520002,
-    DEACTIVATE_PLAN:     0x4F520003,
-    FACTORY_PAUSE:       0x4F520004,
-    FACTORY_RESUME:      0x4F520005,
-    FACTORY_WITHDRAW:    0x4F520006,
-    CHANGE_PLAN:         0x4F520007,
-    CHARGE_NOTIFICATION: 0x4F520008,
-    FUND_KEEPER_POOL:    0x4F520009,
-    UPDATE_FEE_BPS:      0x4F52000A,
+    SUBSCRIBE:                  0x4F520001,
+    ADD_PLAN:                   0x4F520002,
+    DEACTIVATE_PLAN:            0x4F520003,
+    FACTORY_PAUSE:              0x4F520004,
+    FACTORY_RESUME:             0x4F520005,
+    FACTORY_WITHDRAW:           0x4F520006,
+    CHANGE_PLAN:                0x4F520007,
+    CHARGE_NOTIFICATION:        0x4F520008,
+    FUND_KEEPER_POOL:           0x4F520009,
+    UPDATE_FEE_BPS:             0x4F52000A,
+    UPDATE_PROTOCOL_COLLECTOR:  0x4F52000B,
 } as const;
 
 export const PAYMENT_TON    = 1;
@@ -27,12 +28,13 @@ export interface PlanConfig {
 }
 
 export interface FactoryConfig {
-    relayerPubkey: bigint;  // Ed25519 public key stored in subscriptions
-    serviceAddr:   Address;
-    feeCollector:  Address;
-    feeBps:        number;  // e.g. 20 = 0.2%
-    subCode:       Cell;    // compiled Subscription contract code
-    plans:         PlanConfig[];
+    relayerPubkey:          bigint;   // Ed25519 public key stored in subscriptions
+    serviceAddr:            Address;
+    feeCollector:           Address;
+    feeBps:                 number;   // service fee e.g. 100 = 1%
+    protocolFeeCollector:   Address;  // ORBIT team wallet — receives 0.2% on every charge
+    subCode:                Cell;     // compiled Subscription contract code
+    plans:                  PlanConfig[];
 }
 
 function buildPlanCell(plan: PlanConfig): Cell {
@@ -72,6 +74,7 @@ export function buildFactoryData(cfg: FactoryConfig): Cell {
             beginCell()
                 .storeAddress(cfg.serviceAddr)
                 .storeAddress(cfg.feeCollector)
+                .storeAddress(cfg.protocolFeeCollector)
             .endCell()
         )
     .endCell();
@@ -290,6 +293,35 @@ export class Factory implements Contract {
     async getVersion(provider: ContractProvider): Promise<number> {
         const result = await provider.get("get_version", []);
         return Number(result.stack.readBigNumber());
+    }
+
+    async getProtocolFeeCollector(provider: ContractProvider): Promise<Address> {
+        const result = await provider.get("get_protocol_fee_collector", []);
+        return result.stack.readAddress();
+    }
+
+    async getProtocolFeeBps(provider: ContractProvider): Promise<number> {
+        const result = await provider.get("get_protocol_fee_bps", []);
+        return Number(result.stack.readBigNumber());
+    }
+
+    // Rotates the ORBIT protocol fee collection address for future subscriptions.
+    // Must be called from the current protocolFeeCollector wallet — no key required.
+    // Existing subscriptions continue sending to their stored (old) address.
+    async sendUpdateProtocolCollector(
+        provider:     ContractProvider,
+        via:          Sender,
+        newCollector: Address,
+    ) {
+        await provider.internal(via, {
+            value:    toNano("0.05"),
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body:     beginCell()
+                .storeUint(FactoryOps.UPDATE_PROTOCOL_COLLECTOR, 32)
+                .storeUint(0, 64)
+                .storeAddress(newCollector)
+            .endCell(),
+        });
     }
 
     // Updates protocol fee for NEW subscriptions only; existing subs are unaffected.

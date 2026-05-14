@@ -108,6 +108,7 @@ fun execute_charge(
     fee_collector:          slice,
     jetton_wallet:          slice,
     relayer_pubkey:         int,
+    protocol_fee_collector: slice,  // ORBIT protocol address — set at deploy, cannot be bypassed
     keeper_wallet:          slice   // addr_none when keeper_mode == 0
 ) {
     throw_if(ERROR_ALREADY_CHARGING, charging_in_progress == 1);
@@ -124,7 +125,7 @@ fun execute_charge(
             amount, 0, storage_reserve,
             fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr,
-            fee_collector, jetton_wallet, relayer_pubkey
+            fee_collector, jetton_wallet, relayer_pubkey, protocol_fee_collector
         );
         send_refund(subscriber_addr, deposit, storage_reserve);
         return;
@@ -141,7 +142,7 @@ fun execute_charge(
                 amount, deposit, storage_reserve,
                 fee_bps, trial_period,
                 service_addr, subscriber_addr, factory_addr,
-                fee_collector, jetton_wallet, relayer_pubkey
+                fee_collector, jetton_wallet, relayer_pubkey, protocol_fee_collector
             );
             send_refund(subscriber_addr, deposit, storage_reserve);
             return;
@@ -162,7 +163,7 @@ fun execute_charge(
                 amount, deposit, storage_reserve,
                 fee_bps, trial_period,
                 service_addr, subscriber_addr, factory_addr,
-                fee_collector, jetton_wallet, relayer_pubkey
+                fee_collector, jetton_wallet, relayer_pubkey, protocol_fee_collector
             );
             send_refund(subscriber_addr, deposit, storage_reserve);
         } else {
@@ -174,7 +175,7 @@ fun execute_charge(
                 amount, deposit, storage_reserve,
                 fee_bps, trial_period,
                 service_addr, subscriber_addr, factory_addr,
-                fee_collector, jetton_wallet, relayer_pubkey
+                fee_collector, jetton_wallet, relayer_pubkey, protocol_fee_collector
             );
         }
         return;
@@ -183,7 +184,7 @@ fun execute_charge(
     // ── All checks passed — execute billing ───────────────────────────────────
 
     var new_deposit:     int = safe_sub(deposit, amount);
-    var (net_amount, fee_amount) = split_fee(amount, fee_bps);
+    var (net_amount, fee_amount, protocol_fee) = split_fee(amount, fee_bps);
     var new_next_billing: int = advance_billing(next_billing_time, period);
     var new_periods_charged: int = periods_charged + 1;
 
@@ -208,7 +209,7 @@ fun execute_charge(
             amount, new_deposit, storage_reserve,
             fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr,
-            fee_collector, jetton_wallet, relayer_pubkey
+            fee_collector, jetton_wallet, relayer_pubkey, protocol_fee_collector
         );
         send_payment_ton(service_addr, net_amount, subscriber_addr, plan_id);
     } else {
@@ -221,7 +222,7 @@ fun execute_charge(
             amount, new_deposit, storage_reserve,
             fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr,
-            fee_collector, jetton_wallet, relayer_pubkey
+            fee_collector, jetton_wallet, relayer_pubkey, protocol_fee_collector
         );
         var my_addr: slice = my_address();
         send_jetton_payment(
@@ -230,8 +231,9 @@ fun execute_charge(
         );
     }
 
-    // Protocol fee always in TON (even for Jetton subscriptions).
+    // Service fee (configurable per-factory) and ORBIT protocol fee (hardcoded 0.2%).
     send_fee(fee_collector, fee_amount, subscriber_addr, plan_id);
+    send_protocol_fee(protocol_fee_collector, protocol_fee, subscriber_addr, plan_id);
 
     // Notify factory: update MRR counters.
     // If keeper_mode=1, factory also sends KEEPER_REWARD from keeper_pool (bonus tier).
@@ -260,7 +262,7 @@ fun on_charge_bounced(
     fee_bps: int, trial_period: int,
     service_addr: slice, subscriber_addr: slice, factory_addr: slice,
     fee_collector: slice, jetton_wallet: slice,
-    relayer_pubkey: int
+    relayer_pubkey: int, protocol_fee_collector: slice
 ) {
     var restored_deposit: int = safe_add(deposit, amount);
     // Roll billing time back one period so the next relayer call will retry
@@ -279,6 +281,6 @@ fun on_charge_bounced(
         amount, restored_deposit, storage_reserve,
         fee_bps, trial_period,
         service_addr, subscriber_addr, factory_addr,
-        fee_collector, jetton_wallet, relayer_pubkey
+        fee_collector, jetton_wallet, relayer_pubkey, protocol_fee_collector
     );
 }

@@ -45,9 +45,10 @@ export interface SubscriptionInitData {
     serviceAddr:        Address;
     subscriberAddr:     Address;
     factoryAddr:        Address;
-    feeCollector:       Address;
-    jettonWallet:       Address | null;
-    relayerPubkey:      bigint;   // Ed25519 public key (256-bit); 0 only when keeperMode=true
+    feeCollector:           Address;
+    jettonWallet:           Address | null;
+    relayerPubkey:          bigint;   // Ed25519 public key (256-bit); 0 only when keeperMode=true
+    protocolFeeCollector:   Address;  // ORBIT protocol wallet — set from Factory.protocolFeeCollector
 }
 
 // ── Storage cell builder ─────────────────────────────────────────────────────
@@ -91,6 +92,11 @@ export function buildSubscriptionData(
                 .storeAddress(init.feeCollector)
                 .storeAddress(init.jettonWallet ?? init.feeCollector)
                 .storeUint(init.relayerPubkey, 256)
+            .endCell()
+        )
+        .storeRef(
+            beginCell()
+                .storeAddress(init.protocolFeeCollector)
             .endCell()
         )
     .endCell();

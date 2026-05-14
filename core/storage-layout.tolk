@@ -30,6 +30,12 @@
 //   jetton_wallet    (267 bits)
 //   relayer_pubkey   (256 bits)
 //
+// Ref 2 — protocol fee collector (267 bits):
+//   protocol_fee_collector (267 bits) — ORBIT's hardcoded collection address.
+//   Baked in at deploy time from PROTOCOL_FEE_COLLECTOR_HASH in protocol-config.tolk.
+//   Cannot be changed by the service; only the ORBIT team can rotate it via
+//   OP_UPDATE_PROTOCOL_COLLECTOR on the Factory (affects new subs only).
+//
 // relayer_pubkey: Ed25519 public key; 0 = key-less (keeper_mode only).
 // factory_addr: address of the deploying Factory; used to authenticate
 //   OP_APPLY_PLAN messages (plan changes must be authorised by the factory).
@@ -65,7 +71,8 @@ fun pack_subscription(
     factory_addr:           slice,
     fee_collector:          slice,
     jetton_wallet:          slice,
-    relayer_pubkey:         int
+    relayer_pubkey:         int,
+    protocol_fee_collector: slice   // ORBIT protocol address — hardcoded at deploy
 ): cell {
     return begin_cell()
         .store_uint(seqno,               32)
@@ -100,16 +107,21 @@ fun pack_subscription(
                 .store_uint(relayer_pubkey, 256)
             .end_cell()
         )
+        .store_ref(
+            begin_cell()
+                .store_slice(protocol_fee_collector)
+            .end_cell()
+        )
     .end_cell();
 }
 
 // ── Deserialisation ───────────────────────────────────────────────────────────
 
 fun unpack_subscription(raw: cell): (
-    int, int, int, int, int, int,          // seqno status payment_type charging paused keeper_mode
-    int, int, int, int, int, int, int,     // retry period next_billing grace_end plan_id max_periods periods_charged
-    int, int, int, int, int,               // amount deposit storage_reserve fee_bps trial_period
-    slice, slice, slice, slice, slice, int // service subscriber factory fee_collector jetton_wallet relayer_pubkey
+    int, int, int, int, int, int,                  // seqno status payment_type charging paused keeper_mode
+    int, int, int, int, int, int, int,             // retry period next_billing grace_end plan_id max_periods periods_charged
+    int, int, int, int, int,                       // amount deposit storage_reserve fee_bps trial_period
+    slice, slice, slice, slice, slice, int, slice  // service subscriber factory fee_collector jetton_wallet relayer_pubkey protocol_fee_collector
 ) {
     var ds: slice = raw.begin_parse();
 
@@ -142,11 +154,15 @@ fun unpack_subscription(raw: cell): (
     var jetton_wallet:   slice = ref1.load_msg_addr();
     var relayer_pubkey:  int   = ref1.load_uint(256);
 
+    var ref2: slice = ds.load_ref().begin_parse();
+    var protocol_fee_collector: slice = ref2.load_msg_addr();
+
     return (
         seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
         retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
         amount, deposit, storage_reserve, fee_bps, trial_period,
-        service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet, relayer_pubkey
+        service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+        relayer_pubkey, protocol_fee_collector
     );
 }
 
@@ -155,7 +171,7 @@ fun load_storage(): (
     int, int, int, int, int, int,
     int, int, int, int, int, int, int,
     int, int, int, int, int,
-    slice, slice, slice, slice, slice, int
+    slice, slice, slice, slice, slice, int, slice
 ) {
     return unpack_subscription(get_data());
 }
@@ -169,7 +185,7 @@ fun save_storage(
     fee_bps: int, trial_period: int,
     service_addr: slice, subscriber_addr: slice, factory_addr: slice,
     fee_collector: slice, jetton_wallet: slice,
-    relayer_pubkey: int
+    relayer_pubkey: int, protocol_fee_collector: slice
 ) {
     set_data(pack_subscription(
         seqno, status, payment_type,
@@ -180,6 +196,6 @@ fun save_storage(
         fee_bps, trial_period,
         service_addr, subscriber_addr, factory_addr,
         fee_collector, jetton_wallet,
-        relayer_pubkey
+        relayer_pubkey, protocol_fee_collector
     ));
 }

@@ -17,7 +17,7 @@
 //   keeper  — keeper_mode seqno protection
 
 import { Blockchain, SandboxContract, TreasuryWallet, SendMessageResult } from "@ton/sandbox";
-import { beginCell, Cell, toNano } from "@ton/core";
+import { Address, beginCell, Cell, toNano } from "@ton/core";
 import { compile } from "@ton/blueprint";
 import {
     Subscription, SubscriptionInitData, buildSubscriptionData, Status, Ops,
@@ -58,9 +58,10 @@ function baseInit(
         serviceAddr:     serviceOwner.address,
         subscriberAddr:  subscriber.address,
         factoryAddr:     serviceOwner.address,   // stand-in for unit tests
-        feeCollector:    feeCollector.address,
-        jettonWallet:    null,
-        relayerPubkey:   FAKE_PUBKEY,
+        feeCollector:           feeCollector.address,
+        jettonWallet:           null,
+        relayerPubkey:          FAKE_PUBKEY,
+        protocolFeeCollector:   new Address(0, Buffer.alloc(32)),
     };
 }
 

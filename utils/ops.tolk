@@ -50,4 +50,8 @@ const OP_FUND_KEEPER_POOL:       int = 0x4F520009; // service funds keeper rewar
 const OP_SET_MAX_PERIODS:        int = 0x4F520017; // service sets fixed-term cap on existing sub
 
 // ── Factory admin ops ──────────────────────────────────────────────────────
-const OP_UPDATE_FEE_BPS:         int = 0x4F52000A; // service updates protocol fee for NEW subs only
+const OP_UPDATE_FEE_BPS:              int = 0x4F52000A; // service updates protocol fee for NEW subs only
+const OP_UPDATE_PROTOCOL_COLLECTOR:   int = 0x4F52000B; // ORBIT owner rotates protocol_fee_collector
+
+// ── Protocol fee billing op ────────────────────────────────────────────────
+const OP_PROTOCOL_FEE_PAYMENT:        int = 0x4F520023; // subscription sends ORBIT protocol fee

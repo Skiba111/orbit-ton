@@ -34,6 +34,7 @@
 import "../utils/errors.tolk"
 import "../utils/ops.tolk"
 import "../utils/math-safe.tolk"
+import "../utils/protocol-config.tolk"
 import "../utils/time-oracle.tolk"
 import "../core/storage-layout.tolk"
 import "../core/subscription-state.tolk"
@@ -81,7 +82,7 @@ fun set_subscriber_info(
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
 
-fun load_factory_storage(): (int, int, int, int, int, int, int, int, cell, cell, cell, slice, slice) {
+fun load_factory_storage(): (int, int, int, int, int, int, int, int, cell, cell, cell, slice, slice, slice) {
     var ds: slice = get_data().begin_parse();
     var relayer_pubkey:  int  = ds.load_uint(256);
     var seqno:           int  = ds.load_uint(32);
@@ -95,18 +96,20 @@ fun load_factory_storage(): (int, int, int, int, int, int, int, int, cell, cell,
     var subscriber_info: cell = ds.load_ref();
     var sub_code:        cell = ds.load_ref();
     var addr_ref:        slice = ds.load_ref().begin_parse();
-    var service_addr:    slice = addr_ref.load_msg_addr();
-    var fee_collector:   slice = addr_ref.load_msg_addr();
+    var service_addr:           slice = addr_ref.load_msg_addr();
+    var fee_collector:          slice = addr_ref.load_msg_addr();
+    var protocol_fee_collector: slice = addr_ref.load_msg_addr();
     return (relayer_pubkey, seqno, paused, plan_count, fee_bps,
             total_charges, total_revenue, keeper_pool,
-            plans, subscriber_info, sub_code, service_addr, fee_collector);
+            plans, subscriber_info, sub_code,
+            service_addr, fee_collector, protocol_fee_collector);
 }
 
 fun save_factory_storage(
     relayer_pubkey: int, seqno: int, paused: int, plan_count: int, fee_bps: int,
     total_charges: int, total_revenue: int, keeper_pool: int,
     plans: cell, subscriber_info: cell, sub_code: cell,
-    service_addr: slice, fee_collector: slice
+    service_addr: slice, fee_collector: slice, protocol_fee_collector: slice
 ) {
     set_data(
         begin_cell()
@@ -125,6 +128,7 @@ fun save_factory_storage(
                 begin_cell()
                     .store_slice(service_addr)
                     .store_slice(fee_collector)
+                    .store_slice(protocol_fee_collector)
                 .end_cell()
             )
         .end_cell()
@@ -147,6 +151,7 @@ fun build_sub_init(
     fee_bps:              int,
     relayer_pubkey:       int,
     factory_addr:         slice,
+    protocol_fee_collector: slice,  // ORBIT-controlled; passed from Factory storage
     sub_code:             cell
 ): cell {
     var init_status:  int = initial_status(trial_period, trial_used);
@@ -176,7 +181,8 @@ fun build_sub_init(
         factory_addr,
         fee_collector,
         subscriber_jetton_wallet, // addr_none for TON; actual wallet for Jetton
-        relayer_pubkey
+        relayer_pubkey,
+        protocol_fee_collector    // ORBIT protocol address — baked in, cannot be changed by service
     );
 
     return begin_cell()
@@ -226,7 +232,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
     var (
         relayer_pubkey, seqno, paused, plan_count, fee_bps,
         total_charges, total_revenue, keeper_pool,
-        plans, subscriber_info, sub_code, service_addr, fee_collector
+        plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
     ) = load_factory_storage();
 
     // ── OP_SUBSCRIBE ──────────────────────────────────────────────────────────
@@ -269,7 +275,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
             payment_type,
             subscriber_jetton_wallet,
             service_addr, fee_collector, fee_bps,
-            relayer_pubkey, my_addr, sub_code
+            relayer_pubkey, my_addr, protocol_fee_collector, sub_code
         );
         var sub_addr: slice = compute_contract_addr(init_state);
 
@@ -298,7 +304,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         save_factory_storage(
             relayer_pubkey, seqno, paused, plan_count, fee_bps,
             total_charges, total_revenue, keeper_pool,
-            plans, subscriber_info, sub_code, service_addr, fee_collector
+            plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
         );
         return;
     }
@@ -318,7 +324,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         save_factory_storage(
             relayer_pubkey, seqno, paused, plan_count + 1, fee_bps,
             total_charges, total_revenue, keeper_pool,
-            plans, subscriber_info, sub_code, service_addr, fee_collector
+            plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
         );
         return;
     }
@@ -331,7 +337,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         save_factory_storage(
             relayer_pubkey, seqno, paused, plan_count, fee_bps,
             total_charges, total_revenue, keeper_pool,
-            plans, subscriber_info, sub_code, service_addr, fee_collector
+            plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
         );
         return;
     }
@@ -401,7 +407,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         save_factory_storage(
             relayer_pubkey, seqno, paused, plan_count, fee_bps,
             total_charges + 1, safe_add(total_revenue, notif_amount), new_keeper_pool,
-            plans, subscriber_info, sub_code, service_addr, fee_collector
+            plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
         );
         return;
     }
@@ -429,7 +435,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         save_factory_storage(
             relayer_pubkey, seqno, 1, plan_count, fee_bps,
             total_charges, total_revenue, keeper_pool,
-            plans, subscriber_info, sub_code, service_addr, fee_collector
+            plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
         );
         return;
     }
@@ -439,7 +445,7 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         save_factory_storage(
             relayer_pubkey, seqno, 0, plan_count, fee_bps,
             total_charges, total_revenue, keeper_pool,
-            plans, subscriber_info, sub_code, service_addr, fee_collector
+            plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
         );
         return;
     }
@@ -454,7 +460,24 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         save_factory_storage(
             relayer_pubkey, seqno, paused, plan_count, new_fee_bps,
             total_charges, total_revenue, keeper_pool,
-            plans, subscriber_info, sub_code, service_addr, fee_collector
+            plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
+        );
+        return;
+    }
+
+    // ── OP_UPDATE_PROTOCOL_COLLECTOR ─────────────────────────────────────────
+    // Rotates the ORBIT protocol fee collection address for NEW subscriptions.
+    // Auth: only the current protocol_fee_collector can call this — no key needed,
+    // just a message from your wallet.  Existing subscriptions keep their stored
+    // address (which you still own); only future Factory.sendSubscribe() calls
+    // will bake in the new address.
+    if (op == OP_UPDATE_PROTOCOL_COLLECTOR) {
+        throw_unless(ERROR_WRONG_SENDER, addr_equal(sender, protocol_fee_collector));
+        var new_collector: slice = in_msg_body.load_msg_addr();
+        save_factory_storage(
+            relayer_pubkey, seqno, paused, plan_count, fee_bps,
+            total_charges, total_revenue, keeper_pool,
+            plans, subscriber_info, sub_code, service_addr, fee_collector, new_collector
         );
         return;
     }
@@ -485,53 +508,62 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
 // ── Getters ───────────────────────────────────────────────────────────────────
 
 get fun get_plan_count(): int {
-    var (_, _, _, plan_count, _, _, _, _, _, _, _, _, _) = load_factory_storage();
+    var (_, _, _, plan_count, _, _, _, _, _, _, _, _, _, _) = load_factory_storage();
     return plan_count;
 }
 
 get fun get_plan_data(plan_id: int): (int, int, int, int, int) {
-    var (_, _, _, _, _, _, _, _, plans, _, _, _, _) = load_factory_storage();
+    var (_, _, _, _, _, _, _, _, plans, _, _, _, _, _) = load_factory_storage();
     var (price, period, trial_period, active, name_hash) = unpack_plan(get_plan(plans, plan_id));
     return (price, period, trial_period, active, name_hash);
 }
 
 get fun is_factory_paused(): int {
-    var (_, _, paused, _, _, _, _, _, _, _, _, _, _) = load_factory_storage();
+    var (_, _, paused, _, _, _, _, _, _, _, _, _, _, _) = load_factory_storage();
     return paused;
 }
 
 get fun get_subscription_code(): cell {
-    var (_, _, _, _, _, _, _, _, _, _, sub_code, _, _) = load_factory_storage();
+    var (_, _, _, _, _, _, _, _, _, _, sub_code, _, _, _) = load_factory_storage();
     return sub_code;
 }
 
 get fun get_relayer_pubkey(): int {
-    var (relayer_pubkey, _, _, _, _, _, _, _, _, _, _, _, _) = load_factory_storage();
+    var (relayer_pubkey, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_factory_storage();
     return relayer_pubkey;
 }
 
 get fun get_total_charges(): int {
-    var (_, _, _, _, _, total_charges, _, _, _, _, _, _, _) = load_factory_storage();
+    var (_, _, _, _, _, total_charges, _, _, _, _, _, _, _, _) = load_factory_storage();
     return total_charges;
 }
 
 get fun get_total_revenue(): int {
-    var (_, _, _, _, _, _, total_revenue, _, _, _, _, _, _) = load_factory_storage();
+    var (_, _, _, _, _, _, total_revenue, _, _, _, _, _, _, _) = load_factory_storage();
     return total_revenue;
 }
 
 get fun get_keeper_pool(): int {
-    var (_, _, _, _, _, _, _, keeper_pool, _, _, _, _, _) = load_factory_storage();
+    var (_, _, _, _, _, _, _, keeper_pool, _, _, _, _, _, _) = load_factory_storage();
     return keeper_pool;
 }
 
 get fun get_fee_bps(): int {
-    var (_, _, _, _, fee_bps, _, _, _, _, _, _, _, _) = load_factory_storage();
+    var (_, _, _, _, fee_bps, _, _, _, _, _, _, _, _, _) = load_factory_storage();
     return fee_bps;
 }
 
+get fun get_protocol_fee_collector(): slice {
+    var (_, _, _, _, _, _, _, _, _, _, _, _, _, protocol_fee_collector) = load_factory_storage();
+    return protocol_fee_collector;
+}
+
+get fun get_protocol_fee_bps(): int {
+    return PROTOCOL_FEE_BPS;
+}
+
 get fun get_version(): int {
-    return 1; // bumped on every storage-breaking upgrade
+    return 2; // bumped: protocol_fee_collector added to storage
 }
 
 // Returns the on-chain subscription address for a given subscriber and plan.
@@ -551,7 +583,7 @@ get fun get_subscription_address(
 ): slice {
     var (
         relayer_pubkey, _, _, _, fee_bps, _, _, _,
-        plans, subscriber_info, sub_code, service_addr, fee_collector
+        plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
     ) = load_factory_storage();
 
     var sub_hash: int = slice_hash(subscriber_addr);
@@ -570,7 +602,7 @@ get fun get_subscription_address(
         payment_type,
         subscriber_jetton_wallet,
         service_addr, fee_collector, fee_bps,
-        relayer_pubkey, my_addr, sub_code
+        relayer_pubkey, my_addr, protocol_fee_collector, sub_code
     );
     return compute_contract_addr(init_state);
 }

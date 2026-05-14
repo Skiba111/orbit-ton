@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+sdk/react/node_modules/
+
+# Build artifacts
+build/
+dist/
+*.boc
+
+# Environment — NEVER commit
+.env
+.env.*
+!.env.example
+
+# Relayer write-ahead log & state
+data/
+*.wal.json
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/

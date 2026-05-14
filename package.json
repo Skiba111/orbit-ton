@@ -1,0 +1,28 @@
+{
+  "name": "orbit-ton",
+  "version": "0.1.0",
+  "description": "ORBIT — modular recurring-payment library for TON (Tolk)",
+  "scripts": {
+    "build": "blueprint build",
+    "test": "blueprint test",
+    "deploy": "blueprint run",
+    "relayer": "ts-node scripts/relayer.ts"
+  },
+  "devDependencies": {
+    "@ton/blueprint": "^0.20.0",
+    "@ton/core": "^0.56.3",
+    "@ton/crypto": "^3.2.0",
+    "@ton/sandbox": "^0.20.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testPathPattern": "tests/.*\\.spec\\.ts$"
+  }
+}

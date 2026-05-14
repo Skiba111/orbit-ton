@@ -1,0 +1,7 @@
+{
+  "url":               "https://yourapp.com",
+  "name":              "Your App Name",
+  "iconUrl":           "https://yourapp.com/icon-192.png",
+  "termsOfUseUrl":     "https://yourapp.com/terms",
+  "privacyPolicyUrl":  "https://yourapp.com/privacy"
+}

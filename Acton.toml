@@ -1,0 +1,51 @@
+# Acton.toml — ORBIT Masterchain Library configuration
+#
+# Acton is the TON tool for publishing and managing Masterchain Libraries.
+# Each contract compiled here produces a code cell that can be published
+# on-chain with `acton library publish` and referenced by hash.
+#
+# Build tool note:
+#   On-chain Masterchain Library: use `acton library publish` commands below.
+#   Local development and testing:  use `npx blueprint build / test`.
+#   Both work against the same .tolk source files.
+
+[workspace]
+name    = "orbit"
+version = "0.1.0"
+
+# ── Contracts ─────────────────────────────────────────────────────────────────
+# Each [[contract]] block describes one deployable contract.
+# `library = true` marks a contract as a Masterchain Library candidate.
+
+[[contract]]
+name    = "subscription"
+path    = "contracts/subscription.tolk"
+library = true        # core billing logic; publish once, all services share it
+
+[[contract]]
+name    = "factory"
+path    = "contracts/factory.tolk"
+library = false       # each service deploys its own Factory instance
+
+[[contract]]
+name    = "fee-collector"
+path    = "contracts/fee-collector.tolk"
+library = false       # one global instance owned by the protocol team
+
+# ── Library publication workflow ──────────────────────────────────────────────
+#
+# 1. Build:
+#      acton build
+#
+# 2. Publish subscription code as Masterchain Library (requires TON balance):
+#      acton library publish --contract subscription --network mainnet
+#
+# 3. Record the returned library hash in factory.tolk as a compile-time constant
+#    (instead of embedding the code cell directly).
+#
+# 4. Top up library storage periodically:
+#      acton library topup --hash <HASH> --amount 5 --network mainnet
+#
+# ── Estimated storage cost ────────────────────────────────────────────────────
+# subscription.tolk compiled: ~3-5 KB → ~0.01-0.05 TON / year on Masterchain
+# A 5 TON deposit covers ~100-500 years.

@@ -1,0 +1,35 @@
+{
+  "name": "@orbit-ton/react",
+  "version": "0.1.0",
+  "description": "React hooks and components for ORBIT recurring payments on TON",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import":  "./dist/index.esm.js",
+      "require": "./dist/index.js",
+      "types":   "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev":   "tsup src/index.ts --format cjs,esm --dts --watch",
+    "lint":  "eslint src"
+  },
+  "peerDependencies": {
+    "react":                ">=18.0.0",
+    "@ton/core":            ">=0.56.0",
+    "@ton/ton":             ">=13.0.0",
+    "@tonconnect/ui-react": ">=2.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "tsup":         "^8.0.0",
+    "typescript":   "^5.4.0"
+  },
+  "keywords": ["ton", "blockchain", "subscriptions", "orbit", "react", "tonconnect"],
+  "license": "MIT"
+}

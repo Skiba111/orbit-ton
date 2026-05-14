@@ -24,13 +24,19 @@ fun split_fee(gross: int, fee_bps: int): (int, int) {
 
 // Builds the fee notification body sent to the fee_collector contract.
 // The collector can use this data for off-chain analytics.
+//
+// IMPORTANT: fee_amount is placed BEFORE subscriber_addr so that it lands
+// within the first 256 bits of the body.  TON truncates bounce message bodies
+// to 256 bits; the subscription bounce handler reads fee_amount from the
+// bounce to restore the deposit if the fee_collector is unreachable.
+// Layout: OP(32) + query_id(64) + fee_amount(≤124) = ≤220 bits total — safe.
 fun build_fee_body(subscriber_addr: slice, plan_id: int, fee_amount: int): cell {
     return begin_cell()
         .store_uint(OP_FEE_PAYMENT, 32)
         .store_uint(0, 64)           // query_id = 0 for fee messages
-        .store_slice(subscriber_addr)
+        .store_coins(fee_amount)     // ← before subscriber_addr; must stay within bounce window
         .store_uint(plan_id, 32)
-        .store_coins(fee_amount)
+        .store_slice(subscriber_addr)
     .end_cell();
 }
 

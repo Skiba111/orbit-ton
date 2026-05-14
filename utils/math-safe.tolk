@@ -50,4 +50,15 @@ fun bps_of(amount: int, bps: int): int {
 
 @inline
 fun validate_period(period: int) {
-    throw_unless(ERROR_INVALID_PERIOD, (period >=
+    throw_unless(ERROR_INVALID_PERIOD, (period >= MIN_PERIOD) & (period <= MAX_PERIOD));
+}
+
+@inline
+fun validate_amount(amount: int) {
+    throw_unless(ERROR_INVALID_AMOUNT, (amount > 0) & (amount <= MAX_COINS));
+}
+
+@inline
+fun validate_fee_bps(bps: int) {
+    throw_unless(ERROR_INVALID_AMOUNT, (bps >= 0) & (bps <= MAX_FEE_BPS));
+}

@@ -182,4 +182,72 @@ export class Subscription implements Contract {
         await provider.internal(via, {
             value:    toNano("0.05"),
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-   
+            body:     beginCell()
+                .storeUint(Ops.ROTATE_RELAYER, 32)
+                .storeUint(0, 64)
+                .storeUint(newPubkey, 256)
+            .endCell(),
+        });
+    }
+
+    // ── Getters ───────────────────────────────────────────────────────────────
+
+    async getSubscriptionData(provider: ContractProvider) {
+        const result = await provider.get("get_subscription_data", []);
+        const items  = result.stack;
+        return {
+            status:          Number(items.readBigNumber()),
+            planId:          Number(items.readBigNumber()),
+            amount:          items.readBigNumber(),
+            deposit:         items.readBigNumber(),
+            nextBillingTime: Number(items.readBigNumber()),
+            period:          Number(items.readBigNumber()),
+            retryCount:      Number(items.readBigNumber()),
+        };
+    }
+
+    async getStatus(provider: ContractProvider): Promise<number> {
+        const r = await provider.get("get_status", []);
+        return Number(r.stack.readBigNumber());
+    }
+
+    async getSeqno(provider: ContractProvider): Promise<number> {
+        const r = await provider.get("get_seqno", []);
+        return Number(r.stack.readBigNumber());
+    }
+
+    async getDeposit(provider: ContractProvider): Promise<bigint> {
+        const r = await provider.get("get_deposit", []);
+        return r.stack.readBigNumber();
+    }
+
+    async getNextBillingTime(provider: ContractProvider): Promise<number> {
+        const r = await provider.get("get_next_billing_time", []);
+        return Number(r.stack.readBigNumber());
+    }
+
+    async isPaused(provider: ContractProvider): Promise<boolean> {
+        const r = await provider.get("is_paused", []);
+        return Number(r.stack.readBigNumber()) === 1;
+    }
+
+    async getRelayerPubkey(provider: ContractProvider): Promise<bigint> {
+        const r = await provider.get("get_relayer_pubkey", []);
+        return r.stack.readBigNumber();
+    }
+
+    async getPeriodsCharged(provider: ContractProvider): Promise<number> {
+        const r = await provider.get("get_periods_charged", []);
+        return Number(r.stack.readBigNumber());
+    }
+
+    async isKeeperMode(provider: ContractProvider): Promise<boolean> {
+        const r = await provider.get("is_keeper_mode", []);
+        return Number(r.stack.readBigNumber()) === 1;
+    }
+
+    async getVersion(provider: ContractProvider): Promise<number> {
+        const r = await provider.get("get_version", []);
+        return Number(r.stack.readBigNumber());
+    }
+}

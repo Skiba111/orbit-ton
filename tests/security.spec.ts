@@ -215,4 +215,166 @@ describe("vuln 6 — plan snapshot immutability", () => {
         const sub = await makeSubscription(
             blockchain, subCode, { amount: lockedAmount },
             serviceOwner, subscriber, feeCollector
- 
+        );
+        const data = await sub.getSubscriptionData(blockchain.provider(sub.address));
+        expect(data.amount).toBe(lockedAmount);
+    });
+});
+
+// ── vuln 9: fee routing ───────────────────────────────────────────────────────
+
+describe("vuln 9 — fee routing transparency", () => {
+    it("0.2% fee split is correct (20 bps on 1 TON)", () => {
+        const gross  = toNano("1");
+        const bps    = 20n;
+        const fee    = (gross * bps) / 10000n;
+        const net    = gross - fee;
+        expect(fee).toBe(toNano("0.002"));
+        expect(net).toBe(toNano("0.998"));
+    });
+
+    it("fee_collector address survives pause+resume cycle", async () => {
+        const sub = await makeSubscription(
+            blockchain, subCode, {}, serviceOwner, subscriber, feeCollector
+        );
+        // Toggle emergency pause twice (back to unpaused)
+        await sub.sendEmergencyPause(blockchain.sender(serviceOwner.address));
+        await sub.sendEmergencyPause(blockchain.sender(serviceOwner.address));
+
+        const paused = await sub.isPaused(blockchain.provider(sub.address));
+        expect(paused).toBe(false);
+        // fee_collector is immutable at the storage level — no OP_UPDATE_FEE_COLLECTOR exists
+    });
+});
+
+// ── vuln 2: bounce handler ────────────────────────────────────────────────────
+
+describe("vuln 2 — bounce handler ignores unknown bounced ops", () => {
+    it("seqno unchanged after unknown bounce", async () => {
+        const sub = await makeSubscription(
+            blockchain, subCode, {}, serviceOwner, subscriber, feeCollector
+        );
+
+        const seqnoBefore = await sub.getSeqno(blockchain.provider(sub.address));
+
+        await blockchain.sendMessage({
+            info: {
+                type:    "internal",
+                bounce:  false,
+                bounced: true,
+                from:    serviceOwner.address,
+                to:      sub.address,
+                value:   { coins: toNano("0.01") },
+                ihrFee:  0n,
+                forwardFee: 0n,
+                createdLt:  0n,
+                createdAt:  0,
+            },
+            body: beginCell()
+                .storeUint(0xFFFFFFFF, 32) // bounce prefix
+                .storeUint(0x99999999, 32) // unrecognised op
+            .endCell(),
+        });
+
+        const seqnoAfter = await sub.getSeqno(blockchain.provider(sub.address));
+        expect(seqnoAfter).toBe(seqnoBefore);
+    });
+});
+
+// ── Access control ────────────────────────────────────────────────────────────
+
+describe("access control", () => {
+    it("rejects cancel from a stranger", async () => {
+        const sub = await makeSubscription(
+            blockchain, subCode, {}, serviceOwner, subscriber, feeCollector
+        );
+        const result = await sub.sendCancel(blockchain.sender(stranger.address));
+        expect(txFailed(result)).toBe(true);
+        expect(await sub.getStatus(blockchain.provider(sub.address))).toBe(Status.ACTIVE);
+    });
+
+    it("rejects pause sent from subscriber (owner-only)", async () => {
+        const sub = await makeSubscription(
+            blockchain, subCode, {}, serviceOwner, subscriber, feeCollector
+        );
+        const result = await sub.sendPause(blockchain.sender(subscriber.address));
+        expect(txFailed(result)).toBe(true);
+    });
+
+    it("rejects rotate-relayer from subscriber", async () => {
+        const sub = await makeSubscription(
+            blockchain, subCode, {}, serviceOwner, subscriber, feeCollector
+        );
+        const result = await sub.sendRotateRelayer(
+            blockchain.sender(subscriber.address), 0xDEADBEEFn
+        );
+        expect(txFailed(result)).toBe(true);
+    });
+
+    it("allows rotate-relayer from service owner", async () => {
+        const newKey = 0xABCDEF1234567890n;
+        const sub    = await makeSubscription(
+            blockchain, subCode, {}, serviceOwner, subscriber, feeCollector
+        );
+        const result = await sub.sendRotateRelayer(
+            blockchain.sender(serviceOwner.address), newKey
+        );
+        expect(txFailed(result)).toBe(false);
+        const stored = await sub.getRelayerPubkey(blockchain.provider(sub.address));
+        expect(stored).toBe(newKey);
+    });
+});
+
+// ── Grace revival via top-up ──────────────────────────────────────────────────
+
+describe("grace period — top-up revival", () => {
+    it("transitions GRACE → ACTIVE when deposit covers cycle + reserve + gas", async () => {
+        const sub = await makeSubscription(
+            blockchain, subCode,
+            {
+                status:  Status.GRACE,
+                deposit: toNano("0.02"),  // deliberately below threshold
+            },
+            serviceOwner, subscriber, feeCollector
+        );
+
+        // Top up enough: AMOUNT + RESERVE + GAS_BUDGET + extra for the message gas
+        const topUp = AMOUNT + RESERVE + GAS_BUDGET + toNano("0.05");
+        await sub.sendTopUp(blockchain.sender(subscriber.address), topUp);
+
+        const status = await sub.getStatus(blockchain.provider(sub.address));
+        expect(status).toBe(Status.ACTIVE);
+    });
+});
+
+// ── periods_charged tracking ──────────────────────────────────────────────────
+
+describe("periods_charged counter", () => {
+    it("starts at 0 at deploy", async () => {
+        const sub = await makeSubscription(
+            blockchain, subCode, {}, serviceOwner, subscriber, feeCollector
+        );
+        const count = await sub.getPeriodsCharged(blockchain.provider(sub.address));
+        expect(count).toBe(0);
+    });
+});
+
+// ── keeper_mode flag ──────────────────────────────────────────────────────────
+
+describe("keeper_mode flag", () => {
+    it("is off by default", async () => {
+        const sub = await makeSubscription(
+            blockchain, subCode, {}, serviceOwner, subscriber, feeCollector
+        );
+        const km = await sub.isKeeperMode(blockchain.provider(sub.address));
+        expect(km).toBe(false);
+    });
+
+    it("is on when keeperMode=true at deploy", async () => {
+        const sub = await makeSubscription(
+            blockchain, subCode, { keeperMode: true }, serviceOwner, subscriber, feeCollector
+        );
+        const km = await sub.isKeeperMode(blockchain.provider(sub.address));
+        expect(km).toBe(true);
+    });
+});

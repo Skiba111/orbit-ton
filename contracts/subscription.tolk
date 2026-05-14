@@ -112,9 +112,19 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
     var flags: int = cs.load_uint(4);
 
     // ── Bounce handler ────────────────────────────────────────────────────────
+    //
+    // Handled bounce ops:
+    //   OP_CHARGE_INTERNAL — payment to service bounced; restore deposit + rollback
+    //   OP_FEE_PAYMENT     — fee to collector bounced; restore fee_amount to deposit
+    //
+    // Both restores prevent the subscriber's tracked deposit from drifting below
+    // the real contract balance.  Without them, the fee (or payment) amount is
+    // returned to the raw balance by TON but not reflected in deposit, causing
+    // silent insolvency the next time has_funds_for_charge() is checked.
     if (flags & 1) {
         in_msg_body~load_uint(32); // skip 0xFFFFFFFF bounce prefix
         var op: int = in_msg_body.load_uint(32);
+
         if (op == OP_CHARGE_INTERNAL) {
             var (
                 seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
@@ -131,6 +141,30 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
                 relayer_pubkey
             );
         }
+
+        // OP_FEE_PAYMENT bounce: fee_collector was frozen/unreachable.
+        // Restore the fee amount to deposit so tracked balance stays accurate.
+        // Body layout: OP(32)[already consumed] + query_id(64) + fee_amount(coins)
+        // fee_amount is within the first 256 bits, so it survives TON's bounce truncation.
+        if (op == OP_FEE_PAYMENT) {
+            var (
+                seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
+                retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
+                amount, deposit, storage_reserve, fee_bps, trial_period,
+                service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+                relayer_pubkey
+            ) = load_storage();
+            in_msg_body~load_uint(64);            // skip query_id
+            var fee_recovered: int = in_msg_body.load_coins();
+            save_storage(
+                seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
+                retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
+                amount, safe_add(deposit, fee_recovered), storage_reserve, fee_bps, trial_period,
+                service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+                relayer_pubkey
+            );
+        }
+
         return;
     }
 
@@ -257,4 +291,171 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         throw_if(ERROR_INVALID_STATE, (new_pubkey == 0) & (keeper_mode == 0));
 
         save_storage(
-            seqno + 1, status, 
+            seqno + 1, status, payment_type, charging_in_progress, paused_global, keeper_mode,
+            retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
+            amount, deposit, storage_reserve, fee_bps, trial_period,
+            service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+            new_pubkey
+        );
+        return;
+    }
+
+    // ── OP_APPLY_PLAN ─────────────────────────────────────────────────────────
+    // Authenticated by factory_addr — subscriber cannot call this directly.
+    if (op == OP_APPLY_PLAN) {
+        require_owner(sender, factory_addr);
+        require_not_cancelled(status);
+        throw_if(ERROR_ALREADY_CHARGING, charging_in_progress == 1);
+
+        var new_plan_id:      int = in_msg_body.load_uint(32);
+        var new_amount:       int = in_msg_body.load_coins();
+        var new_period:       int = in_msg_body.load_uint(32);
+        var new_trial_period: int = in_msg_body.load_uint(32);
+
+        // If the new plan is more expensive than the current deposit can cover,
+        // enter GRACE immediately rather than silently failing on the next charge.
+        var new_status: int = status;
+        if (~ has_funds_for_charge(deposit, new_amount, storage_reserve)) {
+            new_status = STATUS_GRACE;
+        }
+
+        save_storage(
+            seqno + 1, new_status, payment_type, charging_in_progress, paused_global, keeper_mode,
+            retry_count, new_period, now() + new_period, grace_end_time,
+            new_plan_id, max_periods, 0,
+            new_amount, deposit, storage_reserve, fee_bps, new_trial_period,
+            service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+            relayer_pubkey
+        );
+        return;
+    }
+
+    // ── OP_SET_MAX_PERIODS ────────────────────────────────────────────────────
+    // Service owner converts an existing unlimited subscription into a fixed-term
+    // one, or adjusts the cap on an already capped subscription.
+    // Setting max_periods = 0 restores unlimited billing.
+    if (op == OP_SET_MAX_PERIODS) {
+        require_owner(sender, service_addr);
+        require_not_cancelled(status);
+
+        var new_max: int = in_msg_body.load_uint(32);
+
+        save_storage(
+            seqno + 1, status, payment_type, charging_in_progress, paused_global, keeper_mode,
+            retry_count, period, next_billing_time, grace_end_time,
+            plan_id, new_max, periods_charged,
+            amount, deposit, storage_reserve, fee_bps, trial_period,
+            service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+            relayer_pubkey
+        );
+        return;
+    }
+
+    // ── OP_JETTON_TRANSFER_NOTIFICATION ───────────────────────────────────────
+    // First notification from any sender sets jetton_wallet permanently (auto-learn).
+    // Subsequent notifications must originate from the same address.
+    if (op == OP_JETTON_TRANSFER_NOTIFICATION) {
+        var new_jetton_wallet: slice = jetton_wallet;
+        if (is_addr_none(jetton_wallet)) {
+            // Auto-learn: first Jetton wallet that notifies us becomes the canonical one.
+            // This is safe because we only accept Jetton subscriptions — a malicious
+            // sender could set a wrong address, but the subscriber controls who sends to them.
+            new_jetton_wallet = sender;
+        } else {
+            throw_unless(ERROR_WRONG_SENDER, addr_equal(sender, jetton_wallet));
+        }
+
+        var added: int = handle_jetton_deposit_notification(in_msg_body);
+        save_storage(
+            seqno + 1, status, payment_type, charging_in_progress, paused_global, keeper_mode,
+            retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
+            amount, safe_add(deposit, added), storage_reserve, fee_bps, trial_period,
+            service_addr, subscriber_addr, factory_addr, fee_collector, new_jetton_wallet,
+            relayer_pubkey
+        );
+        return;
+    }
+
+    // ── OP_JETTON_EXCESSES (Jetton charge confirmation) ───────────────────────
+    // Must originate from the known jetton_wallet — prevents any external actor
+    // from prematurely clearing the charging_in_progress flag.
+    if (op == OP_JETTON_EXCESSES) {
+        // Only accept from the known Jetton wallet; reject addr_none (not yet set)
+        throw_unless(ERROR_WRONG_SENDER,
+            (~ is_addr_none(jetton_wallet)) & addr_equal(sender, jetton_wallet)
+        );
+        if (charging_in_progress == 1) {
+            save_storage(
+                seqno + 1, status, payment_type, 0, paused_global, keeper_mode,
+                retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
+                amount, deposit, storage_reserve, fee_bps, trial_period,
+                service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+                relayer_pubkey
+            );
+        }
+        return;
+    }
+
+    throw(ERROR_INVALID_OP);
+}
+
+// ── Getters ───────────────────────────────────────────────────────────────────
+
+get fun get_subscription_data(): (int, int, int, int, int, int, int) {
+    var (
+        seqno, status, _, _, _, _,
+        retry_count, period, next_billing_time, _, plan_id, _, _,
+        amount, deposit, _, _, _,
+        _, _, _, _, _, _
+    ) = load_storage();
+    return (status, plan_id, amount, deposit, next_billing_time, period, retry_count);
+}
+
+get fun get_status(): int {
+    var (_, status, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    return status;
+}
+
+get fun get_seqno(): int {
+    var (seqno, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    return seqno;
+}
+
+get fun get_deposit(): int {
+    var (_, _, _, _, _, _, _, _, _, _, _, _, _, _, deposit, _, _, _, _, _, _, _, _, _) = load_storage();
+    return deposit;
+}
+
+get fun get_next_billing_time(): int {
+    var (_, _, _, _, _, _, _, _, next_billing_time, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    return next_billing_time;
+}
+
+get fun is_paused(): int {
+    var (_, _, _, _, paused_global, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    return paused_global;
+}
+
+get fun get_relayer_pubkey(): int {
+    var (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, relayer_pubkey) = load_storage();
+    return relayer_pubkey;
+}
+
+get fun get_periods_charged(): int {
+    var (_, _, _, _, _, _, _, _, _, _, _, _, periods_charged, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    return periods_charged;
+}
+
+get fun is_keeper_mode(): int {
+    var (_, _, _, _, _, keeper_mode, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    return keeper_mode;
+}
+
+get fun get_payment_type(): int {
+    var (_, _, payment_type, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = load_storage();
+    return payment_type;
+}
+
+get fun get_version(): int {
+    return 1; // bumped on every storage-breaking upgrade
+}

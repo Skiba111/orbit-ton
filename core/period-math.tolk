@@ -26,4 +26,8 @@ fun min_deposit(period_price: int, periods: int, storage_reserve: int): int {
 
 // Returns true when the deposit can cover one billing cycle plus gas budget.
 // Requires: amount + storage_reserve + CHARGE_GAS_BUDGET ≤ deposit.
-// CHARGE_GAS_BUDGET covers TVM execution and the outgoing payment messages
+// CHARGE_GAS_BUDGET covers TVM execution and the outgoing payment messages.
+@inline
+fun has_funds_for_charge(deposit: int, amount: int, storage_reserve: int): int {
+    return deposit >= safe_add(safe_add(amount, storage_reserve), CHARGE_GAS_BUDGET);
+}

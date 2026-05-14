@@ -31,4 +31,23 @@ const OP_JETTON_EXCESSES:              int = 0xd53276db;
 
 // ── Subscription admin ops (internal, service → subscription) ─────────────
 const OP_ROTATE_RELAYER:         int = 0x4F520015; // service rotates relayer key
-const OP_APPLY_PLAN:             int = 0x4F520016; // factory applies plan change to s
+const OP_APPLY_PLAN:             int = 0x4F520016; // factory applies plan change to subscription
+
+// ── Factory plan-change ops (internal, subscriber → factory) ──────────────
+const OP_CHANGE_PLAN:            int = 0x4F520007; // subscriber requests plan change
+
+// ── Analytics ops (internal, subscription → factory) ──────────────────────
+const OP_CHARGE_NOTIFICATION:    int = 0x4F520008; // subscription reports successful charge
+
+// ── Fee collector ops ──────────────────────────────────────────────────────
+const OP_COLLECT:                int = 0x4F520040; // phase 1: request withdrawal (starts timelock)
+const OP_CONFIRM_COLLECT:        int = 0x4F520041; // phase 2: confirm after timelock expires
+
+// ── Keeper / factory ops ───────────────────────────────────────────────────
+const OP_FUND_KEEPER_POOL:       int = 0x4F520009; // service funds keeper reward pool
+
+// ── Subscription admin ops (service → subscription) ────────────────────────
+const OP_SET_MAX_PERIODS:        int = 0x4F520017; // service sets fixed-term cap on existing sub
+
+// ── Factory admin ops ──────────────────────────────────────────────────────
+const OP_UPDATE_FEE_BPS:         int = 0x4F52000A; // service updates protocol fee for NEW subs only

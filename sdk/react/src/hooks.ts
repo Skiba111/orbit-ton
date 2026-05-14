@@ -154,4 +154,31 @@ export function useFactory() {
     return { plans, totalRevenue, totalCharges, keeperPool, loading, error, refetch: fetchFactory };
 }
 
-// ── Cell builder ─────────────────────────────────────�
+// ── Cell builder ──────────────────────────────────────────────────────────────
+//
+// Builds OP_SUBSCRIBE body using @ton/core Cell API so bit-packing is exact.
+// The contract reads: op(32) query_id(64) plan_id(32) payment_type(2) [jetton_wallet?]
+//
+// Using raw Buffer was incorrect because it cannot represent sub-byte fields —
+// the 2-bit payment_type would be misaligned without Cell's bit-level packing.
+
+export function buildSubscribeCell(
+    planId:              number,
+    paymentType:         PaymentType  = PAYMENT_TON,
+    jettonWalletAddress: string | null = null,
+) {
+    let builder = beginCell()
+        .storeUint(0x4F520001, 32)  // OP_SUBSCRIBE
+        .storeUint(0, 64)           // query_id = 0
+        .storeUint(planId, 32)
+        .storeUint(paymentType, 2); // PAYMENT_TON=1 or PAYMENT_JETTON=2
+
+    if (paymentType === PAYMENT_JETTON) {
+        if (!jettonWalletAddress) {
+            throw new Error("jettonWalletAddress is required for Jetton subscriptions");
+        }
+        builder = builder.storeAddress(Address.parse(jettonWalletAddress)) as typeof builder;
+    }
+
+    return builder.endCell();
+}

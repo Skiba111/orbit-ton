@@ -53,4 +53,17 @@ export function SubscribeButton({
                 disabled={loading || !plan.active}
                 style={{
                     cursor:  loading || !plan.active ? "not-allowed" : "pointer",
-                    opacity: loading || !plan.active
+                    opacity: loading || !plan.active ? 0.6 : 1,
+                }}
+            >
+                {loading ? "Sending…" : label}
+            </button>
+            {err && (
+                <p style={{ color: "red", fontSize: "0.8em", marginTop: 4 }}>{err}</p>
+            )}
+            {!plan.active && (
+                <p style={{ color: "grey", fontSize: "0.8em", marginTop: 4 }}>Plan unavailable</p>
+            )}
+        </div>
+    );
+}

@@ -47,4 +47,14 @@ fun initial_status(trial_period: int, trial_used: int): int {
     return STATUS_ACTIVE;
 }
 
-// ── Factory trial-tracking dict helpers ────────────────
+// ── Factory trial-tracking dict helpers ──────────────────────────────────────
+
+// Key: address hash (256 bits), value: 1 bit "trial used"
+fun trial_is_used(used_trials: cell, subscriber_hash: int): int {
+    var (_, found) = used_trials.udict_get?(256, subscriber_hash);
+    return found;
+}
+
+fun mark_trial_used(used_trials: cell, subscriber_hash: int): cell {
+    return used_trials.udict_set(256, subscriber_hash, begin_cell().store_uint(1, 1).end_cell().begin_parse());
+}

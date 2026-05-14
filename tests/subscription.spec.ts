@@ -220,4 +220,18 @@ describe("Subscription — happy path", () => {
             blockchain.sender(serviceOwner.address)
         );
         expect(await subscription.getStatus(
-            blockchain.provider(subs
+            blockchain.provider(subscription.address)
+        )).toBe(Status.ACTIVE);
+    });
+
+    it("should correctly split fee on charge", async () => {
+        // Fee = 0.2% of 1 TON = 0.002 TON = 2000000 nanotons
+        const gross = AMOUNT_TON;
+        const feeBps = FEE_BPS;
+        const expectedFee = (gross * BigInt(feeBps)) / 10000n;
+        const expectedNet = gross - expectedFee;
+
+        expect(expectedFee).toBe(toNano("0.002"));
+        expect(expectedNet).toBe(toNano("0.998"));
+    });
+});

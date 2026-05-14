@@ -150,4 +150,36 @@ fun unpack_subscription(raw: cell): (
     );
 }
 
-// Convenien
+// Convenience wrappers for the contract entry points.
+fun load_storage(): (
+    int, int, int, int, int, int,
+    int, int, int, int, int, int, int,
+    int, int, int, int, int,
+    slice, slice, slice, slice, slice, int
+) {
+    return unpack_subscription(get_data());
+}
+
+fun save_storage(
+    seqno: int, status: int, payment_type: int,
+    charging_in_progress: int, paused_global: int, keeper_mode: int,
+    retry_count: int, period: int, next_billing_time: int,
+    grace_end_time: int, plan_id: int, max_periods: int, periods_charged: int,
+    amount: int, deposit: int, storage_reserve: int,
+    fee_bps: int, trial_period: int,
+    service_addr: slice, subscriber_addr: slice, factory_addr: slice,
+    fee_collector: slice, jetton_wallet: slice,
+    relayer_pubkey: int
+) {
+    set_data(pack_subscription(
+        seqno, status, payment_type,
+        charging_in_progress, paused_global, keeper_mode,
+        retry_count, period, next_billing_time,
+        grace_end_time, plan_id, max_periods, periods_charged,
+        amount, deposit, storage_reserve,
+        fee_bps, trial_period,
+        service_addr, subscriber_addr, factory_addr,
+        fee_collector, jetton_wallet,
+        relayer_pubkey
+    ));
+}

@@ -124,4 +124,117 @@ fun recv_external(in_msg: slice) {
 
     var incoming_seqno: int = in_msg.load_uint(32);
     var timestamp:      int = in_msg.load_uint(32);
-    var op:             int = in_msg.load_
+    var op:             int = in_msg.load_uint(32);
+
+    var (owner_pubkey, seqno, total_collected, pending_cell) = load_collector_storage();
+
+    require_seqno(incoming_seqno, seqno);
+    throw_unless(ERROR_MSG_EXPIRED, is_msg_fresh(timestamp));
+    require_valid_signature(msg_hash, sig, owner_pubkey);
+
+    accept_message();
+
+    // ── OP_COLLECT — Phase 1: schedule withdrawal ─────────────────────────────
+    // Records the request and starts the timelock.  No funds move.
+    // To cancel a pending withdrawal, send OP_COLLECT with amount=0.
+    if (op == OP_COLLECT) {
+        var req_amount: int   = in_msg.load_coins();
+        var req_dest:   slice = in_msg.load_msg_addr();
+
+        // Validate requested amount fits within available balance
+        if (req_amount > 0) {
+            var balance:      int = get_balance().pair_first();
+            var max_withdraw: int = safe_sub(balance, COLLECTOR_RESERVE);
+            throw_unless(ERROR_INSUFFICIENT_FUNDS, req_amount <= max_withdraw);
+        }
+
+        save_collector_storage(
+            owner_pubkey, seqno + 1, total_collected,
+            pack_pending_withdrawal(now(), req_amount, req_dest)
+        );
+        return;
+    }
+
+    // ── OP_CONFIRM_COLLECT — Phase 2: execute withdrawal ─────────────────────
+    // Can only succeed after WITHDRAWAL_TIMELOCK_SEC elapsed since the request.
+    if (op == OP_CONFIRM_COLLECT) {
+        var (req_time, req_amount, req_dest) = load_pending_withdrawal(pending_cell);
+
+        // Must have a pending request
+        throw_unless(ERROR_NO_PENDING_WITHDRAWAL, req_time > 0);
+
+        // Timelock must have expired
+        throw_unless(ERROR_TIMELOCK_ACTIVE, now() >= safe_add(req_time, WITHDRAWAL_TIMELOCK_SEC));
+
+        var balance:      int = get_balance().pair_first();
+        var max_withdraw: int = safe_sub(balance, COLLECTOR_RESERVE);
+        if (max_withdraw < 0) { max_withdraw = 0; }
+
+        var withdraw_amount: int = req_amount;
+        if (req_amount == 0) {
+            withdraw_amount = max_withdraw; // 0 in request = withdraw all
+        } else {
+            throw_unless(ERROR_INSUFFICIENT_FUNDS, req_amount <= max_withdraw);
+        }
+
+        // Clear pending withdrawal before sending (prevents re-entrancy)
+        save_collector_storage(
+            owner_pubkey, seqno + 1, total_collected,
+            empty_pending()
+        );
+
+        if (withdraw_amount == 0) { return; }
+
+        raw_reserve(COLLECTOR_RESERVE, 0);
+
+        var msg: cell = begin_cell()
+            .store_uint(0x10, 6)  // non-bounceable
+            .store_slice(req_dest)
+            .store_coins(withdraw_amount)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .end_cell();
+        send_raw_message(msg, 1);
+        return;
+    }
+
+    throw(ERROR_INVALID_OP);
+}
+
+// ── Getters ───────────────────────────────────────────────────────────────────
+
+get fun get_seqno(): int {
+    var (_, seqno, _, _) = load_collector_storage();
+    return seqno;
+}
+
+get fun get_total_collected(): int {
+    var (_, _, total, _) = load_collector_storage();
+    return total;
+}
+
+get fun get_balance_available(): int {
+    var bal: int = get_balance().pair_first();
+    var avail: int = bal - COLLECTOR_RESERVE;
+    if (avail < 0) { return 0; }
+    return avail;
+}
+
+// Returns (request_time, amount, dest_hash) for the pending withdrawal.
+// request_time = 0 means no pending withdrawal.
+get fun get_pending_withdrawal(): (int, int, int) {
+    var (_, _, _, pending_cell) = load_collector_storage();
+    var (req_time, req_amount, req_dest) = load_pending_withdrawal(pending_cell);
+    return (req_time, req_amount, extract_account_id(req_dest));
+}
+
+// Returns seconds remaining until the pending withdrawal can be confirmed.
+// Returns 0 if no pending withdrawal or timelock already expired.
+get fun get_timelock_remaining(): int {
+    var (_, _, _, pending_cell) = load_collector_storage();
+    var (req_time, _, _) = load_pending_withdrawal(pending_cell);
+    if (req_time == 0) { return 0; }
+    var unlock_at: int = safe_add(req_time, WITHDRAWAL_TIMELOCK_SEC);
+    var remaining: int = unlock_at - now();
+    if (remaining < 0) { return 0; }
+    return remaining;
+}

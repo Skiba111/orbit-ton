@@ -254,4 +254,323 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
         // For Jetton subscriptions, the TON value only covers gas/rent — no price check.
         if (payment_type == PAYMENT_TON) {
             var min_value: int = safe_add(safe_add(price, STORAGE_RESERVE), FACTORY_DEPLOY_GAS);
-            throw_unless(ERROR_INSUFFICIENT_FU
+            throw_unless(ERROR_INSUFFICIENT_FUNDS, msg_value >= min_value);
+        } else {
+            throw_unless(ERROR_INSUFFICIENT_FUNDS, msg_value >= safe_add(STORAGE_RESERVE, FACTORY_DEPLOY_GAS));
+        }
+
+        var sender_hash:  int = slice_hash(sender);
+        var (_, ever_trial_used) = get_subscriber_info(subscriber_info, sender_hash);
+
+        var my_addr: slice = my_address();
+        var init_state: cell = build_sub_init(
+            sender, plan_id, price, period, trial_period,
+            ever_trial_used,      // trial_used at this subscribe time
+            payment_type,
+            subscriber_jetton_wallet,
+            service_addr, fee_collector, fee_bps,
+            relayer_pubkey, my_addr, sub_code
+        );
+        var sub_addr: slice = compute_contract_addr(init_state);
+
+        var deposit: int = safe_sub(msg_value, FACTORY_DEPLOY_GAS);
+
+        var msg: cell = begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(sub_addr)
+            .store_coins(deposit)
+            .store_uint(6, 108)  // 105 zeros + init_present(1) + init_ref(1) + no_body(0)
+            .store_ref(init_state)
+        .end_cell();
+        send_raw_message(msg, 1);
+
+        // Mark trial consumed if applicable
+        var new_ever_trial_used: int = ever_trial_used;
+        if ((trial_period > 0) & (ever_trial_used == 0)) {
+            new_ever_trial_used = 1;
+        }
+
+        // Store subscription address in subscriber_info — used for OP_CHANGE_PLAN
+        subscriber_info = set_subscriber_info(
+            subscriber_info, sender_hash, sub_addr, new_ever_trial_used
+        );
+
+        save_factory_storage(
+            relayer_pubkey, seqno, paused, plan_count, fee_bps,
+            total_charges, total_revenue, keeper_pool,
+            plans, subscriber_info, sub_code, service_addr, fee_collector
+        );
+        return;
+    }
+
+    // ── OP_ADD_PLAN ───────────────────────────────────────────────────────────
+    if (op == OP_ADD_PLAN) {
+        require_owner(sender, service_addr);
+        var new_price:        int = in_msg_body.load_coins();
+        var new_period:       int = in_msg_body.load_uint(32);
+        var new_trial_period: int = in_msg_body.load_uint(32);
+        var new_name_hash:    int = in_msg_body.load_uint(256);
+
+        validate_amount(new_price);
+        validate_period(new_period);
+
+        plans = set_plan(plans, plan_count, new_price, new_period, new_trial_period, new_name_hash);
+        save_factory_storage(
+            relayer_pubkey, seqno, paused, plan_count + 1, fee_bps,
+            total_charges, total_revenue, keeper_pool,
+            plans, subscriber_info, sub_code, service_addr, fee_collector
+        );
+        return;
+    }
+
+    // ── OP_DEACTIVATE_PLAN ────────────────────────────────────────────────────
+    if (op == OP_DEACTIVATE_PLAN) {
+        require_owner(sender, service_addr);
+        var target_plan_id: int = in_msg_body.load_uint(32);
+        plans = deactivate_plan(plans, target_plan_id);
+        save_factory_storage(
+            relayer_pubkey, seqno, paused, plan_count, fee_bps,
+            total_charges, total_revenue, keeper_pool,
+            plans, subscriber_info, sub_code, service_addr, fee_collector
+        );
+        return;
+    }
+
+    // ── OP_CHANGE_PLAN ────────────────────────────────────────────────────────
+    // Subscriber requests a plan change.  Factory validates the new plan and
+    // forwards OP_APPLY_PLAN to the subscriber's known subscription address.
+    //
+    // Security: the subscription address is looked up from subscriber_info —
+    // NOT provided by the caller.  This prevents Bob from targeting Alice's
+    // subscription with his own OP_CHANGE_PLAN message.
+    if (op == OP_CHANGE_PLAN) {
+        var new_plan_id: int = in_msg_body.load_uint(32);
+        var (new_price, new_period, new_trial_period) = require_active_plan(plans, new_plan_id);
+
+        var sender_hash: int = slice_hash(sender);
+        var (sub_addr, _) = get_subscriber_info(subscriber_info, sender_hash);
+
+        // Subscriber must have an existing subscription recorded by this factory
+        throw_unless(ERROR_NOT_FOUND, ~ sub_addr_is_none(sub_addr));
+
+        var body: cell = build_apply_plan_body(new_plan_id, new_price, new_period, new_trial_period);
+        var fwd_msg: cell = begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(sub_addr)
+            .store_coins(FACTORY_DEPLOY_GAS)  // 0.05 TON for OP_APPLY_PLAN gas (with safety margin)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_ref(body)
+        .end_cell();
+        send_raw_message(fwd_msg, 0);
+        return;
+    }
+
+    // ── OP_CHARGE_NOTIFICATION ────────────────────────────────────────────────
+    // Subscription notifies us after each successful charge.
+    // Auth: sender must match the sub_addr stored for notif_sub_addr in
+    // subscriber_info — prevents anyone from spoofing this op to drain keeper_pool.
+    if (op == OP_CHARGE_NOTIFICATION) {
+        var notif_plan_id:  int   = in_msg_body.load_uint(32);
+        var notif_amount:   int   = in_msg_body.load_coins();
+        var notif_sub_addr: slice = in_msg_body.load_msg_addr();
+        var has_keeper:     int   = in_msg_body.load_uint(1);
+
+        // Verify sender is the known subscription for notif_sub_addr
+        var sub_hash: int = slice_hash(notif_sub_addr);
+        var (stored_sub_addr, _) = get_subscriber_info(subscriber_info, sub_hash);
+        throw_unless(ERROR_WRONG_SENDER,
+            (~ sub_addr_is_none(stored_sub_addr)) & addr_equal(sender, stored_sub_addr)
+        );
+
+        var new_keeper_pool: int = keeper_pool;
+        if (has_keeper) {
+            var keeper_wallet: slice = in_msg_body.load_msg_addr();
+            // Pay bonus from pool if funded; skip silently if pool empty
+            if (new_keeper_pool >= KEEPER_REWARD) {
+                new_keeper_pool = safe_sub(new_keeper_pool, KEEPER_REWARD);
+                var reward_msg: cell = begin_cell()
+                    .store_uint(0x10, 6)  // non-bounceable
+                    .store_slice(keeper_wallet)
+                    .store_coins(KEEPER_REWARD)
+                    .store_uint(0, 107)
+                .end_cell();
+                send_raw_message(reward_msg, 0);
+            }
+        }
+
+        save_factory_storage(
+            relayer_pubkey, seqno, paused, plan_count, fee_bps,
+            total_charges + 1, safe_add(total_revenue, notif_amount), new_keeper_pool,
+            plans, subscriber_info, sub_code, service_addr, fee_collector
+        );
+        return;
+    }
+
+    // ── OP_FUND_KEEPER_POOL ───────────────────────────────────────────────────
+    // Service pre-funds the keeper reward pool.  Any msg_value above minimum
+    // is added to keeper_pool.  No auth — anyone can fund the pool.
+    if (op == OP_FUND_KEEPER_POOL) {
+        // Require at least 0.005 TON above the handling floor to avoid safe_sub underflow
+        throw_unless(ERROR_INSUFFICIENT_FUNDS, msg_value > 5000000);
+        var contribution: int = safe_sub(msg_value, 5000000); // deduct 0.005 TON msg handling gas
+        if (contribution > 0) {
+            save_factory_storage(
+                relayer_pubkey, seqno, paused, plan_count, fee_bps,
+                total_charges, total_revenue, safe_add(keeper_pool, contribution),
+                plans, subscriber_info, sub_code, service_addr, fee_collector
+            );
+        }
+        return;
+    }
+
+    // ── OP_FACTORY_PAUSE / RESUME ─────────────────────────────────────────────
+    if (op == OP_FACTORY_PAUSE) {
+        require_owner(sender, service_addr);
+        save_factory_storage(
+            relayer_pubkey, seqno, 1, plan_count, fee_bps,
+            total_charges, total_revenue, keeper_pool,
+            plans, subscriber_info, sub_code, service_addr, fee_collector
+        );
+        return;
+    }
+
+    if (op == OP_FACTORY_RESUME) {
+        require_owner(sender, service_addr);
+        save_factory_storage(
+            relayer_pubkey, seqno, 0, plan_count, fee_bps,
+            total_charges, total_revenue, keeper_pool,
+            plans, subscriber_info, sub_code, service_addr, fee_collector
+        );
+        return;
+    }
+
+    // ── OP_UPDATE_FEE_BPS ─────────────────────────────────────────────────────
+    // Updates the protocol fee for NEW subscriptions only.
+    // Existing subscriptions snapshot fee_bps at deploy time and are unaffected.
+    if (op == OP_UPDATE_FEE_BPS) {
+        require_owner(sender, service_addr);
+        var new_fee_bps: int = in_msg_body.load_uint(16);
+        validate_fee_bps(new_fee_bps);
+        save_factory_storage(
+            relayer_pubkey, seqno, paused, plan_count, new_fee_bps,
+            total_charges, total_revenue, keeper_pool,
+            plans, subscriber_info, sub_code, service_addr, fee_collector
+        );
+        return;
+    }
+
+    // ── OP_FACTORY_WITHDRAW ───────────────────────────────────────────────────
+    if (op == OP_FACTORY_WITHDRAW) {
+        require_owner(sender, service_addr);
+
+        var balance:   int = get_balance().pair_first();
+        var available: int = safe_sub(balance, safe_add(FACTORY_RESERVE, keeper_pool));
+        throw_unless(ERROR_INSUFFICIENT_FUNDS, available > 0);
+
+        raw_reserve(safe_add(FACTORY_RESERVE, keeper_pool), 0);
+
+        var msg: cell = begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(service_addr)
+            .store_coins(0)
+            .store_uint(0, 107)
+        .end_cell();
+        send_raw_message(msg, 128);
+        return;
+    }
+
+    throw(ERROR_INVALID_OP);
+}
+
+// ── Getters ───────────────────────────────────────────────────────────────────
+
+get fun get_plan_count(): int {
+    var (_, _, _, plan_count, _, _, _, _, _, _, _, _, _) = load_factory_storage();
+    return plan_count;
+}
+
+get fun get_plan_data(plan_id: int): (int, int, int, int, int) {
+    var (_, _, _, _, _, _, _, _, plans, _, _, _, _) = load_factory_storage();
+    var (price, period, trial_period, active, name_hash) = unpack_plan(get_plan(plans, plan_id));
+    return (price, period, trial_period, active, name_hash);
+}
+
+get fun is_factory_paused(): int {
+    var (_, _, paused, _, _, _, _, _, _, _, _, _, _) = load_factory_storage();
+    return paused;
+}
+
+get fun get_subscription_code(): cell {
+    var (_, _, _, _, _, _, _, _, _, _, sub_code, _, _) = load_factory_storage();
+    return sub_code;
+}
+
+get fun get_relayer_pubkey(): int {
+    var (relayer_pubkey, _, _, _, _, _, _, _, _, _, _, _, _) = load_factory_storage();
+    return relayer_pubkey;
+}
+
+get fun get_total_charges(): int {
+    var (_, _, _, _, _, total_charges, _, _, _, _, _, _, _) = load_factory_storage();
+    return total_charges;
+}
+
+get fun get_total_revenue(): int {
+    var (_, _, _, _, _, _, total_revenue, _, _, _, _, _, _) = load_factory_storage();
+    return total_revenue;
+}
+
+get fun get_keeper_pool(): int {
+    var (_, _, _, _, _, _, _, keeper_pool, _, _, _, _, _) = load_factory_storage();
+    return keeper_pool;
+}
+
+get fun get_fee_bps(): int {
+    var (_, _, _, _, fee_bps, _, _, _, _, _, _, _, _) = load_factory_storage();
+    return fee_bps;
+}
+
+get fun get_version(): int {
+    return 1; // bumped on every storage-breaking upgrade
+}
+
+// Returns the on-chain subscription address for a given subscriber and plan.
+// If the subscriber has already subscribed through this factory, returns the
+// stored address (canonical).  Otherwise computes it from the plan snapshot.
+//
+// payment_type: 0 = TON, 1 = JETTON.  Must match what the subscriber will
+// pass to OP_SUBSCRIBE.  The payment_type is baked into the init_state cell
+// and therefore into the contract address — wrong value → wrong address.
+//
+// subscriber_jetton_wallet: pass addr_none (store_uint(0,2)) for TON subscriptions.
+get fun get_subscription_address(
+    subscriber_addr:          slice,
+    plan_id:                  int,
+    payment_type:             int,
+    subscriber_jetton_wallet: slice
+): slice {
+    var (
+        relayer_pubkey, _, _, _, fee_bps, _, _, _,
+        plans, subscriber_info, sub_code, service_addr, fee_collector
+    ) = load_factory_storage();
+
+    var sub_hash: int = slice_hash(subscriber_addr);
+    var (stored_addr, _) = get_subscriber_info(subscriber_info, sub_hash);
+
+    if (~ sub_addr_is_none(stored_addr)) {
+        return stored_addr; // canonical address if already subscribed
+    }
+
+    // Subscriber has not yet subscribed — compute expected address (trial_used=0)
+    var (price, period, trial_period, _, _) = unpack_plan(get_plan(plans, plan_id));
+    var my_addr: slice = my_address();
+    var init_state: cell = build_sub_init(
+        subscriber_addr, plan_id, price, period, trial_period,
+        0,                       // trial_used = 0 for first subscribe
+        payment_type,
+        subscriber_jetton_wallet,
+        service_addr, fee_collector, fee_bps,
+        relayer_pubkey, my_addr, sub_code
+    );
+    return compute_contract_addr(init_state);
+}

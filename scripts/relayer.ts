@@ -155,4 +155,247 @@ async function indexNewSubscriptions(db: SubscriptionDB): Promise<void> {
         + `?address=${FACTORY_ADDRESS}&limit=50&lt=${db.lastLt}&to_lt=0&archival=true`
         + (process.env.TONCENTER_API_KEY ? `&api_key=${process.env.TONCENTER_API_KEY}` : "");
 
-    let txns: TonCen
+    let txns: TonCenterTransaction[];
+    try {
+        const resp = await fetch(url);
+        const json = await resp.json() as { ok: boolean; result: TonCenterTransaction[] };
+        if (!json.ok) return;
+        txns = json.result;
+    } catch (err) {
+        console.error("[relayer] Failed to fetch transactions:", (err as Error).message);
+        return;
+    }
+
+    let newLastLt = db.lastLt;
+    const known   = new Set(db.subscriptions);
+
+    for (const tx of txns) {
+        if (BigInt(tx.transaction_id.lt) > BigInt(newLastLt)) {
+            newLastLt = tx.transaction_id.lt;
+        }
+        for (const msg of tx.out_msgs) {
+            if (msg.msg_data?.init && msg.destination && !known.has(msg.destination)) {
+                console.log(`[relayer] Discovered subscription: ${msg.destination}`);
+                db.subscriptions.push(msg.destination);
+                known.add(msg.destination);
+            }
+        }
+    }
+    db.lastLt = newLastLt;
+}
+
+// ── Charge message builder ────────────────────────────────────────────────────
+
+function buildChargeMessage(seqno: number, secretKey: Buffer): Cell {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const payload = beginCell()
+        .storeUint(seqno,        32)
+        .storeUint(timestamp,    32)
+        .storeUint(OP_CHARGE_EXT, 32)
+    .endCell();
+    const sig = sign(payload.hash(), secretKey);
+    return beginCell()
+        .storeBuffer(sig)
+        .storeSlice(payload.beginParse())
+    .endCell();
+}
+
+// ── Back-off helpers ──────────────────────────────────────────────────────────
+
+function backoffDelay(failCount: number): number {
+    const delay = BACKOFF_BASE_S * Math.pow(BACKOFF_FACTOR, failCount);
+    return Math.min(delay, BACKOFF_MAX_S);
+}
+
+function markFailure(db: SubscriptionDB, addrStr: string): void {
+    const prev = db.retryState[addrStr] ?? { failCount: 0, nextRetryAt: 0 };
+    const nextFail = prev.failCount + 1;
+    db.retryState[addrStr] = {
+        failCount:   nextFail,
+        nextRetryAt: Math.floor(Date.now() / 1000) + backoffDelay(nextFail),
+    };
+}
+
+function markSuccess(db: SubscriptionDB, addrStr: string): void {
+    delete db.retryState[addrStr];
+}
+
+function isBackedOff(db: SubscriptionDB, addrStr: string): boolean {
+    const state = db.retryState[addrStr];
+    if (!state) return false;
+    return Math.floor(Date.now() / 1000) < state.nextRetryAt;
+}
+
+// ── Webhook ───────────────────────────────────────────────────────────────────
+//
+// Fires a POST to WEBHOOK_URL after every confirmed charge.
+// Failures are logged but never propagate — the charge already landed.
+
+async function fireWebhook(payload: {
+    event:       string;
+    address:     string;
+    seqno_from:  number;
+    seqno_to:    number;
+    timestamp:   number;
+}): Promise<void> {
+    if (!WEBHOOK_URL) return;
+    try {
+        await fetch(WEBHOOK_URL, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify(payload),
+        });
+    } catch (err) {
+        console.warn(`[relayer] Webhook delivery failed: ${(err as Error).message}`);
+    }
+}
+
+// ── Core charge logic ─────────────────────────────────────────────────────────
+
+async function tryCharge(
+    addrStr:   string,
+    secretKey: Buffer,
+    wal:       Wal,
+    db:        SubscriptionDB,
+): Promise<void> {
+    const addr     = Address.parse(addrStr);
+    const provider = client.provider(addr);
+    const sub      = client.open(Subscription.createFromAddress(addr));
+
+    const seqno = await sub.getSeqno(provider);
+
+    // WAL: log intent before sending — crash-safe
+    walLogIntent(wal, addrStr, seqno);
+
+    const extMsg = buildChargeMessage(seqno, secretKey);
+    await client.sendExternalMessage(Subscription.createFromAddress(addr), extMsg);
+
+    // Wait up to 30 s for seqno to advance (confirms the tx landed)
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 3_000));
+        try {
+            const newSeqno = await sub.getSeqno(provider);
+            if (newSeqno > seqno) {
+                walClearEntry(wal, addrStr);
+                markSuccess(db, addrStr);
+                console.log(`[relayer] Charged ${addrStr} (seqno ${seqno} → ${newSeqno})`);
+                await fireWebhook({
+                    event:      "charge_confirmed",
+                    address:    addrStr,
+                    seqno_from: seqno,
+                    seqno_to:   newSeqno,
+                    timestamp:  Math.floor(Date.now() / 1000),
+                });
+                return;
+            }
+        } catch { /* chain not yet updated */ }
+    }
+
+    // Seqno didn't advance in time — treat as failure (WAL stays)
+    throw new Error(`seqno did not advance within 30 s (expected > ${seqno})`);
+}
+
+// ── WAL recovery ──────────────────────────────────────────────────────────────
+//
+// On startup, replay any WAL entries that were not confirmed before the last crash.
+
+async function replayWal(wal: Wal, secretKey: Buffer, db: SubscriptionDB): Promise<void> {
+    const entries = Object.values(wal.pending);
+    if (entries.length === 0) return;
+    console.log(`[relayer] WAL recovery: ${entries.length} unconfirmed entries`);
+
+    for (const entry of entries) {
+        const addr     = Address.parse(entry.address);
+        const provider = client.provider(addr);
+        const sub      = client.open(Subscription.createFromAddress(addr));
+
+        try {
+            const liveSeqno = await sub.getSeqno(provider);
+            if (liveSeqno > entry.seqno) {
+                // Already confirmed on-chain
+                walClearEntry(wal, entry.address);
+                console.log(`[relayer] WAL: ${entry.address} already confirmed (seqno=${liveSeqno})`);
+            } else {
+                // Not yet confirmed — retry
+                console.log(`[relayer] WAL: retrying ${entry.address} (seqno=${entry.seqno})`);
+                await tryCharge(entry.address, secretKey, wal, db);
+            }
+        } catch (err) {
+            console.error(`[relayer] WAL replay failed for ${entry.address}:`, (err as Error).message);
+            markFailure(db, entry.address);
+        }
+    }
+}
+
+// ── Main poll cycle ───────────────────────────────────────────────────────────
+
+async function pollCycle(secretKey: Buffer): Promise<void> {
+    const db  = loadDB();
+    const wal = loadWal();
+    const now = Math.floor(Date.now() / 1000);
+
+    // 1. Replay any crashed WAL entries first
+    await replayWal(wal, secretKey, db);
+
+    // 2. Discover new subscriptions
+    await indexNewSubscriptions(db);
+    saveDB(db);
+
+    console.log(`[relayer] Scanning ${db.subscriptions.length} subscriptions…`);
+
+    // 3. Check each subscription
+    for (const addrStr of db.subscriptions) {
+        let addr: Address;
+        try { addr = Address.parse(addrStr); } catch { continue; }
+
+        // Skip if in exponential back-off window
+        if (isBackedOff(db, addrStr)) continue;
+
+        const provider = client.provider(addr);
+        try {
+            const sub    = client.open(Subscription.createFromAddress(addr));
+            const status = await sub.getStatus(provider);
+            const nextBt = await sub.getNextBillingTime(provider);
+
+            if (status === Status.CANCELLED || status === Status.PAUSED) continue;
+            if (nextBt - CHARGE_LEAD_S > now) continue;
+
+            await tryCharge(addrStr, secretKey, wal, db);
+            await new Promise((r) => setTimeout(r, 500));
+        } catch (err) {
+            console.error(`[relayer] Error on ${addrStr}:`, (err as Error).message);
+            markFailure(db, addrStr);
+        }
+    }
+
+    // Persist retry state updates
+    saveDB(db);
+}
+
+// ── Entry point ───────────────────────────────────────────────────────────────
+
+async function main() {
+    if (!FACTORY_ADDRESS) {
+        console.error("[relayer] FACTORY_ADDRESS is not set"); process.exit(1);
+    }
+    if (!RELAYER_MNEMONIC) {
+        console.error("[relayer] RELAYER_MNEMONIC is not set"); process.exit(1);
+    }
+
+    const keyPair   = await mnemonicToPrivateKey(RELAYER_MNEMONIC.split(" "));
+    const secretKey = Buffer.from(keyPair.secretKey);
+
+    console.log(`[relayer] ORBIT Charge Relayer (${NETWORK})`);
+    console.log(`[relayer] Factory  : ${FACTORY_ADDRESS}`);
+    console.log(`[relayer] Pubkey   : ${Buffer.from(keyPair.publicKey).toString("hex")}`);
+    console.log(`[relayer] Interval : ${POLL_INTERVAL_MS} ms`);
+    console.log(`[relayer] DB       : ${DB_PATH}`);
+    console.log(`[relayer] WAL      : ${WAL_PATH}`);
+    if (WEBHOOK_URL) console.log(`[relayer] Webhook  : ${WEBHOOK_URL}`);
+
+    await pollCycle(secretKey);
+    setInterval(() => pollCycle(secretKey), POLL_INTERVAL_MS);
+}
+
+main().catch((err) => { console.error(err); process.exit(1); });

@@ -32,3 +32,7 @@ const ERROR_MSG_EXPIRED:         int = 429;
 // System
 const ERROR_PAUSED:              int = 503;
 const ERROR_JETTON_PENDING:      int = 504;
+
+// Timelock
+const ERROR_TIMELOCK_ACTIVE:       int = 430; // withdrawal timelock not elapsed yet
+const ERROR_NO_PENDING_WITHDRAWAL: int = 406; // no scheduled withdrawal to confirm

@@ -36,4 +36,6 @@ fun is_msg_fresh(msg_timestamp: int): int {
 // Computes the next billing timestamp, always advancing by full periods
 // (never drifts even if a charge arrives slightly late).
 @inline
-fun next_billing(prev_billing_time: int, period: int): int
+fun next_billing(prev_billing_time: int, period: int): int {
+    return prev_billing_time + period;
+}

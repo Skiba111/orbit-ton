@@ -45,4 +45,31 @@ fun addr_equal(a: slice, b: slice): int {
 
 @inline
 fun require_owner(sender: slice, owner: slice) {
-    throw_unless(ERROR_UNAUTHORIZE
+    throw_unless(ERROR_UNAUTHORIZED, addr_equal(sender, owner));
+}
+
+@inline
+fun require_subscriber(sender: slice, subscriber: slice) {
+    throw_unless(ERROR_UNAUTHORIZED, addr_equal(sender, subscriber));
+}
+
+// Either the owner or the subscriber may act on a subscription in user-facing ops.
+@inline
+fun require_owner_or_subscriber(sender: slice, owner: slice, subscriber: slice) {
+    var ok: int = addr_equal(sender, owner) | addr_equal(sender, subscriber);
+    throw_unless(ERROR_UNAUTHORIZED, ok);
+}
+
+// Verify that an external message was signed by the expected Ed25519 key.
+// msg_hash is hash_cell(message_without_signature).
+// sig is the 512-bit signature slice.
+@inline
+fun require_valid_signature(msg_hash: int, sig: slice, expected_pubkey: int) {
+    throw_unless(ERROR_SIGNATURE, check_signature(msg_hash, sig, expected_pubkey));
+}
+
+// Seqno monotonicity guard — rejects replays and out-of-order messages.
+@inline
+fun require_seqno(incoming_seqno: int, stored_seqno: int) {
+    throw_unless(ERROR_INVALID_SEQNO, incoming_seqno == stored_seqno);
+}

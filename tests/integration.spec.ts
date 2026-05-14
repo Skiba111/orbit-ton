@@ -124,7 +124,7 @@ describe("Factory → Subscription deployment", () => {
         const provider = blockchain.provider(factory.address);
 
         // Ask the factory where it will put subscriber's subscription
-        const predicted = await factory.getSubscriptionAddress(provider, subscriber.address, 0);
+        const predicted = await factory.getSubscriptionAddress(provider, subscriber.address, 0, 0, null);
 
         // Now actually subscribe
         await factory.sendSubscribe(
@@ -152,8 +152,8 @@ describe("Factory → Subscription deployment", () => {
         await factory.sendDeploy(blockchain.sender(service.address), toNano("1"));
         const provider  = blockchain.provider(factory.address);
 
-        const addr1 = await factory.getSubscriptionAddress(provider, subscriber.address, 0);
-        const addr2 = await factory.getSubscriptionAddress(provider, subscriber.address, 0);
+        const addr1 = await factory.getSubscriptionAddress(provider, subscriber.address, 0, 0, null);
+        const addr2 = await factory.getSubscriptionAddress(provider, subscriber.address, 0, 0, null);
 
         expect(addr1.toString()).toBe(addr2.toString());
     });

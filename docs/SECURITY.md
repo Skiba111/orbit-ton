@@ -29,8 +29,8 @@ If a payment message bounces (e.g. frozen service contract), `on_charge_bounced`
 ### 9. Fee routing integrity
 `fee_collector` address is immutable after deploy. No operation can redirect protocol fees to a different address.
 
-### 10. Charge notification is read-only
-`OP_CHARGE_NOTIFICATION` only increments analytics counters. No auth required because there are no funds at risk — an attacker can spam fake notifications but cannot steal anything.
+### 10. Charge notification authentication
+`OP_CHARGE_NOTIFICATION` carries the `subscriber_addr` field. The factory verifies that the sender matches the `sub_addr` stored in `subscriber_info` for that subscriber — preventing anyone from spoofing this message to drain the keeper pool.
 
 ### 11. FeeCollector timelock
 A 24-hour delay between scheduling (`OP_COLLECT`) and executing (`OP_CONFIRM_COLLECT`) a withdrawal gives time to detect a compromised owner key and rotate it before funds move.
@@ -40,6 +40,9 @@ A 24-hour delay between scheduling (`OP_COLLECT`) and executing (`OP_CONFIRM_COL
 
 ### 13. Jetton wallet authentication
 `OP_JETTON_EXCESSES` and `OP_JETTON_TRANSFER_NOTIFICATION` are only accepted from the known `jetton_wallet` address. On first notification the address is auto-learned; all subsequent ones must match.
+
+### 14. Keeper mode is intentionally permissionless
+In `keeper_mode = 1`, any external actor can trigger a charge by sending a valid external message with the current seqno, a fresh timestamp, and their wallet address. This is by design — it creates an open market for charge execution. The subscriber is charged exactly what the plan specifies; only the keeper reward routing changes. The `keeper_wallet` address in the message controls where the 0.01 TON base reward is sent. If this permissionless model is undesirable, disable keeper mode and use only the relayer (`keeper_mode = 0`).
 
 ## What ORBIT does NOT protect
 
@@ -54,7 +57,7 @@ A 24-hour delay between scheduling (`OP_COLLECT`) and executing (`OP_CONFIRM_COL
 
 - No on-chain price oracle: service owner sets plan prices; there is no automatic USD-pegged billing.
 - Single relayer key per factory: all subscriptions in a factory share one relayer key. Key rotation (`OP_ROTATE_RELAYER`) requires a separate transaction per subscription.
-- `OP_CHARGE_NOTIFICATION` is unauthenticated: MRR counters can be inflated by spamming fake notifications. Use on-chain event filtering for accurate revenue reporting.
+- MRR counters (`total_charges`, `total_revenue`) are only updated via authenticated `OP_CHARGE_NOTIFICATION`. For auditing, cross-check on-chain events against the counter values.
 
 ## Audit status
 

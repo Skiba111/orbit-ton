@@ -89,4 +89,49 @@ fun send_jetton_payment(
 // Returns Jetton tokens from this contract's wallet back to the subscriber.
 // Called instead of send_refund() when payment_type == PAYMENT_JETTON.
 
-fun send_re
+fun send_refund_jetton(
+    jetton_wallet:   slice,
+    subscriber_addr: slice,
+    token_amount:    int,
+    my_addr:         slice
+) {
+    if (token_amount == 0) { return; }
+
+    var fwd_payload: cell = begin_cell()
+        .store_uint(OP_REFUND, 32)
+        .store_uint(0, 64)
+    .end_cell();
+
+    var body: cell = build_jetton_transfer_body(
+        0,               // query_id = 0 for refunds
+        token_amount,
+        subscriber_addr, // tokens go back to subscriber
+        subscriber_addr, // excesses also go to subscriber
+        fwd_payload
+    );
+
+    var msg: cell = begin_cell()
+        .store_uint(0x18, 6)  // bounceable — if transfer fails, tokens stay here
+        .store_slice(jetton_wallet)
+        .store_coins(JETTON_TRANSFER_GAS)
+        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .store_ref(body)
+    .end_cell();
+
+    send_raw_message(msg, 1);
+}
+
+// ── Jetton deposit handling ───────────────────────────────────────────────────
+//
+// When subscriber sends Jetton to this contract, the Jetton wallet sends
+// OP_JETTON_TRANSFER_NOTIFICATION with the amount and original sender.
+
+fun handle_jetton_deposit_notification(in_msg_body: slice): int {
+    // OP already consumed by caller
+    in_msg_body~load_uint(64); // query_id
+    var amount: int = in_msg_body.load_coins();
+    // Reject zero-amount notifications — a malicious Jetton wallet could send
+    // amount=0 to trigger auto-learn without actually depositing tokens.
+    throw_unless(ERROR_INSUFFICIENT_FUNDS, amount > 0);
+    return amount;
+}

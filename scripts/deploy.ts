@@ -81,4 +81,6 @@ export async function run(provider: NetworkProvider) {
     ui.write("\n=== ORBIT Deployment Complete ===");
     ui.write(`FeeCollector : ${feeCollector.address.toString()}`);
     ui.write(`Factory      : ${factory.address.toString()}`);
-    ui.write(`Fee BPS      : ${feeBps} (${feeBps / 100}%
+    ui.write(`Fee BPS      : ${feeBps} (${feeBps / 100}%)`);
+    ui.write("\nSave these addresses — you will need them for the relayer.");
+}

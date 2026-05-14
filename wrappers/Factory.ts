@@ -166,4 +166,170 @@ export class Factory implements Contract {
         });
     }
 
-    // ── Change
+    // ── Change plan (subscriber requests via factory) ─────────────────────────
+    //
+    // The factory looks up the subscriber's sub_addr from subscriber_info dict.
+    // The caller does NOT provide the subscription address — factory uses the
+    // stored address to prevent OP_APPLY_PLAN spoofing.
+
+    async sendChangePlan(
+        provider:  ContractProvider,
+        via:       Sender,
+        newPlanId: number,
+    ) {
+        await provider.internal(via, {
+            value:    toNano("0.1"),   // covers OP_APPLY_PLAN forward gas
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body:     beginCell()
+                .storeUint(FactoryOps.CHANGE_PLAN, 32)
+                .storeUint(0, 64)
+                .storeUint(newPlanId, 32)
+            .endCell(),
+        });
+    }
+
+    // ── Keeper pool funding (no auth — anyone can contribute) ────────────────
+
+    async sendFundKeeperPool(
+        provider:     ContractProvider,
+        via:          Sender,
+        contribution: bigint,
+    ) {
+        await provider.internal(via, {
+            value:    contribution + toNano("0.01"),  // contribution + gas
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body:     beginCell()
+                .storeUint(FactoryOps.FUND_KEEPER_POOL, 32)
+                .storeUint(0, 64)
+            .endCell(),
+        });
+    }
+
+    // ── Admin ─────────────────────────────────────────────────────────────────
+
+    async sendPause(provider: ContractProvider, via: Sender) {
+        await provider.internal(via, {
+            value:    toNano("0.05"),
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body:     beginCell().storeUint(FactoryOps.FACTORY_PAUSE, 32).storeUint(0, 64).endCell(),
+        });
+    }
+
+    async sendResume(provider: ContractProvider, via: Sender) {
+        await provider.internal(via, {
+            value:    toNano("0.05"),
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body:     beginCell().storeUint(FactoryOps.FACTORY_RESUME, 32).storeUint(0, 64).endCell(),
+        });
+    }
+
+    async sendWithdraw(provider: ContractProvider, via: Sender) {
+        await provider.internal(via, {
+            value:    toNano("0.05"),
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body:     beginCell().storeUint(FactoryOps.FACTORY_WITHDRAW, 32).storeUint(0, 64).endCell(),
+        });
+    }
+
+    // ── Getters ───────────────────────────────────────────────────────────────
+
+    async getPlanCount(provider: ContractProvider): Promise<number> {
+        const result = await provider.get("get_plan_count", []);
+        return Number(result.stack.readBigNumber());
+    }
+
+    async getPlanData(provider: ContractProvider, planId: number) {
+        const result = await provider.get("get_plan_data", [
+            { type: "int", value: BigInt(planId) },
+        ]);
+        const stack = result.stack;
+        return {
+            price:       stack.readBigNumber(),
+            period:      Number(stack.readBigNumber()),
+            trialPeriod: Number(stack.readBigNumber()),
+            active:      Number(stack.readBigNumber()) === 1,
+            nameHash:    stack.readBigNumber(),
+        };
+    }
+
+    async isFactoryPaused(provider: ContractProvider): Promise<boolean> {
+        const result = await provider.get("is_factory_paused", []);
+        return Number(result.stack.readBigNumber()) === 1;
+    }
+
+    async getSubscriptionCode(provider: ContractProvider): Promise<Cell> {
+        const result = await provider.get("get_subscription_code", []);
+        return result.stack.readCell();
+    }
+
+    async getRelayerPubkey(provider: ContractProvider): Promise<bigint> {
+        const result = await provider.get("get_relayer_pubkey", []);
+        return result.stack.readBigNumber();
+    }
+
+    async getTotalCharges(provider: ContractProvider): Promise<number> {
+        const result = await provider.get("get_total_charges", []);
+        return Number(result.stack.readBigNumber());
+    }
+
+    async getTotalRevenue(provider: ContractProvider): Promise<bigint> {
+        const result = await provider.get("get_total_revenue", []);
+        return result.stack.readBigNumber();
+    }
+
+    async getKeeperPool(provider: ContractProvider): Promise<bigint> {
+        const result = await provider.get("get_keeper_pool", []);
+        return result.stack.readBigNumber();
+    }
+
+    async getFeeBps(provider: ContractProvider): Promise<number> {
+        const result = await provider.get("get_fee_bps", []);
+        return Number(result.stack.readBigNumber());
+    }
+
+    async getVersion(provider: ContractProvider): Promise<number> {
+        const result = await provider.get("get_version", []);
+        return Number(result.stack.readBigNumber());
+    }
+
+    // Updates protocol fee for NEW subscriptions only; existing subs are unaffected.
+    async sendUpdateFeeBps(provider: ContractProvider, via: Sender, feeBps: number) {
+        await provider.internal(via, {
+            value:    toNano("0.05"),
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body:     beginCell()
+                .storeUint(FactoryOps.UPDATE_FEE_BPS, 32)
+                .storeUint(0, 64)
+                .storeUint(feeBps, 16)
+            .endCell(),
+        });
+    }
+
+    // Returns the subscription address for a given subscriber + plan combination.
+    // Returns the stored address if the subscriber has ever subscribed through this factory,
+    // or computes the deterministic address for new subscribers.
+    //
+    // paymentType: 0 = TON (default), 1 = JETTON.
+    // subscriberJettonWallet: required when paymentType = JETTON; null otherwise.
+    // IMPORTANT: paymentType must match what the subscriber will use in OP_SUBSCRIBE —
+    // it is baked into the contract address and wrong value returns the wrong address.
+    async getSubscriptionAddress(
+        provider:               ContractProvider,
+        subscriberAddr:         Address,
+        planId:                 number,
+        paymentType:            0 | 1 = 0,
+        subscriberJettonWallet: Address | null = null,
+    ): Promise<Address> {
+        const jettonWalletCell = subscriberJettonWallet
+            ? beginCell().storeAddress(subscriberJettonWallet).endCell()
+            : beginCell().storeUint(0, 2).endCell();  // addr_none for TON subscriptions
+
+        const result = await provider.get("get_subscription_address", [
+            { type: "slice", cell: beginCell().storeAddress(subscriberAddr).endCell() },
+            { type: "int",   value: BigInt(planId) },
+            { type: "int",   value: BigInt(paymentType) },
+            { type: "slice", cell: jettonWalletCell },
+        ]);
+        return result.stack.readAddress();
+    }
+}

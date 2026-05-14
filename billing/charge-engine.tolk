@@ -34,6 +34,10 @@ import "../payment/jetton-adapter.tolk"
 // Sent to the factory after a successful charge so it can update MRR counters
 // and, when keeper_mode is active, dispatch a bonus reward from the keeper pool.
 // Non-bounceable; failure of this message must NOT block the charge.
+//
+// subscriber_addr is included so the factory can authenticate the sender:
+//   hash(subscriber_addr) → stored sub_addr → verify sender == stored sub_addr.
+// This prevents anyone from spoofing OP_CHARGE_NOTIFICATION to drain keeper_pool.
 fun send_charge_notification(
     factory_addr:   slice,
     plan_id:        int,
@@ -47,6 +51,7 @@ fun send_charge_notification(
         .store_uint(0, 64)
         .store_uint(plan_id, 32)
         .store_coins(amount)
+        .store_slice(subscriber_addr)  // for factory sender authentication
         .store_uint(keeper_mode, 1); // has_keeper flag
 
     var body: cell = (keeper_mode == 1)
@@ -182,4 +187,98 @@ fun execute_charge(
     var new_next_billing: int = advance_billing(next_billing_time, period);
     var new_periods_charged: int = periods_charged + 1;
 
-    var new_status: int = STATUS_AC
+    var new_status: int = STATUS_ACTIVE;
+    var new_retry:  int = 0;
+    var new_grace:  int = 0;
+    if (status == STATUS_GRACE) {
+        var (s, r, g) = on_charge_succeeded_after_grace();
+        new_status = s; new_retry = r; new_grace = g;
+    }
+
+    // Reserve rent before any sends (storage depletion guard)
+    raw_reserve(storage_reserve, 0);
+
+    if (payment_type == PAYMENT_TON) {
+        // TON: fire-and-forget → clear charging flag immediately.
+        save_storage(
+            seqno + 1, new_status, payment_type,
+            0, paused_global, keeper_mode,
+            new_retry, period, new_next_billing,
+            new_grace, plan_id, max_periods, new_periods_charged,
+            amount, new_deposit, storage_reserve,
+            fee_bps, trial_period,
+            service_addr, subscriber_addr, factory_addr,
+            fee_collector, jetton_wallet, relayer_pubkey
+        );
+        send_payment_ton(service_addr, net_amount, subscriber_addr, plan_id);
+    } else {
+        // JETTON: charging_in_progress=1 until OP_JETTON_EXCESSES arrives.
+        save_storage(
+            seqno + 1, new_status, payment_type,
+            1, paused_global, keeper_mode,
+            new_retry, period, new_next_billing,
+            new_grace, plan_id, max_periods, new_periods_charged,
+            amount, new_deposit, storage_reserve,
+            fee_bps, trial_period,
+            service_addr, subscriber_addr, factory_addr,
+            fee_collector, jetton_wallet, relayer_pubkey
+        );
+        var my_addr: slice = my_address();
+        send_jetton_payment(
+            my_addr, jetton_wallet, service_addr,
+            net_amount, subscriber_addr, plan_id, seqno + 1
+        );
+    }
+
+    // Protocol fee always in TON (even for Jetton subscriptions).
+    send_fee(fee_collector, fee_amount, subscriber_addr, plan_id);
+
+    // Notify factory: update MRR counters.
+    // If keeper_mode=1, factory also sends KEEPER_REWARD from keeper_pool (bonus tier).
+    // This is intentional two-tier design: subscription pays base reward unconditionally
+    // so keepers are always compensated; factory pool pays a bonus when funded.
+    // Total per-charge keeper payout = KEEPER_REWARD * 2 when keeper_pool >= KEEPER_REWARD.
+    send_charge_notification(factory_addr, plan_id, amount, subscriber_addr, keeper_mode, keeper_wallet);
+
+    // Base keeper reward — paid from subscription deposit, guaranteed regardless of pool state.
+    if (keeper_mode == 1) {
+        send_keeper_reward(keeper_wallet);
+    }
+}
+
+// ── Bounce handler ────────────────────────────────────────────────────────────
+//
+// Called when a payment message bounces back (e.g. frozen service contract).
+// Restores the deducted deposit so the subscriber isn't silently drained.
+fun on_charge_bounced(
+    seqno: int, status: int, payment_type: int,
+    charging_in_progress: int, paused_global: int, keeper_mode: int,
+    retry_count: int, period: int,
+    next_billing_time: int, grace_end_time: int, plan_id: int,
+    max_periods: int, periods_charged: int,
+    amount: int, deposit: int, storage_reserve: int,
+    fee_bps: int, trial_period: int,
+    service_addr: slice, subscriber_addr: slice, factory_addr: slice,
+    fee_collector: slice, jetton_wallet: slice,
+    relayer_pubkey: int
+) {
+    var restored_deposit: int = safe_add(deposit, amount);
+    // Roll billing time back one period so the next relayer call will retry
+    var prev_billing: int = safe_sub(next_billing_time, period);
+    // Also roll back periods_charged since this charge did not land
+    var prev_periods: int = (periods_charged > 0) ? (periods_charged - 1) : 0;
+    var (new_status, new_retry, new_grace) = on_charge_failed(
+        retry_count, grace_end_time, DEFAULT_GRACE_SEC
+    );
+
+    save_storage(
+        seqno, new_status, payment_type,
+        0, paused_global, keeper_mode,
+        new_retry, period, prev_billing,
+        new_grace, plan_id, max_periods, prev_periods,
+        amount, restored_deposit, storage_reserve,
+        fee_bps, trial_period,
+        service_addr, subscriber_addr, factory_addr,
+        fee_collector, jetton_wallet, relayer_pubkey
+    );
+}

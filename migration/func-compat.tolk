@@ -84,4 +84,22 @@ fun migrate_from_legacy(
         0,                   // paused_global = false
         0,                   // keeper_mode = off
         0,                   // retry_count
-   
+        period,
+        next_charge_time,
+        0,                   // grace_end_time
+        0,                   // plan_id (legacy = 0)
+        0,                   // max_periods = unlimited
+        0,                   // periods_charged = 0
+        amount,
+        amount,              // deposit = one period pre-funded
+        50000000,            // STORAGE_RESERVE
+        fee_bps,
+        0,                   // trial_period = 0
+        service,
+        subscriber,
+        factory,             // factory_addr — required for OP_APPLY_PLAN auth
+        fee_collector,
+        zero_addr,           // jetton_wallet = null
+        relayer_pubkey
+    );
+}

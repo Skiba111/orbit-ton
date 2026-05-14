@@ -51,14 +51,18 @@ fun get_plan(plans: cell, plan_id: int): cell {
 }
 
 // Validates plan parameters before storing.
-fun validate_plan(price: int, period: int) {
+// trial_period = 0 means no trial, which is valid; non-zero must pass validate_period.
+fun validate_plan(price: int, period: int, trial_period: int) {
     validate_amount(price);
     validate_period(period);
+    if (trial_period > 0) {
+        validate_period(trial_period);
+    }
 }
 
 // Adds or replaces a plan in the dict.
 fun set_plan(plans: cell, plan_id: int, price: int, period: int, trial_period: int, name_hash: int): cell {
-    validate_plan(price, period);
+    validate_plan(price, period, trial_period);
     var plan_cell: cell = pack_plan(price, period, trial_period, 1, name_hash);
     return plans.udict_set_ref(32, plan_id, plan_cell);
 }
@@ -67,4 +71,12 @@ fun set_plan(plans: cell, plan_id: int, price: int, period: int, trial_period: i
 fun deactivate_plan(plans: cell, plan_id: int): cell {
     var (price, period, trial_period, _, name_hash) = unpack_plan(get_plan(plans, plan_id));
     var plan_cell: cell = pack_plan(price, period, trial_period, 0, name_hash);
-    return plans.udict_set_ref(32, plan
+    return plans.udict_set_ref(32, plan_id, plan_cell);
+}
+
+// Reads a plan and asserts it is active, then returns its fields.
+fun require_active_plan(plans: cell, plan_id: int): (int, int, int) {
+    var (price, period, trial_period, active, _) = unpack_plan(get_plan(plans, plan_id));
+    throw_unless(ERROR_PLAN_INACTIVE, active == 1);
+    return (price, period, trial_period);
+}

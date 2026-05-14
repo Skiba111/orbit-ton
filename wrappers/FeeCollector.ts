@@ -80,4 +80,88 @@ export class FeeCollector implements Contract {
     // ── Deploy ───────────────────────────────────────────────────────────────
 
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
-        await
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body:     beginCell().endCell(),
+        });
+    }
+
+    // ── Phase 1: schedule withdrawal ─────────────────────────────────────────
+    //
+    // Records the withdrawal intent and starts the 24-hour timelock.
+    // Funds do NOT move yet.  To cancel a pending withdrawal, call again with
+    // amount=0n.
+
+    async sendCollect(
+        provider:    ContractProvider,
+        secretKey:   Buffer,
+        destination: Address,
+        amount:      bigint,  // 0n = withdraw all available above reserve
+    ) {
+        const seqno   = await this.getSeqno(provider);
+        const payload = beginCell()
+            .storeCoins(amount)
+            .storeAddress(destination)
+        .endCell();
+
+        await provider.external(
+            buildSignedExtMsg(seqno, FeeCollectorOps.COLLECT, payload, secretKey)
+        );
+    }
+
+    // ── Phase 2: confirm and execute withdrawal ───────────────────────────────
+    //
+    // Executes the previously scheduled withdrawal after WITHDRAWAL_TIMELOCK_SEC
+    // (24 h) has elapsed since the OP_COLLECT call.
+
+    async sendConfirmCollect(
+        provider:  ContractProvider,
+        secretKey: Buffer,
+    ) {
+        const seqno = await this.getSeqno(provider);
+        await provider.external(
+            buildSignedExtMsg(seqno, FeeCollectorOps.CONFIRM_COLLECT, null, secretKey)
+        );
+    }
+
+    // ── Getters ───────────────────────────────────────────────────────────────
+
+    async getSeqno(provider: ContractProvider): Promise<number> {
+        const result = await provider.get("get_seqno", []);
+        return Number(result.stack.readBigNumber());
+    }
+
+    async getTotalCollected(provider: ContractProvider): Promise<bigint> {
+        const result = await provider.get("get_total_collected", []);
+        return result.stack.readBigNumber();
+    }
+
+    async getBalanceAvailable(provider: ContractProvider): Promise<bigint> {
+        const result = await provider.get("get_balance_available", []);
+        return result.stack.readBigNumber();
+    }
+
+    // Returns the pending withdrawal: { requestTime, amount, destHash }.
+    // requestTime === 0 means no pending withdrawal.
+    async getPendingWithdrawal(provider: ContractProvider): Promise<{
+        requestTime: number;
+        amount:      bigint;
+        destHash:    bigint;
+    }> {
+        const result = await provider.get("get_pending_withdrawal", []);
+        const stack  = result.stack;
+        return {
+            requestTime: Number(stack.readBigNumber()),
+            amount:      stack.readBigNumber(),
+            destHash:    stack.readBigNumber(),
+        };
+    }
+
+    // Seconds remaining until the pending withdrawal can be confirmed.
+    // Returns 0 if no pending withdrawal or timelock already expired.
+    async getTimelockRemaining(provider: ContractProvider): Promise<number> {
+        const result = await provider.get("get_timelock_remaining", []);
+        return Number(result.stack.readBigNumber());
+    }
+}

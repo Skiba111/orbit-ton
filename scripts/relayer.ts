@@ -338,11 +338,10 @@ async function tryCharge(
     wal:       Wal,
     db:        SubscriptionDB,
 ): Promise<void> {
-    const addr     = Address.parse(addrStr);
-    const provider = client.provider(addr);
-    const sub      = client.open(Subscription.createFromAddress(addr));
+    const addr = Address.parse(addrStr);
+    const sub  = client.open(Subscription.createFromAddress(addr));
 
-    const seqno = await sub.getSeqno(provider);
+    const seqno = await sub.getSeqno();
 
     // WAL: log intent before sending — crash-safe
     walLogIntent(wal, addrStr, seqno);
@@ -355,7 +354,7 @@ async function tryCharge(
     while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 3_000));
         try {
-            const newSeqno = await sub.getSeqno(provider);
+            const newSeqno = await sub.getSeqno();
             if (newSeqno > seqno) {
                 walClearEntry(wal, addrStr);
                 markSuccess(db, addrStr);
@@ -386,12 +385,11 @@ async function replayWal(wal: Wal, secretKey: Buffer, db: SubscriptionDB): Promi
     console.log(`[relayer] WAL recovery: ${entries.length} unconfirmed entries`);
 
     for (const entry of entries) {
-        const addr     = Address.parse(entry.address);
-        const provider = client.provider(addr);
-        const sub      = client.open(Subscription.createFromAddress(addr));
+        const addr = Address.parse(entry.address);
+        const sub  = client.open(Subscription.createFromAddress(addr));
 
         try {
-            const liveSeqno = await sub.getSeqno(provider);
+            const liveSeqno = await sub.getSeqno();
             if (liveSeqno > entry.seqno) {
                 // Already confirmed on-chain
                 walClearEntry(wal, entry.address);
@@ -432,11 +430,10 @@ async function pollCycle(secretKey: Buffer): Promise<void> {
         // Skip if in exponential back-off window
         if (isBackedOff(db, addrStr)) continue;
 
-        const provider = client.provider(addr);
         try {
             const sub    = client.open(Subscription.createFromAddress(addr));
-            const status = await sub.getStatus(provider);
-            const nextBt = await sub.getNextBillingTime(provider);
+            const status = await sub.getStatus();
+            const nextBt = await sub.getNextBillingTime();
 
             if (status === Status.CANCELLED || status === Status.PAUSED) continue;
             if (nextBt - CHARGE_LEAD_S > now) continue;

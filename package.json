@@ -31,6 +31,7 @@
     }
   },
   "dependencies": {
-    "@ton/tolk-js": "^0.13.0"
+    "@ton/tolk-js": "^0.13.0",
+    "@ton/ton": "^16.2.4"
   }
 }

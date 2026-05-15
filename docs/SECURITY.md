@@ -41,6 +41,16 @@ A 24-hour delay between scheduling (`OP_COLLECT`) and executing (`OP_CONFIRM_COL
 ### 13. Jetton wallet authentication
 `OP_JETTON_EXCESSES` and `OP_JETTON_TRANSFER_NOTIFICATION` are only accepted from the known `jetton_wallet` address. On first notification the address is auto-learned; all subsequent ones must match.
 
+### 15. Protocol fee is hardcoded in bytecode — cannot be bypassed
+
+`PROTOCOL_FEE_BPS = 20` (0.2%) and `PROTOCOL_FEE_COLLECTOR_HASH` are constants compiled into the Subscription contract bytecode. No `save_storage` call, no factory configuration, no operator action can change them without recompiling from source.
+
+A service wishing to avoid the protocol fee would have to distribute modified bytecode. That bytecode would have a different hash, making it trivially detectable as non-official ORBIT. Subscribers can verify the code hash of their Subscription contract on-chain against the published ORBIT bytecode hash.
+
+The protocol fee collector address can be rotated per-factory via `OP_UPDATE_PROTOCOL_COLLECTOR` (restricted to the current `protocol_fee_collector` address — not the service owner). This allows the ORBIT team to redirect fees to a new wallet. Existing subscriptions are unaffected; only new subscriptions deployed after the update use the new address.
+
+See [PROTOCOL_FEE.md](PROTOCOL_FEE.md) for the full model.
+
 ### 14. Keeper mode is intentionally permissionless
 In `keeper_mode = 1`, any external actor can trigger a charge by sending a valid external message with the current seqno, a fresh timestamp, and their wallet address. This is by design — it creates an open market for charge execution. The subscriber is charged exactly what the plan specifies; only the keeper reward routing changes. The `keeper_wallet` address in the message controls where the 0.01 TON base reward is sent. If this permissionless model is undesirable, disable keeper mode and use only the relayer (`keeper_mode = 0`).
 

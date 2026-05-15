@@ -111,6 +111,34 @@ import { TopUpDeposit } from "@orbit-ton/react";
 <TopUpDeposit subscriptionAddress={subAddr} />
 ```
 
+## 5b. Understanding fees
+
+Before sending payment to your service, every billing cycle deducts two fees:
+
+```
+Subscriber deposit
+    └─ gross_amount (plan price)
+           ├─ protocol fee (0.2%, fixed in bytecode) → ORBIT wallet
+           ├─ service fee (configurable, e.g. 1%)    → your fee_collector
+           └─ net_amount                             → your service address
+```
+
+**What your service receives** = `plan_price × (1 − service_fee_bps/10000 − 0.002)`
+
+Example — 10 TON/month, service fee 2%:
+- Protocol fee: 0.02 TON
+- Service fee: 0.20 TON
+- **Net to service**: 9.78 TON
+
+**The subscriber deposits `plan_price` per cycle, not `net_amount`.**
+When displaying plan prices to subscribers, show the full `plan_price` from the factory — that is what leaves their deposit. Your service should be aware that it receives slightly less.
+
+**Important for Jetton plans**: the subscriber's deposit is in Jettons, but the gas for protocol fee and service fee routing is paid in TON. The TON attached to the subscribe message must cover:
+- Subscription contract gas budget (≥ 0.2 TON recommended)
+- Jetton transfer fees (≥ 0.05 TON per cycle × pre-funded periods)
+
+If the TON part is too small, charges will fail even when the Jetton deposit is sufficient. Use `value ≥ 0.2 TON + 0.05 × depositPeriods` when subscribing to Jetton plans.
+
 ## 6. Jetton subscriptions
 
 For Jetton (e.g. USDT) subscriptions, pass `paymentType` and the subscriber's Jetton wallet address:

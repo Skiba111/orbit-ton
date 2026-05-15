@@ -51,6 +51,15 @@ const DB_PATH    = process.env.DB_PATH    ?? path.join(__dirname, "../data/subsc
 const WAL_PATH   = process.env.WAL_PATH   ?? path.join(__dirname, "../data/relayer-wal.json");
 const WEBHOOK_URL = process.env.WEBHOOK_URL ?? "";
 
+// Comma-separated list of subscription addresses to seed on first run.
+// Use this when deploying against a factory that already has subscription history
+// so the relayer doesn't miss contracts deployed before it started.
+// Example: INITIAL_SUBSCRIPTIONS="EQDabc...,EQDdef..."
+const INITIAL_SUBSCRIPTIONS: string[] = (process.env.INITIAL_SUBSCRIPTIONS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
 const OP_CHARGE_EXT = 0x4F520030;
 
 // Exponential backoff config
@@ -77,19 +86,21 @@ interface RetryState {
 }
 
 interface SubscriptionDB {
-    lastLt:        string;
-    subscriptions: string[];
-    retryState:    Record<string, RetryState>;
+    lastLt:          string;
+    subscriptions:   string[];
+    retryState:      Record<string, RetryState>;
+    initialScanDone: boolean; // true after first full history scan completes
 }
 
 function loadDB(): SubscriptionDB {
     try {
         const raw = fs.readFileSync(DB_PATH, "utf8");
         const db  = JSON.parse(raw) as SubscriptionDB;
-        if (!db.retryState) db.retryState = {};
+        if (!db.retryState)      db.retryState = {};
+        if (!db.initialScanDone) db.initialScanDone = false;
         return db;
     } catch {
-        return { lastLt: "0", subscriptions: [], retryState: {} };
+        return { lastLt: "0", subscriptions: [], retryState: {}, initialScanDone: false };
     }
 }
 
@@ -147,32 +158,24 @@ interface TonCenterTransaction {
     }>;
 }
 
-async function indexNewSubscriptions(db: SubscriptionDB): Promise<void> {
-    if (!FACTORY_ADDRESS) return;
+const baseUrl = endpoint.replace("/jsonRPC", "");
 
-    const baseUrl = endpoint.replace("/jsonRPC", "");
+async function fetchTxPage(lt: string, toLt: string = "0"): Promise<TonCenterTransaction[]> {
+    const apiKey = process.env.TONCENTER_API_KEY ? `&api_key=${process.env.TONCENTER_API_KEY}` : "";
     const url = `${baseUrl}/getTransactions`
-        + `?address=${FACTORY_ADDRESS}&limit=50&lt=${db.lastLt}&to_lt=0&archival=true`
-        + (process.env.TONCENTER_API_KEY ? `&api_key=${process.env.TONCENTER_API_KEY}` : "");
+        + `?address=${FACTORY_ADDRESS}&limit=50&lt=${lt}&to_lt=${toLt}&archival=true${apiKey}`;
+    const resp = await fetch(url);
+    const json = await resp.json() as { ok: boolean; result: TonCenterTransaction[] };
+    if (!json.ok) return [];
+    return json.result;
+}
 
-    let txns: TonCenterTransaction[];
-    try {
-        const resp = await fetch(url);
-        const json = await resp.json() as { ok: boolean; result: TonCenterTransaction[] };
-        if (!json.ok) return;
-        txns = json.result;
-    } catch (err) {
-        console.error("[relayer] Failed to fetch transactions:", (err as Error).message);
-        return;
-    }
-
-    let newLastLt = db.lastLt;
-    const known   = new Set(db.subscriptions);
-
+function collectSubscriptions(
+    txns:  TonCenterTransaction[],
+    known: Set<string>,
+    db:    SubscriptionDB,
+): void {
     for (const tx of txns) {
-        if (BigInt(tx.transaction_id.lt) > BigInt(newLastLt)) {
-            newLastLt = tx.transaction_id.lt;
-        }
         for (const msg of tx.out_msgs) {
             if (msg.msg_data?.init && msg.destination && !known.has(msg.destination)) {
                 console.log(`[relayer] Discovered subscription: ${msg.destination}`);
@@ -181,7 +184,80 @@ async function indexNewSubscriptions(db: SubscriptionDB): Promise<void> {
             }
         }
     }
-    db.lastLt = newLastLt;
+}
+
+// Returns the smallest (oldest) lt seen in a batch, as a bigint.
+function oldestLt(txns: TonCenterTransaction[]): bigint {
+    return txns.reduce(
+        (min, tx) => { const lt = BigInt(tx.transaction_id.lt); return lt < min ? lt : min; },
+        BigInt(txns[0].transaction_id.lt),
+    );
+}
+
+async function indexNewSubscriptions(db: SubscriptionDB): Promise<void> {
+    if (!FACTORY_ADDRESS) return;
+
+    const known = new Set(db.subscriptions);
+
+    // Seed manually-provided addresses before any network scan.
+    for (const addr of INITIAL_SUBSCRIPTIONS) {
+        if (!known.has(addr)) {
+            console.log(`[relayer] Seeded subscription from env: ${addr}`);
+            db.subscriptions.push(addr);
+            known.add(addr);
+        }
+    }
+
+    if (!db.initialScanDone) {
+        // First run: paginate backwards through the full factory tx history so we
+        // don't miss subscriptions deployed before the relayer first started.
+        // TonCenter returns transactions older than `lt` (newest-first), so we
+        // walk backwards by using the oldest lt from each page as the next anchor.
+        console.log("[relayer] Initial scan: paginating full factory history…");
+        let pageLt = "0";
+        let pages  = 0;
+
+        while (true) {
+            let txns: TonCenterTransaction[];
+            try {
+                txns = await fetchTxPage(pageLt);
+            } catch (err) {
+                console.error("[relayer] Fetch error during initial scan:", (err as Error).message);
+                break; // leave initialScanDone=false so we retry next cycle
+            }
+            if (txns.length === 0) break;
+            pages++;
+            collectSubscriptions(txns, known, db);
+
+            // Track the newest lt we've ever seen (used for incremental updates later).
+            const newestOnPage = txns.reduce(
+                (max, tx) => { const lt = BigInt(tx.transaction_id.lt); return lt > max ? lt : max; },
+                0n,
+            );
+            if (newestOnPage > BigInt(db.lastLt)) db.lastLt = newestOnPage.toString();
+
+            if (txns.length < 50) break; // last page
+            pageLt = oldestLt(txns).toString();
+        }
+
+        db.initialScanDone = true;
+        console.log(`[relayer] Initial scan complete (${pages} pages, ${db.subscriptions.length} subscriptions)`);
+    } else {
+        // Incremental: fetch only transactions newer than lastLt.
+        let txns: TonCenterTransaction[];
+        try {
+            txns = await fetchTxPage("0", db.lastLt);
+        } catch (err) {
+            console.error("[relayer] Failed to fetch transactions:", (err as Error).message);
+            return;
+        }
+        collectSubscriptions(txns, known, db);
+        for (const tx of txns) {
+            if (BigInt(tx.transaction_id.lt) > BigInt(db.lastLt)) {
+                db.lastLt = tx.transaction_id.lt;
+            }
+        }
+    }
 }
 
 // ── Charge message builder ────────────────────────────────────────────────────

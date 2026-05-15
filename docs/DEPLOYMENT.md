@@ -1,5 +1,7 @@
 # Deployment Guide
 
+> **Two separate deployments exist.** The ORBIT team deploys the FeeCollector once (protocol wallet). Service operators deploy a Factory per service. Read the steps below to understand which apply to you.
+
 ## Prerequisites
 
 - Node 18+ with `ts-node` or `npx blueprint`
@@ -36,18 +38,64 @@ FEE_COLLECTOR_PUBKEY="abcd1234..."           # hex Ed25519 pubkey (fee-collector
 TONCENTER_API_KEY="your_key_here"            # optional, increases rate limits
 ```
 
-## Step 1 — Deploy FeeCollector
+## Step 0 — Set protocol fee collector (ORBIT team only, before mainnet build)
+
+> **Skip this step if you are a service operator.** You deploy a Factory, not the protocol infrastructure. The `protocol_fee_collector` you pass to Factory comes from the ORBIT team — see their published addresses.
+
+Before building Subscription bytecode for mainnet, set the protocol fee collector hash in `utils/protocol-config.tolk`:
 
 ```bash
-npx blueprint run deploy
+# Get the 256-bit account_id of your TON wallet:
+node -e "
+const { Address } = require('@ton/core');
+const addr = Address.parse('YOUR_ORBIT_WALLET_ADDRESS');
+console.log('0x' + Buffer.from(addr.hash).toString('hex'));
+"
+```
+
+Replace the placeholder in `utils/protocol-config.tolk`:
+```tolk
+// Before:
+const PROTOCOL_FEE_COLLECTOR_HASH: int = 0;  // ← placeholder, fees go to zero address
+
+// After:
+const PROTOCOL_FEE_COLLECTOR_HASH: int = 0xYOUR_HASH_HERE;
+```
+
+Then rebuild:
+```bash
+npm run build
+```
+
+> **Warning:** Deploying with `PROTOCOL_FEE_COLLECTOR_HASH = 0` means every 0.2% protocol fee is sent to the zero address and is permanently lost. This is a one-time configuration — existing subscriptions cannot be migrated to a new collector without an explicit `OP_UPDATE_PROTOCOL_COLLECTOR` on each factory they were deployed through.
+
+---
+
+## Step 1a — Deploy FeeCollector (ORBIT team only)
+
+The FeeCollector is protocol infrastructure owned by the ORBIT team. Service operators do not deploy it — they receive its address from the ORBIT team and pass it as `protocolFeeCollector` when deploying their Factory.
+
+```bash
+npx blueprint run deploy --target fee-collector
+```
+
+Save the printed FeeCollector address. Fund it with at least 0.1 TON for rent.
+
+---
+
+## Step 1b — Deploy Factory (service operators)
+
+```bash
+npx blueprint run deploy --target factory
 ```
 
 Follow the prompts:
-1. Enter relayer pubkey (hex) when asked
-2. Enter service owner address
-3. Enter fee basis points (e.g. `20` = 0.2%)
+1. Enter your relayer pubkey (hex)
+2. Enter your service owner address
+3. Enter your service fee basis points (e.g. `100` = 1%)
+4. Enter the ORBIT `protocolFeeCollector` address (published by ORBIT team)
 
-The script deploys FeeCollector first, then Factory. Save the printed addresses.
+The script deploys Factory and saves the address. Save it — you will need it for the React SDK and relayer config.
 
 ## Step 2 — Fund the contracts
 
@@ -60,15 +108,31 @@ Fund keeper pool so keepers can earn bonus rewards:
 # This can be done via any TON wallet — no auth required
 ```
 
+## Step 2 — Fund Factory keeper pool (optional but recommended)
+
+Keepers earn a bonus reward when the factory keeper pool has funds. Seed it so external keepers are incentivised to charge your subscriptions:
+
+```bash
+# Send any amount ≥ 1 TON to your Factory with OP_FUND_KEEPER_POOL body.
+# No authentication required — anyone can top up the pool.
+```
+
+---
+
 ## Step 3 — Configure the relayer
 
 ```bash
 # Set environment variables for the relayer
-export FACTORY_ADDRESS="EQD..."           # Factory address from step 1
-export RELAYER_MNEMONIC="word1 word2 ..."  # Relayer key mnemonic
-export POLL_INTERVAL_MS=60000              # Poll every 60 seconds
-export NETWORK=mainnet                     # or testnet
+export FACTORY_ADDRESS="EQD..."                        # Factory address from step 1b
+export RELAYER_MNEMONIC="word1 word2 ..."              # Relayer key mnemonic
+export POLL_INTERVAL_MS=60000                          # Poll every 60 seconds
+export NETWORK=mainnet                                 # or testnet
 export WEBHOOK_URL=https://yourapp.com/orbit/webhook  # optional
+
+# If your Factory already has subscriptions from before this relayer run,
+# list them here so the initial scan doesn't miss them.
+# The relayer will also paginate through full factory history automatically.
+export INITIAL_SUBSCRIPTIONS="EQDabc...,EQDdef..."    # optional
 
 # Run the relayer
 ts-node scripts/relayer.ts

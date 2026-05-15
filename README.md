@@ -88,6 +88,35 @@ sdk/react/         @orbit-ton/react npm package
 docs/              Developer documentation
 ```
 
+## Fee structure
+
+Every billing cycle deducts two fees from the gross amount before sending payment to the service:
+
+| Fee | Who sets it | Where it goes | Typical value |
+|-----|------------|---------------|---------------|
+| **Service fee** | Factory operator (`fee_bps`) | `fee_collector` of the factory | 0 – 10% |
+| **Protocol fee** | Hardcoded in bytecode (`PROTOCOL_FEE_BPS = 20`) | ORBIT `protocol_fee_collector` | 0.2% (fixed) |
+
+**Example** — 1 TON/month plan, service fee = 1% (100 bps):
+- Gross: 1.000 TON
+- Protocol fee (0.2%): 0.002 TON → ORBIT wallet
+- Service fee (1%): 0.010 TON → service fee_collector
+- **Net to service**: 0.988 TON
+
+The protocol fee is baked into the Subscription contract bytecode. A service cannot change or bypass it without recompiling from source — which produces different bytecode that is verifiably not official ORBIT.
+
+See [docs/PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md) for details.
+
+## Keeper network
+
+Keepers are external actors who trigger charge cycles and earn a small reward per charge. No permission is needed — anyone can run a keeper.
+
+- **Base reward**: 0.01 TON per charge (from subscription deposit)
+- **Bonus reward**: up to 0.01 TON (from factory keeper pool, when funded)
+- **Gas cost**: ~0.005 TON per charge
+
+See [docs/KEEPER.md](docs/KEEPER.md) to get started.
+
 ## Testing
 
 ```bash
@@ -106,6 +135,14 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md).
 ## Security
 
 See [docs/SECURITY.md](docs/SECURITY.md).
+
+## Protocol fee
+
+See [docs/PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md).
+
+## Keeper network
+
+See [docs/KEEPER.md](docs/KEEPER.md).
 
 ## License
 

@@ -12,6 +12,13 @@ dist/
 .env.*
 !.env.example
 
+# Key helper scripts — may temporarily contain mnemonics
+scripts/get-pubkey.js
+
+# Compiled bytecode outputs (never commit — hash must be reproducible from source)
+*.cell
+*.boc.hex
+
 # Relayer write-ahead log & state
 data/
 *.wal.json

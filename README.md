@@ -136,7 +136,25 @@ See [docs/INTEGRATION.md](docs/INTEGRATION.md).
 
 See [docs/SECURITY.md](docs/SECURITY.md).
 
-## Protocol fee
+## Verifying official ORBIT bytecode
+
+Every official ORBIT Subscription has a published code hash. Anyone can verify a deployed contract is unmodified:
+
+```bash
+# Print the hash of your locally compiled contract
+node scripts/verify-bytecode.js
+
+# Verify a deployed contract against local build
+node scripts/verify-bytecode.js EQD...subscriptionAddress...
+```
+
+Output:
+```
+✅  MATCH — this is official ORBIT bytecode.
+    Protocol fee (0.2%) is active and routes to the published collector.
+```
+
+**Official mainnet bytecode hash:** `(published after mainnet deploy — see Releases)`
 
 See [docs/PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md).
 

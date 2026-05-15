@@ -6,7 +6,8 @@
     "build": "blueprint build",
     "test": "blueprint test",
     "deploy": "blueprint run",
-    "relayer": "ts-node scripts/relayer.ts"
+    "relayer": "ts-node scripts/relayer.ts",
+    "webhook": "ts-node scripts/webhook-server.ts"
   },
   "devDependencies": {
     "@ton/blueprint": "^0.20.0",

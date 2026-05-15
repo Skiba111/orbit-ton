@@ -36,7 +36,8 @@
 
 import * as fs   from "fs";
 import * as path from "path";
-import { TonClient, Address, beginCell, Cell } from "@ton/core";
+import { TonClient } from "@ton/ton";
+import { Address, beginCell, Cell } from "@ton/core";
 import { mnemonicToPrivateKey, sign }           from "@ton/crypto";
 import { Subscription, Status }                  from "../wrappers/Subscription";
 

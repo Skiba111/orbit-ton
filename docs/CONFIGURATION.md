@@ -33,17 +33,35 @@
 
 ## Fee configuration
 
+Every billing cycle deducts **two fees** from the gross plan amount before sending the remainder to the service:
+
+| Fee | Who sets it | Recipient | Default |
+|-----|-------------|-----------|---------|
+| Service fee (`fee_bps`) | Factory operator at deploy | `fee_collector` | configurable |
+| Protocol fee | Hardcoded in bytecode (`PROTOCOL_FEE_BPS = 20`) | ORBIT `protocol_fee_collector` | 0.2% (fixed) |
+
+**Net amount received by service** = `plan_price × (1 − fee_bps/10000 − 0.002)`
+
+Example — 10 TON/month plan, service fee 1% (100 bps):
+- Protocol fee: 0.02 TON → ORBIT wallet
+- Service fee: 0.10 TON → your fee_collector
+- **Net to service**: 9.88 TON
+
+> **Important for pricing**: set `plan_price` high enough to cover both fees and still deliver the desired net revenue.
+> `plan_price = desired_net / (1 − service_fee_rate − 0.002)`
+
 `fee_bps` is set at Factory deploy time and is immutable. It applies to every subscription deployed by that factory.
 
-| fee_bps | Percentage |
-|---|---|
-| 10 | 0.1% |
-| 20 | 0.2% (default) |
-| 50 | 0.5% |
-| 100 | 1.0% |
-| 1000 | 10.0% (maximum) |
+| fee_bps | Service fee % | Net to service (on 10 TON plan) |
+|---------|--------------|----------------------------------|
+| 0 | 0% | 9.98 TON |
+| 10 | 0.1% | 9.97 TON |
+| 100 | 1.0% | 9.88 TON |
+| 1000 | 10.0% (max) | 8.98 TON |
 
-Protocol fee is always collected in TON regardless of subscription payment type (TON or Jetton).
+Protocol fee is always 0.2% and is always collected in TON regardless of subscription payment type (TON or Jetton).
+
+See [PROTOCOL_FEE.md](PROTOCOL_FEE.md) for the full fee model and verification guide.
 
 ## Plan fields
 

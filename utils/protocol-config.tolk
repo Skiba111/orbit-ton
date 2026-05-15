@@ -24,7 +24,7 @@ const PROTOCOL_FEE_BPS: int = 20;
 // TODO: replace with your mainnet wallet's 256-bit account_id before production.
 // Current value is a placeholder — contracts compiled with 0 will send the
 // protocol fee to the zero address and it will be permanently lost.
-const PROTOCOL_FEE_COLLECTOR_HASH: int = 0;
+const PROTOCOL_FEE_COLLECTOR_HASH: int = 0x481c2ec158e8830be80144e5552589f45e5a00968c88edf15e616c82b6de9085;
 
 // Builds the protocol fee collector address from the hardcoded hash constant.
 // NOTE: this function is not called by any contract — the actual protocol_fee_collector

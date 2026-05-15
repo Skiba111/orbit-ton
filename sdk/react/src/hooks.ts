@@ -90,8 +90,14 @@ export function useSubscribe() {
             const factory     = client.open(Factory.createFromAddress(factoryAddr));
 
             const planData = await factory.getPlanData(client.provider(factoryAddr), planId);
-            const minValue = planData.price + toNano("0.1");
-            const value    = depositAmount > minValue ? depositAmount : minValue;
+            // For TON subscriptions the value must cover at least one billing cycle + gas.
+            // For Jetton subscriptions the TON value is gas only — the actual deposit is
+            // in Jetton tokens transferred separately; sending planData.price in TON would
+            // be incorrect and would lock the subscriber's TON unnecessarily.
+            const minValue = paymentType === PAYMENT_JETTON
+                ? toNano("0.2")                        // gas budget for Jetton flow
+                : planData.price + toNano("0.1");      // 1 cycle + gas for TON flow
+            const value = depositAmount > minValue ? depositAmount : minValue;
 
             const body = buildSubscribeCell(planId, paymentType, jettonWalletAddress);
 

@@ -49,7 +49,8 @@ const CHARGE_LEAD_S    = 120;
 const NETWORK          = process.env.NETWORK ?? "testnet";
 const DB_PATH    = process.env.DB_PATH    ?? path.join(__dirname, "../data/subscriptions.json");
 const WAL_PATH   = process.env.WAL_PATH   ?? path.join(__dirname, "../data/relayer-wal.json");
-const WEBHOOK_URL = process.env.WEBHOOK_URL ?? "";
+const WEBHOOK_URL    = process.env.WEBHOOK_URL    ?? "";
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "";
 
 // Comma-separated list of subscription addresses to seed on first run.
 // Use this when deploying against a factory that already has subscription history
@@ -316,9 +317,11 @@ async function fireWebhook(payload: {
 }): Promise<void> {
     if (!WEBHOOK_URL) return;
     try {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (WEBHOOK_SECRET) headers["X-Orbit-Secret"] = WEBHOOK_SECRET;
         await fetch(WEBHOOK_URL, {
             method:  "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body:    JSON.stringify(payload),
         });
     } catch (err) {

@@ -203,6 +203,56 @@ Set `WEBHOOK_URL` on your relayer. After every confirmed charge, the relayer POS
 
 `address` is the Subscription contract address. Map it to your user record and provision access.
 
+#### Webhook authentication (required in production)
+
+Without authentication anyone can POST a fake payload to your endpoint and get free access. Set a shared secret:
+
+```bash
+# .env on your server (both relayer and webhook-server must share this value)
+WEBHOOK_SECRET=some-long-random-string-here
+```
+
+Generate a strong secret:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+The ORBIT relayer sends `X-Orbit-Secret` header with every POST. Verify it in your handler:
+
+```typescript
+app.post('/orbit/webhook', (req, res) => {
+    if (req.headers['x-orbit-secret'] !== process.env.WEBHOOK_SECRET) {
+        return res.sendStatus(401);
+    }
+    // ... handle event
+});
+```
+
+For maximum security, verify the `seqno_to` on-chain before granting access:
+
+```typescript
+import { TonClient, Address } from "@ton/core";
+import { Subscription }       from "@orbit-ton/react";
+
+app.post('/orbit/webhook', async (req, res) => {
+    // 1. Check shared secret
+    if (req.headers['x-orbit-secret'] !== process.env.WEBHOOK_SECRET) {
+        return res.sendStatus(401);
+    }
+
+    const { address, seqno_to } = req.body;
+
+    // 2. Verify seqno on-chain — cannot be faked even if secret is leaked
+    const sub       = client.open(Subscription.createFromAddress(Address.parse(address)));
+    const realSeqno = await sub.getSeqno(client.provider(Address.parse(address)));
+    if (realSeqno < seqno_to) return res.sendStatus(400); // fake payload
+
+    // 3. Grant access
+    // ...
+    res.sendStatus(200);
+});
+```
+
 ### Via on-chain message parsing (authoritative)
 
 Your service receives `OP_CHARGE_INTERNAL` messages from the Subscription contract. The body contains:

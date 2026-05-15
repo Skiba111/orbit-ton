@@ -17,6 +17,8 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
+import "./patch-ton-core"; // must be before any @ton/ton imports
+
 import { mnemonicToPrivateKey } from "@ton/crypto";
 import {
     beginCell, Address, toNano, Cell,

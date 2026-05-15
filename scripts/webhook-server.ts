@@ -14,6 +14,9 @@
  *   LOG_FILE        — path to append charge log (default: data/charges.log)
  */
 
+import * as dotenv from "dotenv";
+dotenv.config();
+
 import * as http from "http";
 import * as fs   from "fs";
 import * as path from "path";

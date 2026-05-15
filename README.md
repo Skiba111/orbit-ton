@@ -146,4 +146,6 @@ See [docs/KEEPER.md](docs/KEEPER.md).
 
 ## License
 
-MIT
+Business Source License 1.1 — free for non-commercial use.
+Converts to MIT on 2029-05-15.
+Commercial licensing: skibatima9@gmail.com

@@ -14,7 +14,7 @@
 
 import { NetworkProvider } from "@ton/blueprint";
 import { Address, toNano } from "@ton/core";
-import { compile } from "@ton/blueprint";
+import { compileTolk } from "../tests/helpers/compileTolk";
 import { FeeCollector, buildFeeCollectorData } from "../wrappers/FeeCollector";
 import { Factory, FactoryConfig, buildFactoryData } from "../wrappers/Factory";
 
@@ -30,7 +30,7 @@ export async function run(provider: NetworkProvider) {
     }
     const feeCollectorPubkey = BigInt("0x" + feeCollectorPubkeyHex);
 
-    const feeCollectorCode = await compile("fee-collector");
+    const feeCollectorCode = await compileTolk("fee-collector");
     const feeCollector = provider.open(
         FeeCollector.createFromConfig({ ownerPubkey: feeCollectorPubkey }, feeCollectorCode)
     );
@@ -45,8 +45,8 @@ export async function run(provider: NetworkProvider) {
     ui.write("Deploying Factory...");
 
     const serviceAddr = await ui.inputAddress("Enter service owner address:");
-    const subCode     = await compile("subscription");
-    const factoryCode = await compile("factory");
+    const subCode     = await compileTolk("subscription");
+    const factoryCode = await compileTolk("factory");
 
     // Ask fee BPS
     const feeBpsStr = await ui.input("Protocol fee in basis points (e.g. 20 = 0.2%):");

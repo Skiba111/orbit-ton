@@ -1,6 +1,9 @@
-import { CompilerConfig } from "@ton/blueprint";
+import { Cell } from "@ton/core";
+import { compileTolk } from "../tests/helpers/compileTolk";
 
-export const compile: CompilerConfig = {
-    lang:       "tolk",
-    entrypoint: "contracts/fee-collector.tolk",
-};
+let cache: Cell | null = null;
+
+export async function compile(): Promise<Cell> {
+    if (!cache) cache = await compileTolk("fee-collector");
+    return cache;
+}

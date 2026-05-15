@@ -34,6 +34,9 @@
 //   DB_PATH                 — path to subscription database (default "data/subscriptions.json")
 //   WAL_PATH                — path to write-ahead log (default "data/relayer-wal.json")
 
+import * as dotenv from "dotenv";
+dotenv.config();
+
 import * as fs   from "fs";
 import * as path from "path";
 import { TonClient } from "@ton/ton";

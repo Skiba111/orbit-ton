@@ -13,7 +13,7 @@ import "../utils/errors.tolk"
 // Throws ERROR_PAUSED when the global pause flag is set.
 @inline
 fun require_not_paused(paused_global: int) {
-    throw_if(ERROR_PAUSED, paused_global == 1);
+    assert(!(paused_global == 1), ERROR_PAUSED);
 }
 
 // Returns the toggled pause state (0 → 1, 1 → 0).

@@ -42,10 +42,11 @@ function buildSignedExtMsg(
     op:        number,
     payload:   Cell | null,
     secretKey: Buffer,
+    timestamp?: number,
 ): Cell {
     let inner = beginCell()
         .storeUint(seqno,     32)
-        .storeUint(Math.floor(Date.now() / 1000), 32)
+        .storeUint(timestamp ?? Math.floor(Date.now() / 1000), 32)
         .storeUint(op,        32);
 
     if (payload) {
@@ -116,12 +117,13 @@ export class FeeCollector implements Contract {
     // (24 h) has elapsed since the OP_COLLECT call.
 
     async sendConfirmCollect(
-        provider:  ContractProvider,
-        secretKey: Buffer,
+        provider:   ContractProvider,
+        secretKey:  Buffer,
+        timestamp?: number,   // pass blockchain.now when blockchain time was advanced in tests
     ) {
         const seqno = await this.getSeqno(provider);
         await provider.external(
-            buildSignedExtMsg(seqno, FeeCollectorOps.CONFIRM_COLLECT, null, secretKey)
+            buildSignedExtMsg(seqno, FeeCollectorOps.CONFIRM_COLLECT, null, secretKey, timestamp)
         );
     }
 

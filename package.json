@@ -23,6 +23,14 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testPathPattern": "tests/.*\\.spec\\.ts$"
+    "testMatch": [
+      "**/tests/**/*.spec.ts"
+    ],
+    "moduleNameMapper": {
+      "^@ton/ton$": "@ton/core"
+    }
+  },
+  "dependencies": {
+    "@ton/tolk-js": "^0.13.0"
   }
 }

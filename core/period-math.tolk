@@ -28,6 +28,6 @@ fun min_deposit(period_price: int, periods: int, storage_reserve: int): int {
 // Requires: amount + storage_reserve + CHARGE_GAS_BUDGET ≤ deposit.
 // CHARGE_GAS_BUDGET covers TVM execution and the outgoing payment messages.
 @inline
-fun has_funds_for_charge(deposit: int, amount: int, storage_reserve: int): int {
+fun has_funds_for_charge(deposit: int, amount: int, storage_reserve: int): bool {
     return deposit >= safe_add(safe_add(amount, storage_reserve), CHARGE_GAS_BUDGET);
 }

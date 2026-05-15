@@ -67,8 +67,8 @@ export function buildFactoryData(cfg: FactoryConfig): Cell {
         .storeUint(0,  64)   // total_charges = 0
         .storeCoins(0n)      // total_revenue = 0
         .storeCoins(0n)      // keeper_pool = 0
-        .storeRef(beginCell().storeDictDirect(plans).endCell())
-        .storeRef(beginCell().endCell())  // subscriber_info = empty dict
+        .storeDict(plans)
+        .storeBit(false)  // subscriber_info = empty dict (hme_empty$0)
         .storeRef(cfg.subCode)
         .storeRef(
             beginCell()
@@ -341,15 +341,15 @@ export class Factory implements Contract {
     // Returns the stored address if the subscriber has ever subscribed through this factory,
     // or computes the deterministic address for new subscribers.
     //
-    // paymentType: 0 = TON (default), 1 = JETTON.
-    // subscriberJettonWallet: required when paymentType = JETTON; null otherwise.
+    // paymentType: PAYMENT_TON (1, default) or PAYMENT_JETTON (2).
+    // subscriberJettonWallet: required when paymentType = PAYMENT_JETTON; null otherwise.
     // IMPORTANT: paymentType must match what the subscriber will use in OP_SUBSCRIBE —
     // it is baked into the contract address and wrong value returns the wrong address.
     async getSubscriptionAddress(
         provider:               ContractProvider,
         subscriberAddr:         Address,
         planId:                 number,
-        paymentType:            0 | 1 = 0,
+        paymentType:            number = PAYMENT_TON,
         subscriberJettonWallet: Address | null = null,
     ): Promise<Address> {
         const jettonWalletCell = subscriberJettonWallet

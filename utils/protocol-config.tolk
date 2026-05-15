@@ -27,12 +27,15 @@ const PROTOCOL_FEE_BPS: int = 20;
 const PROTOCOL_FEE_COLLECTOR_HASH: int = 0;
 
 // Builds the protocol fee collector address from the hardcoded hash constant.
+// NOTE: this function is not called by any contract — the actual protocol_fee_collector
+// is stored in Factory storage (ref3) and passed to Subscription at deploy time.
+// Provided as a utility for off-chain tooling and migration scripts.
 // workchain = 0, addr_std format (3-bit tag 0b100 + 8-bit workchain + 256-bit hash).
 @inline
 fun get_protocol_fee_collector(): slice {
-    return begin_cell()
-        .store_uint(4, 3)                           // addr_std tag: 0b100
-        .store_int(0, 8)                            // workchain 0
-        .store_uint(PROTOCOL_FEE_COLLECTOR_HASH, 256)
-    .end_cell().begin_parse();
+    return beginCell()
+        .storeUint(4, 3)                           // addr_std tag: 0b100
+        .storeInt(0, 8)                            // workchain 0
+        .storeUint(PROTOCOL_FEE_COLLECTOR_HASH, 256)
+    .endCell().beginParse();
 }

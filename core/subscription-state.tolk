@@ -26,27 +26,22 @@ const PAYMENT_JETTON:    int = 2;
 
 @inline
 fun require_active_or_trial(status: int) {
-    var ok: int = (status == STATUS_ACTIVE) | (status == STATUS_TRIAL);
-    throw_unless(ERROR_INVALID_STATE, ok);
+    assert((status == STATUS_ACTIVE) || (status == STATUS_TRIAL), ERROR_INVALID_STATE);
 }
 
 @inline
 fun require_chargeable(status: int) {
-    // Charge is allowed from ACTIVE, TRIAL, or GRACE states.
-    var ok: int = (status == STATUS_ACTIVE)
-                | (status == STATUS_TRIAL)
-                | (status == STATUS_GRACE);
-    throw_unless(ERROR_INVALID_STATE, ok);
+    assert((status == STATUS_ACTIVE) || (status == STATUS_TRIAL) || (status == STATUS_GRACE), ERROR_INVALID_STATE);
 }
 
 @inline
 fun require_not_cancelled(status: int) {
-    throw_if(ERROR_INVALID_STATE, status == STATUS_CANCELLED);
+    assert(status != STATUS_CANCELLED, ERROR_INVALID_STATE);
 }
 
 @inline
 fun require_paused(status: int) {
-    throw_unless(ERROR_INVALID_STATE, status == STATUS_PAUSED);
+    assert(status == STATUS_PAUSED, ERROR_INVALID_STATE);
 }
 
 // Returns the status to set when a charge attempt fails.

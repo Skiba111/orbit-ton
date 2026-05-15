@@ -43,7 +43,7 @@ fun translate_op(legacy_op: int): int {
 // ORBIT canonical op before dispatching.  Returns the (potentially rewritten)
 // body slice.
 fun normalize_op(in_msg_body: slice): (int, slice) {
-    var op: int = in_msg_body.load_uint(32);
+    var op: int = in_msg_body.loadUint(32);
     var canonical: int = translate_op(op);
     if (canonical != -1) {
         return (canonical, in_msg_body);
@@ -75,7 +75,7 @@ fun migrate_from_legacy(
     relayer_pubkey:     int      // provide the relayer's Ed25519 pubkey; must not be 0
 ): cell {
     // Assumes plan_id = 0 (default), no trial, payment type = TON.
-    var zero_addr: slice = begin_cell().store_uint(0, 2).end_cell().begin_parse();
+    var zero_addr: slice = beginCell().storeUint(0, 2).endCell().beginParse();
     return pack_subscription(
         0,                   // seqno starts at 0
         STATUS_ACTIVE,
@@ -92,7 +92,7 @@ fun migrate_from_legacy(
         0,                   // periods_charged = 0
         amount,
         amount,              // deposit = one period pre-funded
-        50000000,            // STORAGE_RESERVE
+        STORAGE_RESERVE,
         fee_bps,
         0,                   // trial_period = 0
         service,
@@ -100,6 +100,7 @@ fun migrate_from_legacy(
         factory,             // factory_addr — required for OP_APPLY_PLAN auth
         fee_collector,
         zero_addr,           // jetton_wallet = null
-        relayer_pubkey
+        relayer_pubkey,
+        zero_addr            // protocol_fee_collector — use addr_none; caller should update via Factory
     );
 }

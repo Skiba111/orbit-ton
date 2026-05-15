@@ -15,29 +15,29 @@ import "../utils/errors.tolk"
 // Returns 0 for addr_none / addr_extern (no valid account_id).
 @inline
 fun extract_account_id(addr: slice): int {
-    var tag: int = addr.load_uint(2);
+    var tag: int = addr.loadUint(2);
     if (tag != 2) { return 0; } // addr_none(0b00) or addr_extern(0b01) — not addr_std
-    var has_anycast: int = addr.load_uint(1);
+    var has_anycast: int = addr.loadUint(1);
     if (has_anycast) {
-        var depth: int = addr.load_uint(5);
-        addr~skip_bits(depth); // skip anycast rewrite prefix
+        var depth: int = addr.loadUint(5);
+        addr.skipBits(depth); // skip anycast rewrite prefix
     }
-    addr~skip_bits(8); // workchain_id
-    return addr.load_uint(256);
+    addr.skipBits(8); // workchain_id
+    return addr.loadUint(256);
 }
 
 // Returns true when addr is addr_none (first two bits = 0b00).
 // Used to distinguish "not set yet" from a real address (e.g. jetton_wallet before auto-learn).
 @inline
-fun is_addr_none(addr: slice): int {
-    return addr.preload_uint(2) == 0;
+fun is_addr_none(addr: slice): bool {
+    return addr.preloadUint(2) == 0;
 }
 
 // Compares two address slices by their 256-bit account_id only.
 // Correctly handles address slices in different serialisation formats
 // (with/without anycast, different workchain byte representations).
 @inline
-fun addr_equal(a: slice, b: slice): int {
+fun addr_equal(a: slice, b: slice): bool {
     return extract_account_id(a) == extract_account_id(b);
 }
 
@@ -45,19 +45,18 @@ fun addr_equal(a: slice, b: slice): int {
 
 @inline
 fun require_owner(sender: slice, owner: slice) {
-    throw_unless(ERROR_UNAUTHORIZED, addr_equal(sender, owner));
+    assert(addr_equal(sender, owner), ERROR_UNAUTHORIZED);
 }
 
 @inline
 fun require_subscriber(sender: slice, subscriber: slice) {
-    throw_unless(ERROR_UNAUTHORIZED, addr_equal(sender, subscriber));
+    assert(addr_equal(sender, subscriber), ERROR_UNAUTHORIZED);
 }
 
 // Either the owner or the subscriber may act on a subscription in user-facing ops.
 @inline
 fun require_owner_or_subscriber(sender: slice, owner: slice, subscriber: slice) {
-    var ok: int = addr_equal(sender, owner) | addr_equal(sender, subscriber);
-    throw_unless(ERROR_UNAUTHORIZED, ok);
+    assert(addr_equal(sender, owner) || addr_equal(sender, subscriber), ERROR_UNAUTHORIZED);
 }
 
 // Verify that an external message was signed by the expected Ed25519 key.
@@ -65,11 +64,11 @@ fun require_owner_or_subscriber(sender: slice, owner: slice, subscriber: slice) 
 // sig is the 512-bit signature slice.
 @inline
 fun require_valid_signature(msg_hash: int, sig: slice, expected_pubkey: int) {
-    throw_unless(ERROR_SIGNATURE, check_signature(msg_hash, sig, expected_pubkey));
+    assert(isSignatureValid(msg_hash, sig, expected_pubkey), ERROR_SIGNATURE);
 }
 
 // Seqno monotonicity guard — rejects replays and out-of-order messages.
 @inline
 fun require_seqno(incoming_seqno: int, stored_seqno: int) {
-    throw_unless(ERROR_INVALID_SEQNO, incoming_seqno == stored_seqno);
+    assert(incoming_seqno == stored_seqno, ERROR_INVALID_SEQNO);
 }

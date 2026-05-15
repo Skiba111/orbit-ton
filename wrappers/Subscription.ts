@@ -90,7 +90,7 @@ export function buildSubscriptionData(
         .storeRef(
             beginCell()
                 .storeAddress(init.feeCollector)
-                .storeAddress(init.jettonWallet ?? init.feeCollector)
+                .storeSlice(jettonWalletSlice)
                 .storeUint(init.relayerPubkey, 256)
             .endCell()
         )
@@ -121,6 +121,17 @@ export class Subscription implements Contract {
     }
 
     // ── Internal messages ─────────────────────────────────────────────────────
+
+    // Deploy + fund in one message.  The SandboxContract provider auto-includes
+    // StateInit on the first internal call, so this is the correct way to
+    // activate a directly-constructed Subscription in tests.
+    async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            bounce:   false,
+        });
+    }
 
     async sendCancel(provider: ContractProvider, via: Sender) {
         await provider.internal(via, {
@@ -232,7 +243,7 @@ export class Subscription implements Contract {
         return Number(r.stack.readBigNumber());
     }
 
-    async isPaused(provider: ContractProvider): Promise<boolean> {
+    async getIsPaused(provider: ContractProvider): Promise<boolean> {
         const r = await provider.get("is_paused", []);
         return Number(r.stack.readBigNumber()) === 1;
     }
@@ -247,9 +258,14 @@ export class Subscription implements Contract {
         return Number(r.stack.readBigNumber());
     }
 
-    async isKeeperMode(provider: ContractProvider): Promise<boolean> {
+    async getIsKeeperMode(provider: ContractProvider): Promise<boolean> {
         const r = await provider.get("is_keeper_mode", []);
         return Number(r.stack.readBigNumber()) === 1;
+    }
+
+    async getPaymentType(provider: ContractProvider): Promise<number> {
+        const r = await provider.get("get_payment_type", []);
+        return Number(r.stack.readBigNumber()); // 1 = TON, 2 = JETTON
     }
 
     async getVersion(provider: ContractProvider): Promise<number> {

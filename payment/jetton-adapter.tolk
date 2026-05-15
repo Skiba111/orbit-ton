@@ -15,6 +15,7 @@
 // The contract must hold Jetton tokens in its own wallet
 // (subscriber sends Jetton to this contract address to top up).
 
+import "../utils/errors.tolk"
 import "../utils/ops.tolk"
 import "../utils/math-safe.tolk"
 
@@ -35,17 +36,17 @@ fun build_jetton_transfer_body(
     response_dest:   slice,  // where to send OP_EXCESSES (= this contract)
     forward_payload: cell    // metadata forwarded to destination; never null for billing
 ): cell {
-    return begin_cell()
-        .store_uint(OP_JETTON_TRANSFER, 32)
-        .store_uint(query_id, 64)
-        .store_coins(amount)
-        .store_slice(destination)
-        .store_slice(response_dest)
-        .store_uint(0, 1)               // custom_payload = null (not used by TEP-74)
-        .store_coins(JETTON_TRANSFER_FWD_GAS)
-        .store_uint(1, 1)               // forward_payload present, stored as ref
-        .store_ref(forward_payload)     // ← subscriber+plan metadata the service receives
-    .end_cell();
+    return beginCell()
+        .storeUint(OP_JETTON_TRANSFER, 32)
+        .storeUint(query_id, 64)
+        .storeCoins(amount)
+        .storeSlice(destination)
+        .storeSlice(response_dest)
+        .storeUint(0, 1)               // custom_payload = null (not used by TEP-74)
+        .storeCoins(JETTON_TRANSFER_FWD_GAS)
+        .storeUint(1, 1)               // forward_payload present, stored as ref
+        .storeRef(forward_payload)     // ← subscriber+plan metadata the service receives
+    .endCell();
 }
 
 // ── Send Jetton to service (billing cycle) ────────────────────────────────────
@@ -59,11 +60,11 @@ fun send_jetton_payment(
     plan_id:         int,
     query_id:        int
 ) {
-    var fwd_payload: cell = begin_cell()
-        .store_uint(OP_CHARGE_INTERNAL, 32)
-        .store_slice(subscriber_addr)
-        .store_uint(plan_id, 32)
-    .end_cell();
+    var fwd_payload: cell = beginCell()
+        .storeUint(OP_CHARGE_INTERNAL, 32)
+        .storeSlice(subscriber_addr)
+        .storeUint(plan_id, 32)
+    .endCell();
 
     var body: cell = build_jetton_transfer_body(
         query_id,
@@ -73,15 +74,15 @@ fun send_jetton_payment(
         fwd_payload
     );
 
-    var msg: cell = begin_cell()
-        .store_uint(0x18, 6)   // bounceable
-        .store_slice(jetton_wallet)
-        .store_coins(JETTON_TRANSFER_GAS)
-        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_ref(body)
-    .end_cell();
+    var msg: cell = beginCell()
+        .storeUint(0x18, 6)   // bounceable
+        .storeSlice(jetton_wallet)
+        .storeCoins(JETTON_TRANSFER_GAS)
+        .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .storeRef(body)
+    .endCell();
 
-    send_raw_message(msg, 1);
+    sendRawMessage(msg, 1);
 }
 
 // ── Send Jetton refund to subscriber (on cancel) ──────────────────────────────
@@ -97,10 +98,10 @@ fun send_refund_jetton(
 ) {
     if (token_amount == 0) { return; }
 
-    var fwd_payload: cell = begin_cell()
-        .store_uint(OP_REFUND, 32)
-        .store_uint(0, 64)
-    .end_cell();
+    var fwd_payload: cell = beginCell()
+        .storeUint(OP_REFUND, 32)
+        .storeUint(0, 64)
+    .endCell();
 
     var body: cell = build_jetton_transfer_body(
         0,               // query_id = 0 for refunds
@@ -110,15 +111,15 @@ fun send_refund_jetton(
         fwd_payload
     );
 
-    var msg: cell = begin_cell()
-        .store_uint(0x18, 6)  // bounceable — if transfer fails, tokens stay here
-        .store_slice(jetton_wallet)
-        .store_coins(JETTON_TRANSFER_GAS)
-        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_ref(body)
-    .end_cell();
+    var msg: cell = beginCell()
+        .storeUint(0x18, 6)  // bounceable — if transfer fails, tokens stay here
+        .storeSlice(jetton_wallet)
+        .storeCoins(JETTON_TRANSFER_GAS)
+        .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .storeRef(body)
+    .endCell();
 
-    send_raw_message(msg, 1);
+    sendRawMessage(msg, 1);
 }
 
 // ── Jetton deposit handling ───────────────────────────────────────────────────
@@ -128,10 +129,10 @@ fun send_refund_jetton(
 
 fun handle_jetton_deposit_notification(in_msg_body: slice): int {
     // OP already consumed by caller
-    in_msg_body~load_uint(64); // query_id
-    var amount: int = in_msg_body.load_coins();
+    in_msg_body.loadUint(64); // query_id
+    var amount: int = in_msg_body.loadCoins();
     // Reject zero-amount notifications — a malicious Jetton wallet could send
     // amount=0 to trigger auto-learn without actually depositing tokens.
-    throw_unless(ERROR_INSUFFICIENT_FUNDS, amount > 0);
+    assert(amount > 0, ERROR_INSUFFICIENT_FUNDS);
     return amount;
 }

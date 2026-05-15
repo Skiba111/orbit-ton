@@ -74,45 +74,45 @@ fun pack_subscription(
     relayer_pubkey:         int,
     protocol_fee_collector: slice   // ORBIT protocol address — hardcoded at deploy
 ): cell {
-    return begin_cell()
-        .store_uint(seqno,               32)
-        .store_uint(status,               4)
-        .store_uint(payment_type,         2)
-        .store_uint(charging_in_progress, 1)
-        .store_uint(paused_global,        1)
-        .store_uint(keeper_mode,          1)
-        .store_uint(retry_count,          8)
-        .store_uint(period,              32)
-        .store_uint(next_billing_time,   32)
-        .store_uint(grace_end_time,      32)
-        .store_uint(plan_id,             32)
-        .store_uint(max_periods,         32)
-        .store_uint(periods_charged,     32)
-        .store_coins(amount)
-        .store_coins(deposit)
-        .store_coins(storage_reserve)
-        .store_uint(fee_bps,             16)
-        .store_uint(trial_period,        32)
-        .store_ref(
-            begin_cell()
-                .store_slice(service_addr)
-                .store_slice(subscriber_addr)
-                .store_slice(factory_addr)
-            .end_cell()
+    return beginCell()
+        .storeUint(seqno,               32)
+        .storeUint(status,               4)
+        .storeUint(payment_type,         2)
+        .storeUint(charging_in_progress, 1)
+        .storeUint(paused_global,        1)
+        .storeUint(keeper_mode,          1)
+        .storeUint(retry_count,          8)
+        .storeUint(period,              32)
+        .storeUint(next_billing_time,   32)
+        .storeUint(grace_end_time,      32)
+        .storeUint(plan_id,             32)
+        .storeUint(max_periods,         32)
+        .storeUint(periods_charged,     32)
+        .storeCoins(amount)
+        .storeCoins(deposit)
+        .storeCoins(storage_reserve)
+        .storeUint(fee_bps,             16)
+        .storeUint(trial_period,        32)
+        .storeRef(
+            beginCell()
+                .storeSlice(service_addr)
+                .storeSlice(subscriber_addr)
+                .storeSlice(factory_addr)
+            .endCell()
         )
-        .store_ref(
-            begin_cell()
-                .store_slice(fee_collector)
-                .store_slice(jetton_wallet)
-                .store_uint(relayer_pubkey, 256)
-            .end_cell()
+        .storeRef(
+            beginCell()
+                .storeSlice(fee_collector)
+                .storeSlice(jetton_wallet)
+                .storeUint(relayer_pubkey, 256)
+            .endCell()
         )
-        .store_ref(
-            begin_cell()
-                .store_slice(protocol_fee_collector)
-            .end_cell()
+        .storeRef(
+            beginCell()
+                .storeSlice(protocol_fee_collector)
+            .endCell()
         )
-    .end_cell();
+    .endCell();
 }
 
 // ── Deserialisation ───────────────────────────────────────────────────────────
@@ -123,39 +123,39 @@ fun unpack_subscription(raw: cell): (
     int, int, int, int, int,                       // amount deposit storage_reserve fee_bps trial_period
     slice, slice, slice, slice, slice, int, slice  // service subscriber factory fee_collector jetton_wallet relayer_pubkey protocol_fee_collector
 ) {
-    var ds: slice = raw.begin_parse();
+    var ds: slice = raw.beginParse();
 
-    var seqno:                int = ds.load_uint(32);
-    var status:               int = ds.load_uint(4);
-    var payment_type:         int = ds.load_uint(2);
-    var charging_in_progress: int = ds.load_uint(1);
-    var paused_global:        int = ds.load_uint(1);
-    var keeper_mode:          int = ds.load_uint(1);
-    var retry_count:          int = ds.load_uint(8);
-    var period:               int = ds.load_uint(32);
-    var next_billing_time:    int = ds.load_uint(32);
-    var grace_end_time:       int = ds.load_uint(32);
-    var plan_id:              int = ds.load_uint(32);
-    var max_periods:          int = ds.load_uint(32);
-    var periods_charged:      int = ds.load_uint(32);
-    var amount:               int = ds.load_coins();
-    var deposit:              int = ds.load_coins();
-    var storage_reserve:      int = ds.load_coins();
-    var fee_bps:              int = ds.load_uint(16);
-    var trial_period:         int = ds.load_uint(32);
+    var seqno:                int = ds.loadUint(32);
+    var status:               int = ds.loadUint(4);
+    var payment_type:         int = ds.loadUint(2);
+    var charging_in_progress: int = ds.loadUint(1);
+    var paused_global:        int = ds.loadUint(1);
+    var keeper_mode:          int = ds.loadUint(1);
+    var retry_count:          int = ds.loadUint(8);
+    var period:               int = ds.loadUint(32);
+    var next_billing_time:    int = ds.loadUint(32);
+    var grace_end_time:       int = ds.loadUint(32);
+    var plan_id:              int = ds.loadUint(32);
+    var max_periods:          int = ds.loadUint(32);
+    var periods_charged:      int = ds.loadUint(32);
+    var amount:               int = ds.loadCoins();
+    var deposit:              int = ds.loadCoins();
+    var storage_reserve:      int = ds.loadCoins();
+    var fee_bps:              int = ds.loadUint(16);
+    var trial_period:         int = ds.loadUint(32);
 
-    var ref0: slice = ds.load_ref().begin_parse();
-    var service_addr:    slice = ref0.load_msg_addr();
-    var subscriber_addr: slice = ref0.load_msg_addr();
-    var factory_addr:    slice = ref0.load_msg_addr();
+    var ref0: slice = ds.loadRef().beginParse();
+    var service_addr:    slice = ref0.loadAddress() as slice;
+    var subscriber_addr: slice = ref0.loadAddress() as slice;
+    var factory_addr:    slice = ref0.loadAddress() as slice;
 
-    var ref1: slice = ds.load_ref().begin_parse();
-    var fee_collector:   slice = ref1.load_msg_addr();
-    var jetton_wallet:   slice = ref1.load_msg_addr();
-    var relayer_pubkey:  int   = ref1.load_uint(256);
+    var ref1: slice = ds.loadRef().beginParse();
+    var fee_collector:   slice = ref1.loadAddress() as slice;
+    var jetton_wallet:   slice = ref1.loadAddress() as slice;
+    var relayer_pubkey:  int   = ref1.loadUint(256);
 
-    var ref2: slice = ds.load_ref().begin_parse();
-    var protocol_fee_collector: slice = ref2.load_msg_addr();
+    var ref2: slice = ds.loadRef().beginParse();
+    var protocol_fee_collector: slice = ref2.loadAddress() as slice;
 
     return (
         seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
@@ -173,7 +173,7 @@ fun load_storage(): (
     int, int, int, int, int,
     slice, slice, slice, slice, slice, int, slice
 ) {
-    return unpack_subscription(get_data());
+    return unpack_subscription(contract.getData());
 }
 
 fun save_storage(
@@ -187,7 +187,7 @@ fun save_storage(
     fee_collector: slice, jetton_wallet: slice,
     relayer_pubkey: int, protocol_fee_collector: slice
 ) {
-    set_data(pack_subscription(
+    contract.setData(pack_subscription(
         seqno, status, payment_type,
         charging_in_progress, paused_global, keeper_mode,
         retry_count, period, next_billing_time,

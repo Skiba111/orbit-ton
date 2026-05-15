@@ -5,7 +5,7 @@
 //
 //   Phase 1 — OP_COLLECT (external, signed):
 //     Records the withdrawal intent (amount + destination) and sets
-//     withdrawal_request_time = now().  Does NOT send funds yet.
+//     withdrawal_request_time = blockchain.now().  Does NOT send funds yet.
 //
 //   Phase 2 — OP_CONFIRM_COLLECT (external, signed):
 //     Executes after WITHDRAWAL_TIMELOCK_SEC (24 h) has elapsed.
@@ -30,8 +30,9 @@
 // Security model:
 //   - OP_FEE_PAYMENT is accepted from any address (no subscription registry).
 //   - Both phase-1 and phase-2 messages require a valid Ed25519 signature.
-//   - raw_reserve(COLLECTOR_RESERVE) enforced before every withdrawal send.
+//   - reserveToncoinsOnBalance(COLLECTOR_RESERVE) enforced before every withdrawal send.
 
+import "@stdlib/gas-payments"
 import "../utils/errors.tolk"
 import "../utils/ops.tolk"
 import "../utils/math-safe.tolk"
@@ -44,73 +45,78 @@ const WITHDRAWAL_TIMELOCK_SEC:  int = 86400;     // 24 hours
 // ── Storage ───────────────────────────────────────────────────────────────────
 
 fun load_pending_withdrawal(raw: cell): (int, int, slice) {
-    var s: slice = raw.begin_parse();
-    var request_time: int   = s.load_uint(32);
-    var amount:       int   = s.load_coins();
-    var dest:         slice = s.load_msg_addr();
+    var s: slice = raw.beginParse();
+    var request_time: int   = s.loadUint(32);
+    var amount:       int   = s.loadCoins();
+    var dest:         slice = s.loadAddress() as slice;
     return (request_time, amount, dest);
 }
 
 fun pack_pending_withdrawal(request_time: int, amount: int, dest: slice): cell {
-    return begin_cell()
-        .store_uint(request_time, 32)
-        .store_coins(amount)
-        .store_slice(dest)
-    .end_cell();
+    return beginCell()
+        .storeUint(request_time, 32)
+        .storeCoins(amount)
+        .storeSlice(dest)
+    .endCell();
 }
 
 fun load_collector_storage(): (int, int, int, cell) {
-    var ds: slice = get_data().begin_parse();
-    var owner_pubkey:    int  = ds.load_uint(256);
-    var seqno:           int  = ds.load_uint(32);
-    var total_collected: int  = ds.load_coins();
-    var pending_cell:    cell = ds.load_ref();
+    var ds: slice = contract.getData().beginParse();
+    var owner_pubkey:    int  = ds.loadUint(256);
+    var seqno:           int  = ds.loadUint(32);
+    var total_collected: int  = ds.loadCoins();
+    var pending_cell:    cell = ds.loadRef();
     return (owner_pubkey, seqno, total_collected, pending_cell);
 }
 
 fun save_collector_storage(
     owner_pubkey: int, seqno: int, total_collected: int, pending_cell: cell
 ) {
-    set_data(
-        begin_cell()
-            .store_uint(owner_pubkey, 256)
-            .store_uint(seqno, 32)
-            .store_coins(total_collected)
-            .store_ref(pending_cell)
-        .end_cell()
+    contract.setData(
+        beginCell()
+            .storeUint(owner_pubkey, 256)
+            .storeUint(seqno, 32)
+            .storeCoins(total_collected)
+            .storeRef(pending_cell)
+        .endCell()
     );
 }
 
 // Builds a zeroed pending-withdrawal cell (no pending withdrawal).
 fun empty_pending(): cell {
-    var zero_addr: slice = begin_cell().store_uint(0, 2).end_cell().begin_parse();
+    var zero_addr: slice = beginCell().storeUint(0, 2).endCell().beginParse();
     return pack_pending_withdrawal(0, 0, zero_addr);
 }
 
 // ── Internal message handler ──────────────────────────────────────────────────
 
-fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_body: slice) {
-    if (in_msg_body.slice_empty?()) { return; } // plain TON deposit accepted
+fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_body: slice) {
+    if (in_msg_body.isEnd()) { return; } // plain TON deposit accepted
 
-    var cs: slice = in_msg_full.begin_parse();
-    var flags: int = cs.load_uint(4);
+    var cs: slice = in_msg_full.beginParse();
+    var flags: int = cs.loadUint(4);
     if (flags & 1) { return; }
 
-    var op: int = in_msg_body.load_uint(32);
+    var op: int = in_msg_body.loadUint(32);
 
-    if (op == OP_FEE_PAYMENT) {
+    // Both service fee and ORBIT protocol fee messages share the same body layout:
+    // OP(32)[consumed] + query_id(64) + fee_amount(coins) + plan_id(32) + subscriber_addr.
+    // Track only the actual fee amount, not msg_value (which includes FEE_MSG_GAS).
+    if ((op == OP_FEE_PAYMENT) | (op == OP_PROTOCOL_FEE_PAYMENT)) {
         var (owner_pubkey, seqno, total_collected, pending_cell) = load_collector_storage();
-        save_collector_storage(owner_pubkey, seqno, safe_add(total_collected, msg_value), pending_cell);
+        in_msg_body.loadUint(64);           // query_id
+        var fee_amount: int = in_msg_body.loadCoins();
+        save_collector_storage(owner_pubkey, seqno, safe_add(total_collected, fee_amount), pending_cell);
         return;
     }
 
-    throw(ERROR_INVALID_OP);
+    throw ERROR_INVALID_OP;
 }
 
 // ── External message handler ──────────────────────────────────────────────────
 //
 // External layout (both ops):
-//   [512] signature   — Ed25519(owner_privkey) over slice_hash(seqno ++ timestamp ++ op ++ payload)
+//   [512] signature   — Ed25519(owner_privkey) over seqno ++ timestamp ++ op ++ payload.hash()
 //   [32]  seqno
 //   [32]  timestamp   — must be fresh (within EXT_MSG_TTL)
 //   [32]  op          — OP_COLLECT or OP_CONFIRM_COLLECT
@@ -118,39 +124,39 @@ fun recv_internal(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_bod
 //     OP_COLLECT:         amount(coins) + dest(addr)   — schedule withdrawal
 //     OP_CONFIRM_COLLECT: (empty)                      — execute after timelock
 
-fun recv_external(in_msg: slice) {
-    var sig: slice    = in_msg.load_bits(512);
-    var msg_hash: int = slice_hash(in_msg);
+fun onExternalMessage(in_msg: slice) {
+    var sig: slice    = in_msg.loadBits(512);
+    var msg_hash: int = in_msg.hash();
 
-    var incoming_seqno: int = in_msg.load_uint(32);
-    var timestamp:      int = in_msg.load_uint(32);
-    var op:             int = in_msg.load_uint(32);
+    var incoming_seqno: int = in_msg.loadUint(32);
+    var timestamp:      int = in_msg.loadUint(32);
+    var op:             int = in_msg.loadUint(32);
 
     var (owner_pubkey, seqno, total_collected, pending_cell) = load_collector_storage();
 
     require_seqno(incoming_seqno, seqno);
-    throw_unless(ERROR_MSG_EXPIRED, is_msg_fresh(timestamp));
+    assert(is_msg_fresh(timestamp), ERROR_MSG_EXPIRED);
     require_valid_signature(msg_hash, sig, owner_pubkey);
 
-    accept_message();
+    acceptExternalMessage();
 
     // ── OP_COLLECT — Phase 1: schedule withdrawal ─────────────────────────────
     // Records the request and starts the timelock.  No funds move.
     // To cancel a pending withdrawal, send OP_COLLECT with amount=0.
     if (op == OP_COLLECT) {
-        var req_amount: int   = in_msg.load_coins();
-        var req_dest:   slice = in_msg.load_msg_addr();
+        var req_amount: int   = in_msg.loadCoins();
+        var req_dest:   slice = in_msg.loadAddress() as slice;
 
         // Validate requested amount fits within available balance
         if (req_amount > 0) {
-            var balance:      int = get_balance().pair_first();
+            var balance:      int = contract.getOriginalBalance();
             var max_withdraw: int = safe_sub(balance, COLLECTOR_RESERVE);
-            throw_unless(ERROR_INSUFFICIENT_FUNDS, req_amount <= max_withdraw);
+            assert(req_amount <= max_withdraw, ERROR_INSUFFICIENT_FUNDS);
         }
 
         save_collector_storage(
             owner_pubkey, seqno + 1, total_collected,
-            pack_pending_withdrawal(now(), req_amount, req_dest)
+            pack_pending_withdrawal(blockchain.now(), req_amount, req_dest)
         );
         return;
     }
@@ -161,12 +167,12 @@ fun recv_external(in_msg: slice) {
         var (req_time, req_amount, req_dest) = load_pending_withdrawal(pending_cell);
 
         // Must have a pending request
-        throw_unless(ERROR_NO_PENDING_WITHDRAWAL, req_time > 0);
+        assert(req_time > 0, ERROR_NO_PENDING_WITHDRAWAL);
 
         // Timelock must have expired
-        throw_unless(ERROR_TIMELOCK_ACTIVE, now() >= safe_add(req_time, WITHDRAWAL_TIMELOCK_SEC));
+        assert(blockchain.now() >= safe_add(req_time, WITHDRAWAL_TIMELOCK_SEC), ERROR_TIMELOCK_ACTIVE);
 
-        var balance:      int = get_balance().pair_first();
+        var balance:      int = contract.getOriginalBalance();
         var max_withdraw: int = safe_sub(balance, COLLECTOR_RESERVE);
         if (max_withdraw < 0) { max_withdraw = 0; }
 
@@ -174,7 +180,7 @@ fun recv_external(in_msg: slice) {
         if (req_amount == 0) {
             withdraw_amount = max_withdraw; // 0 in request = withdraw all
         } else {
-            throw_unless(ERROR_INSUFFICIENT_FUNDS, req_amount <= max_withdraw);
+            assert(req_amount <= max_withdraw, ERROR_INSUFFICIENT_FUNDS);
         }
 
         // Clear pending withdrawal before sending (prevents re-entrancy)
@@ -185,19 +191,19 @@ fun recv_external(in_msg: slice) {
 
         if (withdraw_amount == 0) { return; }
 
-        raw_reserve(COLLECTOR_RESERVE, 0);
+        reserveToncoinsOnBalance(COLLECTOR_RESERVE, 0);
 
-        var msg: cell = begin_cell()
-            .store_uint(0x10, 6)  // non-bounceable
-            .store_slice(req_dest)
-            .store_coins(withdraw_amount)
-            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .end_cell();
-        send_raw_message(msg, 1);
+        var msg: cell = beginCell()
+            .storeUint(0x10, 6)  // non-bounceable
+            .storeSlice(req_dest)
+            .storeCoins(withdraw_amount)
+            .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .endCell();
+        sendRawMessage(msg, 1);
         return;
     }
 
-    throw(ERROR_INVALID_OP);
+    throw ERROR_INVALID_OP;
 }
 
 // ── Getters ───────────────────────────────────────────────────────────────────
@@ -213,7 +219,7 @@ get fun get_total_collected(): int {
 }
 
 get fun get_balance_available(): int {
-    var bal: int = get_balance().pair_first();
+    var bal: int = contract.getOriginalBalance();
     var avail: int = bal - COLLECTOR_RESERVE;
     if (avail < 0) { return 0; }
     return avail;
@@ -234,7 +240,7 @@ get fun get_timelock_remaining(): int {
     var (req_time, _, _) = load_pending_withdrawal(pending_cell);
     if (req_time == 0) { return 0; }
     var unlock_at: int = safe_add(req_time, WITHDRAWAL_TIMELOCK_SEC);
-    var remaining: int = unlock_at - now();
+    var remaining: int = unlock_at - blockchain.now();
     if (remaining < 0) { return 0; }
     return remaining;
 }

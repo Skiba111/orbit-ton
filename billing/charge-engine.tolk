@@ -5,7 +5,7 @@
 //  1. Double-charge guard   charging_in_progress flag; set before, cleared after
 //  2. Rate limiting         next_billing_time check with CHARGE_TOLERANCE_SEC
 //  3. Replay protection     seqno monotonicity (enforced by role-manager)
-//  4. Storage protection    raw_reserve(STORAGE_RESERVE) before every send
+//  4. Storage protection    reserveToncoinsOnBalance(STORAGE_RESERVE) before every send
 //  5. Jetton atomicity      charging_in_progress=1 until OP_JETTON_EXCESSES arrives
 //  6. Plan snapshot         amount/period locked at subscribe time (no bait-switch)
 //  7. Bounce handler        on_bounce restores state if downstream fails
@@ -19,6 +19,7 @@
 // The Jetton amount covers the service payment; TON covers gas and protocol fee.
 
 import "../utils/errors.tolk"
+import "../utils/math-safe.tolk"
 import "../utils/ops.tolk"
 import "../utils/time-oracle.tolk"
 import "../core/subscription-state.tolk"
@@ -46,37 +47,37 @@ fun send_charge_notification(
     keeper_mode:    int,
     keeper_wallet:  slice
 ) {
-    var body_builder = begin_cell()
-        .store_uint(OP_CHARGE_NOTIFICATION, 32)
-        .store_uint(0, 64)
-        .store_uint(plan_id, 32)
-        .store_coins(amount)
-        .store_slice(subscriber_addr)  // for factory sender authentication
-        .store_uint(keeper_mode, 1); // has_keeper flag
+    var body_builder = beginCell()
+        .storeUint(OP_CHARGE_NOTIFICATION, 32)
+        .storeUint(0, 64)
+        .storeUint(plan_id, 32)
+        .storeCoins(amount)
+        .storeSlice(subscriber_addr)  // for factory sender authentication
+        .storeUint(keeper_mode, 1); // has_keeper flag
 
     var body: cell = (keeper_mode == 1)
-        ? body_builder.store_slice(keeper_wallet).end_cell()
-        : body_builder.end_cell();
-    var msg: cell = begin_cell()
-        .store_uint(0x10, 6)       // non-bounceable
-        .store_slice(factory_addr)
-        .store_coins(FEE_MSG_GAS)  // minimal gas for notification
-        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_ref(body)
-    .end_cell();
-    send_raw_message(msg, 0); // mode 0 = pay from contract balance
+        ? body_builder.storeSlice(keeper_wallet).endCell()
+        : body_builder.endCell();
+    var msg: cell = beginCell()
+        .storeUint(0x10, 6)       // non-bounceable
+        .storeSlice(factory_addr)
+        .storeCoins(FEE_MSG_GAS)  // minimal gas for notification
+        .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .storeRef(body)
+    .endCell();
+    sendRawMessage(msg, 0); // mode 0 = pay from contract balance
 }
 
 // ── Keeper reward ─────────────────────────────────────────────────────────────
 
 fun send_keeper_reward(keeper_wallet: slice) {
-    var msg: cell = begin_cell()
-        .store_uint(0x10, 6)       // non-bounceable
-        .store_slice(keeper_wallet)
-        .store_coins(KEEPER_REWARD)
-        .store_uint(0, 107)
-    .end_cell();
-    send_raw_message(msg, 0);
+    var msg: cell = beginCell()
+        .storeUint(0x10, 6)       // non-bounceable
+        .storeSlice(keeper_wallet)
+        .storeCoins(KEEPER_REWARD)
+        .storeUint(0, 107)
+    .endCell();
+    sendRawMessage(msg, 0);
 }
 
 // ── Main charge entry-point ───────────────────────────────────────────────────
@@ -111,9 +112,9 @@ fun execute_charge(
     protocol_fee_collector: slice,  // ORBIT protocol address — set at deploy, cannot be bypassed
     keeper_wallet:          slice   // addr_none when keeper_mode == 0
 ) {
-    throw_if(ERROR_ALREADY_CHARGING, charging_in_progress == 1);
+    assert(!(charging_in_progress == 1), ERROR_ALREADY_CHARGING);
     require_chargeable(status);
-    throw_unless(ERROR_TOO_EARLY, is_billing_due(next_billing_time));
+    assert(is_billing_due(next_billing_time), ERROR_TOO_EARLY);
 
     // Fixed-term subscription: cancel cleanly when all periods consumed.
     if ((max_periods > 0) & (periods_charged >= max_periods)) {
@@ -150,7 +151,7 @@ fun execute_charge(
     }
 
     // Insufficient deposit — enter or extend grace, or cancel
-    if (~ has_funds_for_charge(deposit, amount, storage_reserve)) {
+    if (!has_funds_for_charge(deposit, amount, storage_reserve)) {
         var (new_status, new_retry, new_grace) = on_charge_failed(
             retry_count, grace_end_time, DEFAULT_GRACE_SEC
         );
@@ -197,7 +198,7 @@ fun execute_charge(
     }
 
     // Reserve rent before any sends (storage depletion guard)
-    raw_reserve(storage_reserve, 0);
+    reserveToncoinsOnBalance(storage_reserve, 0);
 
     if (payment_type == PAYMENT_TON) {
         // TON: fire-and-forget → clear charging flag immediately.
@@ -224,7 +225,7 @@ fun execute_charge(
             service_addr, subscriber_addr, factory_addr,
             fee_collector, jetton_wallet, relayer_pubkey, protocol_fee_collector
         );
-        var my_addr: slice = my_address();
+        var my_addr: slice = contract.getAddress() as slice;
         send_jetton_payment(
             my_addr, jetton_wallet, service_addr,
             net_amount, subscriber_addr, plan_id, seqno + 1

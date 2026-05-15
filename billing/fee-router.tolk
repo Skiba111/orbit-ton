@@ -44,23 +44,23 @@ fun split_fee(gross: int, fee_bps: int): (int, int, int) {
 // to 256 bits; the subscription bounce handler reads fee_amount from the bounce
 // to restore the deposit.  Layout: OP(32) + query_id(64) + fee_amount(≤124) = ≤220 bits.
 fun build_fee_body(subscriber_addr: slice, plan_id: int, fee_amount: int): cell {
-    return begin_cell()
-        .store_uint(OP_FEE_PAYMENT, 32)
-        .store_uint(0, 64)
-        .store_coins(fee_amount)     // ← within bounce window
-        .store_uint(plan_id, 32)
-        .store_slice(subscriber_addr)
-    .end_cell();
+    return beginCell()
+        .storeUint(OP_FEE_PAYMENT, 32)
+        .storeUint(0, 64)
+        .storeCoins(fee_amount)     // ← within bounce window
+        .storeUint(plan_id, 32)
+        .storeSlice(subscriber_addr)
+    .endCell();
 }
 
 fun build_protocol_fee_body(subscriber_addr: slice, plan_id: int, fee_amount: int): cell {
-    return begin_cell()
-        .store_uint(OP_PROTOCOL_FEE_PAYMENT, 32)
-        .store_uint(0, 64)
-        .store_coins(fee_amount)     // ← within bounce window
-        .store_uint(plan_id, 32)
-        .store_slice(subscriber_addr)
-    .end_cell();
+    return beginCell()
+        .storeUint(OP_PROTOCOL_FEE_PAYMENT, 32)
+        .storeUint(0, 64)
+        .storeCoins(fee_amount)     // ← within bounce window
+        .storeUint(plan_id, 32)
+        .storeSlice(subscriber_addr)
+    .endCell();
 }
 
 // ── Dispatchers ───────────────────────────────────────────────────────────────
@@ -73,14 +73,14 @@ fun send_fee(
 ) {
     if (fee_amount == 0) { return; }
     var body: cell = build_fee_body(subscriber_addr, plan_id, fee_amount);
-    var msg: cell = begin_cell()
-        .store_uint(0x18, 6)   // bounceable
-        .store_slice(fee_collector)
-        .store_coins(fee_amount + FEE_MSG_GAS)
-        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_ref(body)
-    .end_cell();
-    send_raw_message(msg, 0);
+    var msg: cell = beginCell()
+        .storeUint(0x18, 6)   // bounceable
+        .storeSlice(fee_collector)
+        .storeCoins(fee_amount + FEE_MSG_GAS)
+        .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .storeRef(body)
+    .endCell();
+    sendRawMessage(msg, 0);
 }
 
 // Sends the ORBIT protocol fee to the hardcoded protocol_fee_collector address.
@@ -94,12 +94,12 @@ fun send_protocol_fee(
 ) {
     if (protocol_fee == 0) { return; }
     var body: cell = build_protocol_fee_body(subscriber_addr, plan_id, protocol_fee);
-    var msg: cell = begin_cell()
-        .store_uint(0x18, 6)   // bounceable
-        .store_slice(protocol_fee_collector)
-        .store_coins(protocol_fee + FEE_MSG_GAS)
-        .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-        .store_ref(body)
-    .end_cell();
-    send_raw_message(msg, 0);
+    var msg: cell = beginCell()
+        .storeUint(0x18, 6)   // bounceable
+        .storeSlice(protocol_fee_collector)
+        .storeCoins(protocol_fee + FEE_MSG_GAS)
+        .storeUint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        .storeRef(body)
+    .endCell();
+    sendRawMessage(msg, 0);
 }

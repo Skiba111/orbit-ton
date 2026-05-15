@@ -15,13 +15,13 @@ import "../core/subscription-state.tolk"
 // Computes the end of the grace window when a charge first fails.
 @inline
 fun compute_grace_end(grace_duration: int): int {
-    return safe_add(now(), grace_duration);
+    return safe_add(blockchain.now(), grace_duration);
 }
 
 // Returns true when the grace period has expired without a successful charge.
 @inline
-fun grace_expired(grace_end_time: int): int {
-    return (grace_end_time > 0) & (now() >= grace_end_time);
+fun grace_expired(grace_end_time: int): bool {
+    return (grace_end_time > 0) && (blockchain.now() >= grace_end_time);
 }
 
 // ── Retry state transitions ───────────────────────────────────────────────────

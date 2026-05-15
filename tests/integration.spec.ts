@@ -11,10 +11,10 @@
 //   6. OP_SET_MAX_PERIODS: service converts unlimited sub to fixed-term
 //   7. OP_CHANGE_PLAN routing: factory looks up stored address
 
-import { Blockchain, SandboxContract, TreasuryWallet } from "@ton/sandbox";
-import { beginCell, Cell, toNano, Address }             from "@ton/core";
-import { compile }                                       from "@ton/blueprint";
-import { keyPairFromSeed }                               from "@ton/crypto";
+import { Blockchain, SandboxContract, TreasuryContract, SendMessageResult } from "@ton/sandbox";
+import { beginCell, Cell, contractAddress, toNano, Address }                   from "@ton/core";
+import { compileTolk }                                                         from "./helpers/compileTolk";
+import { keyPairFromSeed }                                                     from "@ton/crypto";
 
 import {
     Subscription, SubscriptionInitData, buildSubscriptionData, Status, Ops,
@@ -41,9 +41,9 @@ function nowSec(): number { return Math.floor(Date.now() / 1000); }
 const keyPair = keyPairFromSeed(Buffer.alloc(32, 0xab));
 
 function baseInit(
-    service:      SandboxContract<TreasuryWallet>,
-    subscriber:   SandboxContract<TreasuryWallet>,
-    feeCollector: SandboxContract<TreasuryWallet>,
+    service:      SandboxContract<TreasuryContract>,
+    subscriber:   SandboxContract<TreasuryContract>,
+    feeCollector: SandboxContract<TreasuryContract>,
 ): SubscriptionInitData {
     return {
         seqno:           0,
@@ -56,7 +56,7 @@ function baseInit(
         maxPeriods:      0,
         periodsCharged:  0,
         amount:          AMOUNT,
-        deposit:         AMOUNT * 5n + RESERVE + GAS_BUDGET,
+        deposit:         0n,      // always start at 0 — fund via sendDeploy value
         storageReserve:  RESERVE,
         feeBps:          FEE_BPS,
         trialPeriod:     0,
@@ -70,32 +70,48 @@ function baseInit(
     };
 }
 
+const DEFAULT_DEPOSIT = AMOUNT * 5n + RESERVE + GAS_BUDGET;
+
 async function fundAndOpen(
     blockchain: Blockchain,
     code:       Cell,
     init:       SubscriptionInitData,
-    funder:     SandboxContract<TreasuryWallet>,
+    funder:     SandboxContract<TreasuryContract>,
 ): Promise<SandboxContract<Subscription>> {
-    const sub = blockchain.openContract(Subscription.createFromConfig(init, code));
-    await funder.send({ to: sub.address, value: init.deposit + RESERVE + toNano("0.2") });
+    // deposit: 0n in init so empty-body deploy handler doesn't double-count
+    const targetDeposit = init.deposit === 0n ? DEFAULT_DEPOSIT : init.deposit;
+    const cleanInit = { ...init, deposit: 0n };
+    const sub = blockchain.openContract(Subscription.createFromConfig(cleanInit, code));
+    await sub.sendDeploy(
+        funder.getSender(),
+        targetDeposit + RESERVE + toNano("0.2"),
+    );
     return sub;
+}
+
+function txFailed(result: SendMessageResult): boolean {
+    return result.transactions.some((tx) => {
+        if (tx.description.type !== "generic") return false;
+        const cp = tx.description.computePhase;
+        return cp?.type === "vm" && !cp.success;
+    });
 }
 
 // ── Test scaffolding ──────────────────────────────────────────────────────────
 
-let blockchain:   Blockchain;
-let service:      SandboxContract<TreasuryWallet>;
-let subscriber:   SandboxContract<TreasuryWallet>;
-let stranger:     SandboxContract<TreasuryWallet>;
-let feeCollector: SandboxContract<TreasuryWallet>;
-let subCode:      Cell;
-let factoryCode:  Cell;
+let blockchain:    Blockchain;
+let service:       SandboxContract<TreasuryContract>;
+let subscriber:    SandboxContract<TreasuryContract>;
+let stranger:      SandboxContract<TreasuryContract>;
+let feeCollector:  SandboxContract<TreasuryContract>;
+let subCode:       Cell;
+let factoryCode:   Cell;
 let collectorCode: Cell;
 
 beforeAll(async () => {
-    subCode       = await compile("subscription");
-    factoryCode   = await compile("factory");
-    collectorCode = await compile("fee-collector");
+    subCode       = await compileTolk("subscription");
+    factoryCode   = await compileTolk("factory");
+    collectorCode = await compileTolk("fee-collector");
 });
 
 beforeEach(async () => {
@@ -121,12 +137,10 @@ describe("Factory → Subscription deployment", () => {
         };
 
         const factory = blockchain.openContract(Factory.createFromConfig(cfg, factoryCode));
-        await factory.sendDeploy(blockchain.sender(service.address), toNano("1"));
+        await factory.sendDeploy(service.getSender(), toNano("1"));
 
-        const provider = blockchain.provider(factory.address);
-
-        // Ask the factory where it will put subscriber's subscription
-        const predicted = await factory.getSubscriptionAddress(provider, subscriber.address, 0, 0, null);
+        // Ask the factory where it will put subscriber's subscription (paymentType=1 = PAYMENT_TON)
+        const predicted = await factory.getSubscriptionAddress(subscriber.address, 0, 1, null);
 
         // Now actually subscribe
         await factory.sendSubscribe(
@@ -151,12 +165,11 @@ describe("Factory → Subscription deployment", () => {
             plans: [{ price: AMOUNT, period: PERIOD, trialPeriod: 0, nameHash: 0n }],
         };
 
-        const factory   = blockchain.openContract(Factory.createFromConfig(cfg, factoryCode));
-        await factory.sendDeploy(blockchain.sender(service.address), toNano("1"));
-        const provider  = blockchain.provider(factory.address);
+        const factory = blockchain.openContract(Factory.createFromConfig(cfg, factoryCode));
+        await factory.sendDeploy(service.getSender(), toNano("1"));
 
-        const addr1 = await factory.getSubscriptionAddress(provider, subscriber.address, 0, 0, null);
-        const addr2 = await factory.getSubscriptionAddress(provider, subscriber.address, 0, 0, null);
+        const addr1 = await factory.getSubscriptionAddress(subscriber.address, 0, 1, null);
+        const addr2 = await factory.getSubscriptionAddress(subscriber.address, 0, 1, null);
 
         expect(addr1.toString()).toBe(addr2.toString());
     });
@@ -173,75 +186,72 @@ describe("FeeCollector timelock", () => {
                 collectorCode,
             )
         );
-        await service.send({ to: fc.address, value: toNano("2") }); // seed balance
+        await fc.sendDeploy(service.getSender(), toNano("2")); // deploy and seed balance
         return fc;
     }
 
     it("rejects OP_CONFIRM_COLLECT before timelock expires", async () => {
-        const fc       = await deployCollector();
-        const provider = blockchain.provider(fc.address);
+        const fc        = await deployCollector();
         const secretKey = Buffer.from(keyPair.secretKey);
 
         // Phase 1: schedule withdrawal
-        await fc.sendCollect(provider, secretKey, service.address, toNano("0.5"));
+        await fc.sendCollect(secretKey, service.address, toNano("0.5"));
 
         // Phase 2: try immediately — should fail (timelock active)
         let threw = false;
         try {
-            await fc.sendConfirmCollect(provider, secretKey);
+            await fc.sendConfirmCollect(secretKey);
         } catch {
             threw = true;
         }
         // Either throws or produces a failed transaction
-        const remaining = await fc.getTimelockRemaining(provider);
+        const remaining = await fc.getTimelockRemaining();
         expect(remaining).toBeGreaterThan(0);
         if (!threw) {
             // Transaction should have failed on-chain
-            const pending = await fc.getPendingWithdrawal(provider);
+            const pending = await fc.getPendingWithdrawal();
             expect(pending.requestTime).toBeGreaterThan(0); // still pending
         }
     });
 
     it("executes withdrawal after timelock expires", async () => {
         const fc        = await deployCollector();
-        const provider  = blockchain.provider(fc.address);
         const secretKey = Buffer.from(keyPair.secretKey);
 
         // Phase 1
-        await fc.sendCollect(provider, secretKey, service.address, toNano("0.5"));
+        await fc.sendCollect(secretKey, service.address, toNano("0.5"));
 
         // Advance blockchain time by 25 hours (> 24h timelock)
-        blockchain.setNow(nowSec() + 25 * 3600);
+        blockchain.now = nowSec() + 25 * 3600;
 
         // Should be zero remaining now
-        const remaining = await fc.getTimelockRemaining(provider);
+        const remaining = await fc.getTimelockRemaining();
         expect(remaining).toBe(0);
 
-        // Phase 2: should succeed
+        // Phase 2: should succeed (pass blockchain.now so the message is fresh relative to advanced time)
         const balBefore = await service.getBalance();
-        await fc.sendConfirmCollect(provider, secretKey);
+        await fc.sendConfirmCollect(secretKey, blockchain.now);
         const balAfter = await service.getBalance();
 
         expect(balAfter).toBeGreaterThan(balBefore);
 
         // Pending withdrawal cleared
-        const pending = await fc.getPendingWithdrawal(provider);
+        const pending = await fc.getPendingWithdrawal();
         expect(pending.requestTime).toBe(0);
     });
 
     it("cancels pending withdrawal via OP_COLLECT with amount=0", async () => {
         const fc        = await deployCollector();
-        const provider  = blockchain.provider(fc.address);
         const secretKey = Buffer.from(keyPair.secretKey);
 
         // Schedule a real withdrawal
-        await fc.sendCollect(provider, secretKey, service.address, toNano("0.5"));
-        let pending = await fc.getPendingWithdrawal(provider);
+        await fc.sendCollect(secretKey, service.address, toNano("0.5"));
+        let pending = await fc.getPendingWithdrawal();
         expect(pending.requestTime).toBeGreaterThan(0);
 
         // Cancel by scheduling amount=0
-        await fc.sendCollect(provider, secretKey, service.address, 0n);
-        pending = await fc.getPendingWithdrawal(provider);
+        await fc.sendCollect(secretKey, service.address, 0n);
+        pending = await fc.getPendingWithdrawal();
         expect(pending.amount).toBe(0n);
     });
 });
@@ -262,7 +272,7 @@ describe("fixed-term subscription", () => {
         const balBefore = await subscriber.getBalance();
 
         // Keeper-mode external message: seqno(32) timestamp(32) op(32) keeper_wallet(addr)
-        const seqno     = await sub.getSeqno(blockchain.provider(sub.address));
+        const seqno     = await sub.getSeqno();
         const timestamp = nowSec();
         const extMsg    = beginCell()
             .storeUint(seqno,           32)
@@ -273,14 +283,14 @@ describe("fixed-term subscription", () => {
 
         await blockchain.sendMessage({
             info: {
-                type:        "external-in",
-                to:          sub.address,
-                importFee:   0n,
+                type:      "external-in",
+                dest:      sub.address,
+                importFee: 0n,
             },
             body: extMsg,
         });
 
-        const status = await sub.getStatus(blockchain.provider(sub.address));
+        const status = await sub.getStatus();
         expect(status).toBe(Status.CANCELLED);
 
         // Deposit refunded to subscriber
@@ -295,32 +305,32 @@ describe("bounce handler — deposit restored on bounced payment", () => {
     it("deposit increases after bounced OP_CHARGE_INTERNAL", async () => {
         const init = {
             ...baseInit(service, subscriber, feeCollector),
-            // Set charging_in_progress=true manually via buildSubscriptionData
+            deposit: 0n,
         };
-        const data = buildSubscriptionData(init, /* chargingInProgress= */ true);
+        // Build data with chargingInProgress=true; derive address from THIS exact data
+        const customData = buildSubscriptionData(init, /* chargingInProgress= */ true);
+        const customAddr = contractAddress(0, { code: subCode, data: customData });
         const sub  = blockchain.openContract(
-            new Subscription(
-                Subscription.createFromConfig(init, subCode).address,
-                { code: subCode, data },
-            )
+            new Subscription(customAddr, { code: subCode, data: customData })
         );
-        await service.send({ to: sub.address, value: init.deposit + RESERVE + toNano("0.2") });
+        await sub.sendDeploy(service.getSender(), DEFAULT_DEPOSIT + RESERVE + toNano("0.2"));
 
-        const depositBefore = await sub.getDeposit(blockchain.provider(sub.address));
+        const depositBefore = await sub.getDeposit();
 
         // Send a bounced OP_CHARGE_INTERNAL message
         await blockchain.sendMessage({
             info: {
-                type:       "internal",
-                bounce:     false,
-                bounced:    true,
-                from:       service.address,
-                to:         sub.address,
-                value:      { coins: toNano("0.01") },
-                ihrFee:     0n,
-                forwardFee: 0n,
-                createdLt:  0n,
-                createdAt:  0,
+                type:        "internal",
+                ihrDisabled: true,
+                bounce:      false,
+                bounced:     true,
+                src:         service.address,
+                dest:        sub.address,
+                value:       { coins: toNano("0.01") },
+                ihrFee:      0n,
+                forwardFee:  0n,
+                createdLt:   0n,
+                createdAt:   0,
             },
             body: beginCell()
                 .storeUint(0xFFFFFFFF,  32)  // bounce prefix
@@ -328,7 +338,7 @@ describe("bounce handler — deposit restored on bounced payment", () => {
             .endCell(),
         });
 
-        const depositAfter = await sub.getDeposit(blockchain.provider(sub.address));
+        const depositAfter = await sub.getDeposit();
         expect(depositAfter).toBeGreaterThanOrEqual(depositBefore);
     });
 });
@@ -361,7 +371,7 @@ describe("OP_APPLY_PLAN deposit check", () => {
             body:  applyBody,
         });
 
-        const status = await sub.getStatus(blockchain.provider(sub.address));
+        const status = await sub.getStatus();
         expect(status).toBe(Status.GRACE);
     });
 
@@ -390,7 +400,7 @@ describe("OP_APPLY_PLAN deposit check", () => {
             body:  applyBody,
         });
 
-        const status = await sub.getStatus(blockchain.provider(sub.address));
+        const status = await sub.getStatus();
         expect(status).toBe(Status.ACTIVE);
     });
 });
@@ -403,20 +413,15 @@ describe("OP_SET_MAX_PERIODS", () => {
 
         await sub.sendSetMaxPeriods(blockchain.sender(service.address), 6);
 
-        const data = await sub.getSubscriptionData(blockchain.provider(sub.address));
-        // getSubscriptionData returns status/planId/amount/deposit/nextBillingTime/period/retryCount
-        // maxPeriods isn't in the current getter — verify indirectly via seqno bump
-        const seqno = await sub.getSeqno(blockchain.provider(sub.address));
-        expect(seqno).toBe(1);  // state changed = seqno incremented
+        // Verify state changed: seqno incremented
+        const seqno = await sub.getSeqno();
+        expect(seqno).toBe(1);
     });
 
     it("rejects SET_MAX_PERIODS from stranger", async () => {
         const sub    = await fundAndOpen(blockchain, subCode, baseInit(service, subscriber, feeCollector), service);
         const result = await sub.sendSetMaxPeriods(blockchain.sender(stranger.address), 3);
-        const failed = result.transactions.some(
-            (tx) => tx.description.type === "generic" && !tx.description.computePhase?.success,
-        );
-        expect(failed).toBe(true);
+        expect(txFailed(result)).toBe(true);
     });
 });
 
@@ -438,13 +443,10 @@ describe("OP_CHANGE_PLAN — factory routing", () => {
         };
 
         const factory = blockchain.openContract(Factory.createFromConfig(cfg, factoryCode));
-        await factory.sendDeploy(blockchain.sender(service.address), toNano("1"));
+        await factory.sendDeploy(service.getSender(), toNano("1"));
 
         // Stranger tries to change plan without having subscribed first
         const result = await factory.sendChangePlan(blockchain.sender(stranger.address), 1);
-        const failed = result.transactions.some(
-            (tx) => tx.description.type === "generic" && !tx.description.computePhase?.success,
-        );
-        expect(failed).toBe(true);
+        expect(txFailed(result)).toBe(true);
     });
 });

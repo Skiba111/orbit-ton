@@ -21,13 +21,13 @@ const KEEPER_REWARD: int = 10000000; // 0.01 TON
 @inline
 fun safe_add(a: int, b: int): int {
     var result: int = a + b;
-    throw_if(ERROR_OVERFLOW, result < a);
+    assert(!(result < a), ERROR_OVERFLOW);
     return result;
 }
 
 @inline
 fun safe_sub(a: int, b: int): int {
-    throw_if(ERROR_OVERFLOW, b > a);
+    assert(!(b > a), ERROR_OVERFLOW);
     return a - b;
 }
 
@@ -35,7 +35,7 @@ fun safe_sub(a: int, b: int): int {
 fun safe_mul(a: int, b: int): int {
     if (b == 0) { return 0; }
     var result: int = a * b;
-    throw_if(ERROR_OVERFLOW, result / b != a);
+    assert(!(result / b != a), ERROR_OVERFLOW);
     return result;
 }
 
@@ -50,15 +50,15 @@ fun bps_of(amount: int, bps: int): int {
 
 @inline
 fun validate_period(period: int) {
-    throw_unless(ERROR_INVALID_PERIOD, (period >= MIN_PERIOD) & (period <= MAX_PERIOD));
+    assert((period >= MIN_PERIOD) & (period <= MAX_PERIOD), ERROR_INVALID_PERIOD);
 }
 
 @inline
 fun validate_amount(amount: int) {
-    throw_unless(ERROR_INVALID_AMOUNT, (amount > 0) & (amount <= MAX_COINS));
+    assert((amount > 0) & (amount <= MAX_COINS), ERROR_INVALID_AMOUNT);
 }
 
 @inline
 fun validate_fee_bps(bps: int) {
-    throw_unless(ERROR_INVALID_AMOUNT, (bps >= 0) & (bps <= MAX_FEE_BPS));
+    assert((bps >= 0) & (bps <= MAX_FEE_BPS), ERROR_INVALID_AMOUNT);
 }

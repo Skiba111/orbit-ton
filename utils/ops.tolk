@@ -55,3 +55,12 @@ const OP_UPDATE_PROTOCOL_COLLECTOR:   int = 0x4F52000B; // ORBIT owner rotates p
 
 // ── Protocol fee billing op ────────────────────────────────────────────────
 const OP_PROTOCOL_FEE_PAYMENT:        int = 0x4F520023; // subscription sends ORBIT protocol fee
+
+// ── Registry ops (internal, developer → registry) ─────────────────────────
+const OP_REGISTRY_REGISTER:           int = 0x4F520060; // deploy a Factory for the sender
+const OP_REGISTRY_UPDATE_FEE:         int = 0x4F520061; // owner: update platform_fee_bps
+const OP_REGISTRY_UPDATE_COLLECTOR:   int = 0x4F520062; // owner: update fee_collector address
+const OP_REGISTRY_UPDATE_RELAYER:     int = 0x4F520063; // owner: update relayer_pubkey
+const OP_REGISTRY_PAUSE:              int = 0x4F520064; // owner: pause new registrations
+const OP_REGISTRY_RESUME:             int = 0x4F520065; // owner: resume registrations
+const OP_REGISTRY_WITHDRAW:           int = 0x4F520066; // owner: withdraw excess TON

@@ -1,84 +1,82 @@
-# Руководство по интеграции ORBIT
+# ORBIT Integration Guide
 
-Добавьте подписочный биллинг ORBIT в своё приложение. Из документа вы узнаете как:
-- Получить Factory через Registry (рекомендуемый путь)
-- Отправить подписку от имени пользователя
-- Принимать webhook-события о списаниях
-- Проверять статус подписки on-chain
-- Обеспечить безопасность webhook-эндпоинта
-
----
-
-## Требования
-
-- Node.js 18+ на бэкенде
-- Запущенный relayer (настраивается в DEPLOYMENT.md)
-- Factory-контракт (получается через Registry — см. шаг 0 ниже)
+Add ORBIT subscription billing to your application. This guide covers:
+- Getting a Factory through the Registry (recommended)
+- Sending a subscribe transaction from the user's wallet
+- Receiving webhook events for confirmed charges
+- Checking subscription status on-chain
+- Securing your webhook endpoint
 
 ---
 
-## 0. Получить Factory через Registry (рекомендуемый путь)
+## Requirements
 
-Вместо ручного деплоя Factory используйте Registry — ORBIT разворачивает Factory за вас с уже зашитыми настройками комиссий.
+- Node.js 18+ on your backend
+- A running relayer (configured per [DEPLOYMENT.md](DEPLOYMENT.md))
+- A Factory contract (obtained via Registry — see step 0 below)
+
+---
+
+## 0. Get a Factory via Registry (recommended)
+
+Instead of deploying a Factory manually, use the ORBIT Registry — it deploys a Factory for you with fee settings enforced at the contract level.
 
 ```bash
-# Установить переменные в .env:
-# REGISTRY_ADDRESS=EQD...  ← адрес ORBIT Registry
-# WALLET_MNEMONIC="слово1 слово2 ... слово24"
+# Add to .env:
+# REGISTRY_ADDRESS=EQD...  ← address of the deployed ORBIT Registry
+# WALLET_MNEMONIC="word1 word2 ... word24"
 # NETWORK=testnet
 
 ts-node scripts/register-service.ts
 ```
 
-Скрипт:
-1. Отправляет `OP_REGISTRY_REGISTER` (0.3 TON) на Registry
-2. Registry деплоит Factory с вашим кошельком как `service_addr`
-3. Выводит адрес вашей Factory — скопируйте его в `.env` как `FACTORY_ADDRESS`
+The script:
+1. Sends `OP_REGISTRY_REGISTER` (0.3 TON) to the Registry
+2. Registry deploys a Factory with your wallet as `service_addr`
+3. Prints your Factory address — copy it into `.env` as `FACTORY_ADDRESS`
 
-После этого вы можете добавлять тарифные планы через `OP_ADD_PLAN` на вашей Factory.
+After that you can add plans to your Factory via `OP_ADD_PLAN`.
 
-> **Что зашито намертво:** `fee_bps` и `fee_collector` — комиссии ORBIT. Вы не можете их изменить. Вы управляете только тарифами (планами) своей Factory.
-
----
+> **What is fixed:** `fee_bps` and `fee_collector` are set by ORBIT and baked into your Factory at deploy time. You cannot change them. You control only your own plans.
 
 ---
 
-## 1. Формат сообщения OP_SUBSCRIBE
+## 1. Subscribe message format
 
-Чтобы подписчик оформил подписку, его кошелёк должен отправить сообщение на адрес вашей Factory.
+To create a subscription, the user's wallet sends a message to your Factory address.
 
-### Формат тела сообщения
+### Message body layout
 
 ```
-op          (32 бита) = 0x4F520001   — OP_SUBSCRIBE
-query_id    (64 бита)               — произвольный идентификатор запроса (можно 0)
-plan_id     (32 бита)               — ID тарифного плана (0, 1, 2, ...)
-payment_type (2 бита)               — 1 = TON,  2 = Jetton  (0 — НЕВАЛИДНО!)
+op           (32 bits) = 0x4F520001   — OP_SUBSCRIBE
+query_id     (64 bits)               — arbitrary request ID (0 is valid)
+plan_id      (32 bits)               — plan index (0, 1, 2, ...)
+payment_type  (2 bits)               — 1 = TON,  2 = Jetton  (0 is INVALID)
 ```
 
-> **Критически важно:** Factory всегда читает `query_id` (64 бита) после `op`. Если пропустить `query_id` — сообщение отобьётся с ошибкой underflow. `PAYMENT_TON = 1` (не 0!).
+> **Critical:** Factory always reads `query_id` (64 bits) after `op`. If `query_id` is omitted, the message bounces with an underflow error. `PAYMENT_TON = 1` (not 0).
 
-### Пример на TypeScript
+### TypeScript example
 
 ```typescript
 import { beginCell, toNano } from "@ton/core";
 
-// Тело для TON-подписки на тариф 0
+// TON subscription on plan 0
 const body = beginCell()
     .storeUint(0x4F520001, 32)  // OP_SUBSCRIBE
-    .storeUint(0,           64)  // query_id (0 — допустимо)
+    .storeUint(0,           64)  // query_id (0 is fine)
     .storeUint(0,           32)  // plan_id = 0
-    .storeUint(1,            2)  // payment_type = PAYMENT_TON (1)
+    .storeUint(1,            2)  // payment_type = PAYMENT_TON (must be 1, not 0)
     .endCell();
 
-// value = plan_price + STORAGE_RESERVE(0.05 TON) + FACTORY_DEPLOY_GAS(0.05 TON) + запас
-// Формула: value >= plan_price + 0.1 TON
-// Рекомендуем: plan_price + 0.2 TON
-const PLAN_PRICE = toNano("1"); // 1 TON/месяц
+// value = plan_price + STORAGE_RESERVE(0.05 TON) + FACTORY_DEPLOY_GAS(0.05 TON) + buffer
+// Minimum: plan_price + 0.1 TON
+// Recommended: plan_price + 0.2 TON
+const PLAN_PRICE = toNano("1"); // 1 TON/month plan
 const value = PLAN_PRICE + toNano("0.2");
 ```
 
-### Через TonConnect (frontend)
+### Via TonConnect (frontend)
 
 ```typescript
 import { useTonConnectUI } from "@tonconnect/ui-react";
@@ -105,13 +103,13 @@ function SubscribeButton({ planId, planPrice }: { planId: number; planPrice: big
         });
     }
 
-    return <button onClick={handleSubscribe}>Подписаться</button>;
+    return <button onClick={handleSubscribe}>Subscribe</button>;
 }
 ```
 
-### Jetton-подписка
+### Jetton subscription
 
-Для Jetton (например, USDT) дополнительно укажите адрес Jetton-кошелька подписчика:
+For Jetton payments (e.g. USDT), also include the subscriber's Jetton wallet address:
 
 ```typescript
 const body = beginCell()
@@ -119,18 +117,18 @@ const body = beginCell()
     .storeUint(0,           64)
     .storeUint(planId,      32)
     .storeUint(2,            2)   // PAYMENT_JETTON = 2
-    .storeAddress(subscriberJettonWalletAddress)  // адрес Jetton-кошелька подписчика
+    .storeAddress(subscriberJettonWalletAddress)  // subscriber's Jetton wallet address
     .endCell();
 
-// value — только TON для газа (Jetton-токены отправляются отдельно)
-// Минимум: 0.2 TON; рекомендуем: 0.3 TON
+// value — TON for gas only (Jetton tokens are sent separately via transfer_notification)
+// Minimum: 0.2 TON; recommended: 0.3 TON
 ```
 
 ---
 
-## 2. Webhook — приём событий списания
+## 2. Webhook — receiving charge events
 
-После каждого подтверждённого списания relayer отправляет POST на ваш `WEBHOOK_URL`:
+After each confirmed charge, the relayer sends a POST to your `WEBHOOK_URL`:
 
 ```json
 {
@@ -142,26 +140,26 @@ const body = beginCell()
 }
 ```
 
-| Поле | Описание |
+| Field | Description |
 |---|---|
-| `address` | Адрес Subscription-контракта подписчика |
-| `seqno_from` | Seqno до списания |
-| `seqno_to` | Seqno после (= количество успешных списаний) |
-| `timestamp` | Unix-время события |
+| `address` | Subscriber's Subscription contract address |
+| `seqno_from` | Seqno before the charge |
+| `seqno_to` | Seqno after (equals total number of successful charges) |
+| `timestamp` | Unix timestamp of the event |
 
-### Настройка relayer
+### Relayer configuration
 
 ```env
 WEBHOOK_URL=https://api.yourapp.com/orbit/webhook
-WEBHOOK_SECRET=длинная-случайная-строка-минимум-32-символа
+WEBHOOK_SECRET=long-random-string-at-least-32-chars
 ```
 
-Сгенерировать секрет:
+Generate a secret:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### Обработчик webhook (Node.js)
+### Webhook handler (Node.js)
 
 ```typescript
 import * as http from "http";
@@ -173,12 +171,12 @@ const server = http.createServer((req, res) => {
         res.writeHead(404); res.end(); return;
     }
 
-    // 1. Проверяем секрет
+    // 1. Verify the secret
     if (WEBHOOK_SECRET && req.headers["x-orbit-secret"] !== WEBHOOK_SECRET) {
         res.writeHead(401); res.end("Unauthorized"); return;
     }
 
-    // 2. Читаем тело
+    // 2. Read the body
     let body = "";
     req.on("data", chunk => { body += chunk; });
     req.on("end", async () => {
@@ -195,9 +193,9 @@ const server = http.createServer((req, res) => {
 });
 
 async function onChargeConfirmed(subscriptionAddress: string, seqno: number) {
-    // Ваша логика: найти пользователя по subscriptionAddress и выдать доступ
-    console.log(`Списание подтверждено: ${subscriptionAddress}, seqno=${seqno}`);
-    // Пример:
+    // Look up the user by subscriptionAddress and grant access in your system
+    console.log(`Charge confirmed: ${subscriptionAddress}, seqno=${seqno}`);
+    // Example:
     // const user = await db.users.findOne({ subscriptionAddress });
     // if (user) await grantAccess(user.id, billingPeriodDays);
 }
@@ -205,11 +203,11 @@ async function onChargeConfirmed(subscriptionAddress: string, seqno: number) {
 server.listen(3001);
 ```
 
-Готовый расширяемый пример: [`scripts/webhook-server.ts`](../scripts/webhook-server.ts)
+Full example with retry and deduplication: [`scripts/webhook-server.ts`](../scripts/webhook-server.ts)
 
-### Дополнительная верификация on-chain (опционально)
+### Optional: on-chain verification
 
-Для максимальной безопасности проверяйте seqno прямо на блокчейне:
+For maximum security, verify seqno directly on-chain before granting access:
 
 ```typescript
 import { TonClient, Address } from "@ton/ton";
@@ -221,20 +219,20 @@ const client = new TonClient({
 });
 
 async function onChargeConfirmed(address: string, seqnoTo: number) {
-    // Верифицируем seqno on-chain — нельзя подделать даже при утечке WEBHOOK_SECRET
+    // On-chain check — cannot be faked even if WEBHOOK_SECRET leaks
     const sub       = client.open(Subscription.createFromAddress(Address.parse(address)));
     const realSeqno = await sub.getSeqno();
     if (realSeqno < seqnoTo) {
-        console.error("Подозрительный payload — seqno не совпадает");
+        console.error("Suspicious payload — seqno mismatch");
         return;
     }
-    // Выдаём доступ
+    // Grant access
 }
 ```
 
 ---
 
-## 3. Проверка статуса подписки
+## 3. Checking subscription status
 
 ```typescript
 import { TonClient, Address } from "@ton/ton";
@@ -246,31 +244,31 @@ const client = new TonClient({
 });
 
 const sub = client.open(
-    Subscription.createFromAddress(Address.parse("EQD...адрес_подписки..."))
+    Subscription.createFromAddress(Address.parse("EQD...subscription_address..."))
 );
 
-// Все геттеры вызываются без аргументов:
-const status      = await sub.getStatus();           // число (см. таблицу ниже)
-const seqno       = await sub.getSeqno();            // кол-во успешных списаний
+// All getters are called with no arguments:
+const status      = await sub.getStatus();           // number (see table below)
+const seqno       = await sub.getSeqno();            // number of successful charges
 const nextBilling = await sub.getNextBillingTime();  // unix timestamp
-const deposit     = await sub.getDeposit();          // остаток депозита в nanoTON
+const deposit     = await sub.getDeposit();          // remaining deposit in nanoTON
 ```
 
-**Коды статуса:**
+**Status codes:**
 
-| Код | Константа | Значение |
+| Code | Constant | Meaning |
 |---|---|---|
-| 1 | `STATUS_TRIAL` | Бесплатный trial, списания ещё не было |
-| 2 | `STATUS_ACTIVE` | Активна, платежи идут |
-| 3 | `STATUS_PAUSED` | На паузе (подписчик или сервис) |
-| 4 | `STATUS_GRACE` | Недостаточно средств, грейс-период (3 дня) |
-| 5 | `STATUS_CANCELLED` | Отменена, депозит возвращён |
+| 1 | `STATUS_TRIAL` | Free trial, no charge yet |
+| 2 | `STATUS_ACTIVE` | Active, billing running |
+| 3 | `STATUS_PAUSED` | Paused (by subscriber or service) |
+| 4 | `STATUS_GRACE` | Insufficient funds, 3-day grace period |
+| 5 | `STATUS_CANCELLED` | Cancelled, deposit returned |
 
 ---
 
-## 4. Предварительный расчёт адреса подписки
+## 4. Pre-computing the subscription address
 
-Адрес Subscription-контракта детерминирован — его можно вычислить до того, как пользователь подпишется:
+The Subscription contract address is deterministic — you can compute it before the user subscribes:
 
 ```typescript
 import { Factory } from "../wrappers/Factory";
@@ -279,20 +277,20 @@ import { TonClient, Address } from "@ton/ton";
 const client  = new TonClient({ endpoint: "..." });
 const factory = client.open(Factory.createFromAddress(Address.parse(FACTORY_ADDRESS)));
 
-// Адрес подписки определяется: factory + subscriber + plan_id
+// Address is determined by: factory + subscriber wallet + plan_id
 const subscriptionAddress = await factory.getSubscriptionAddress(
-    subscriberAddress,  // Address объект
+    subscriberAddress,  // Address object
     planId,             // number
 );
 
-console.log("Адрес подписки:", subscriptionAddress.toString());
+console.log("Subscription address:", subscriptionAddress.toString());
 ```
 
-Используйте этот адрес в БД чтобы связать кошелёк пользователя с его подпиской.
+Store this address in your database to link the user's wallet to their subscription.
 
 ---
 
-## 5. Проверка тарифных планов Factory
+## 5. Inspecting Factory plans
 
 ```typescript
 import { Factory } from "../wrappers/Factory";
@@ -300,40 +298,43 @@ import { TonClient, Address } from "@ton/ton";
 
 const factory = client.open(Factory.createFromAddress(Address.parse(FACTORY_ADDRESS)));
 
-// Получаем количество планов, затем загружаем каждый по отдельности
-const planCount = await factory.getPlanCount(provider);
+// Get plan count, then load each plan individually
+const planCount = await factory.getPlanCount();
 
 for (let planId = 0; planId < planCount; planId++) {
-    const plan = await factory.getPlanData(provider, planId);
+    const plan = await factory.getPlanData(planId);
     if (!plan.active) continue;
     console.log(`Plan ${planId}:`);
-    console.log(`  Цена:    ${plan.price / 1_000_000_000n} TON`);
-    console.log(`  Период:  ${plan.period / 86400} дней`);
-    console.log(`  Trial:   ${plan.trialPeriod > 0 ? plan.trialPeriod / 86400 + " дней" : "нет"}`);
+    console.log(`  Price:  ${plan.price / 1_000_000_000n} TON`);
+    console.log(`  Period: ${plan.period / 86400} days`);
+    console.log(`  Trial:  ${plan.trialPeriod > 0 ? plan.trialPeriod / 86400 + " days" : "none"}`);
 }
 ```
 
 ---
 
-## 6. React SDK (в разработке)
+## 6. React SDK (in development)
 
-Исходный код SDK находится в `sdk/react/`. На npm пока не опубликован. Следите за релизами.
+Source is in `sdk/react/`. Not yet published to npm. Watch releases.
 
-После публикации будет доступен:
+Once published:
 ```bash
 npm install @orbit-ton/react
 ```
 
+Available components: `OrbitProvider`, `useSubscription`, `useSubscribe`, `useFactory`, `SubscribeButton`, `SubscriptionStatus`, `TopUpDeposit`, `KeeperPoolStatus`.
+
 ---
 
-## Устранение неполадок
+## Troubleshooting
 
-| Симптом | Причина | Решение |
+| Symptom | Cause | Fix |
 |---|---|---|
-| Транзакция сразу отбивается | Неверный `payment_type` (0 — невалидно) | Используйте `PAYMENT_TON = 1` |
-| Транзакция сразу отбивается | Недостаточно TON в value | `value >= plan_price + 0.1 TON` |
-| Relayer не видит подписку | `msg_data.init_state` не проверялся | Обновлено в текущей версии |
-| Relayer видит 0 подписок | Неправильный `FACTORY_ADDRESS` в `.env` | Проверить адрес Factory |
-| Webhook не приходит | `WEBHOOK_URL` или `WEBHOOK_SECRET` не совпадают | Одинаковые значения на сервере и в relayer `.env` |
-| `Error on ...: status 500` | Подписка истощила депозит | Нормально для тестовой подписки; пополните депозит |
-| `getSeqno(provider)` — ошибка | Устаревший API | Вызывайте без аргументов: `await sub.getSeqno()` |
+| Transaction bounces immediately | Wrong `payment_type` (0 is invalid) | Use `PAYMENT_TON = 1` |
+| Transaction bounces immediately | Insufficient TON in value | `value >= plan_price + 0.1 TON` |
+| Relayer does not see subscription | StateInit not detected | Update to current relayer version |
+| Relayer shows 0 subscriptions | Wrong `FACTORY_ADDRESS` in `.env` | Check Factory address |
+| Webhook not received | `WEBHOOK_URL` or `WEBHOOK_SECRET` mismatch | Must match exactly on server and relayer |
+| `Error on ...: status 500` | Subscription deposit exhausted | Normal for test subscription; top up deposit |
+| `getSeqno(provider)` — error | Deprecated API | Call without arguments: `await sub.getSeqno()` |
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    

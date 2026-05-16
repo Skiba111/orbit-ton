@@ -228,7 +228,7 @@ describe("vuln 6 — plan snapshot immutability", () => {
 // ── vuln 9: fee routing ───────────────────────────────────────────────────────
 
 describe("vuln 9 — fee routing transparency", () => {
-    it("0.2% fee split is correct (20 bps on 1 TON)", () => {
+    it("service fee split is correct (20 bps = 0.2% on 1 TON)", () => {
         const gross  = toNano("1");
         const bps    = 20n;
         const fee    = (gross * bps) / 10000n;

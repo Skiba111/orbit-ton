@@ -1,17 +1,17 @@
 // ORBIT Protocol fee configuration.
 //
-// PROTOCOL_FEE_BPS (0.2%) is a compile-time constant — baked into the Subscription bytecode.
+// PROTOCOL_FEE_BPS (1.5%) is a compile-time constant — baked into the Subscription bytecode.
 // A service cannot change it without recompiling from source (which produces different
 // bytecode and is no longer "official ORBIT").
 //
 // ── How protocol_fee_collector is actually set ────────────────────────────────
 //
-// The actual routing of the 0.2% fee is NOT determined by PROTOCOL_FEE_COLLECTOR_HASH
+// The actual routing of the 1.5% fee is NOT determined by PROTOCOL_FEE_COLLECTOR_HASH
 // at runtime. The real flow is:
 //   1. Operator passes `protocolFeeCollector` address when deploying Factory.
 //   2. Factory stores it in its state (ref3).
 //   3. Factory passes it to every new Subscription at deploy time.
-//   4. Each Subscription stores it and sends 0.2% there on every charge.
+//   4. Each Subscription stores it and sends 1.5% there on every charge.
 //
 // PROTOCOL_FEE_COLLECTOR_HASH and get_protocol_fee_collector() below are
 // REFERENCE CONSTANTS — they are not called by any contract at runtime.
@@ -24,8 +24,8 @@
 // To compute the hash for any address:
 //   node -e "const {Address}=require('@ton/core'); console.log('0x'+Buffer.from(Address.parse('EQD...').hash).toString('hex'))"
 
-// 0.2% of every billing cycle — non-negotiable, lives in bytecode.
-const PROTOCOL_FEE_BPS: int = 20;
+// 1.5% of every billing cycle — non-negotiable, lives in bytecode.
+const PROTOCOL_FEE_BPS: int = 150;
 
 // 256-bit account_id of the ORBIT FeeCollector contract (testnet).
 // Testnet FeeCollector: EQDDU30Vfvjf4wVgyw5Mzh3aMmcvP7Y0sFb2zQ-2tTNbadze

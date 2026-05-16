@@ -32,7 +32,7 @@ export interface RegistryConfig {
     platformFeeBps:         number;   // e.g. 50 = 0.5%; enforced on all Factories
     ownerAddr:              Address;  // ORBIT operator wallet
     feeCollector:           Address;  // receives platformFeeBps on every charge
-    protocolFeeCollector:   Address;  // receives PROTOCOL_FEE_BPS (0.2%) on every charge
+    protocolFeeCollector:   Address;  // receives PROTOCOL_FEE_BPS (1.5%) on every charge
     factoryCode:            Cell;     // compiled Factory bytecode
     subscriptionCode:       Cell;     // compiled Subscription bytecode
 }

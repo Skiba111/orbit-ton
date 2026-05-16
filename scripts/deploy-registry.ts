@@ -20,7 +20,7 @@
  *   TONCENTER_API_KEY             — TonCenter API key
  *   NETWORK                       — testnet | mainnet
  *   WALLET_VERSION                — v4 | v5 (default: v5)
- *   PLATFORM_FEE_BPS              — platform fee (50 = 0.5%, default: 50)
+ *   PLATFORM_FEE_BPS              — platform fee bps for Registry-deployed Factories (default: 0 = no extra fee)
  */
 
 import * as dotenv from "dotenv";
@@ -62,7 +62,7 @@ const WALLET_MNEMONIC   = process.env.WALLET_MNEMONIC   ?? process.env.MNEMONICS
 const FEE_COLLECTOR_HEX = process.env.FEE_COLLECTOR_PUBKEY ?? "";
 const RELAYER_HEX       = process.env.RELAYER_PUBKEY    ?? "";
 const WALLET_VERSION    = (process.env.WALLET_VERSION   ?? "v5").toLowerCase();
-const PLATFORM_FEE_BPS  = parseInt(process.env.PLATFORM_FEE_BPS ?? "50", 10);
+const PLATFORM_FEE_BPS  = parseInt(process.env.PLATFORM_FEE_BPS ?? "0", 10);
 
 const NETWORK_GLOBAL_ID = NETWORK === "mainnet" ? -239 : -3;
 

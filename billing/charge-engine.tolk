@@ -232,7 +232,7 @@ fun execute_charge(
         );
     }
 
-    // Service fee (configurable per-factory) and ORBIT protocol fee (hardcoded 0.2%).
+    // Service fee (configurable per-factory) and ORBIT protocol fee (hardcoded 1.5%).
     send_fee(fee_collector, fee_amount, subscriber_addr, plan_id);
     send_protocol_fee(protocol_fee_collector, protocol_fee, subscriber_addr, plan_id);
 

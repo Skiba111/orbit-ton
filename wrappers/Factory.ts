@@ -32,7 +32,7 @@ export interface FactoryConfig {
     serviceAddr:            Address;
     feeCollector:           Address;
     feeBps:                 number;   // service fee e.g. 100 = 1%
-    protocolFeeCollector:   Address;  // ORBIT team wallet — receives 0.2% on every charge
+    protocolFeeCollector:   Address;  // ORBIT team wallet — receives 1.5% on every charge
     subCode:                Cell;     // compiled Subscription contract code
     plans:                  PlanConfig[];
 }

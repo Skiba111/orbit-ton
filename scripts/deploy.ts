@@ -55,11 +55,11 @@ export async function run(provider: NetworkProvider) {
     const relayerPubkeyHex = await ui.input("Relayer Ed25519 public key (hex, 64 chars):");
     const relayerPubkey = BigInt("0x" + relayerPubkeyHex);
 
-    // ORBIT protocol fee collector — receives 0.2% of every subscription charge.
+    // ORBIT protocol fee collector — receives 1.5% of every subscription charge.
     // Default: the deploying wallet (your wallet). Change to your dedicated ORBIT wallet
     // after deployment via Factory.sendUpdateProtocolCollector().
     const protocolCollectorStr = await ui.input(
-        "ORBIT protocol fee collector address (your wallet, receives 0.2% of all charges):"
+        "ORBIT protocol fee collector address (your wallet, receives 1.5% of all charges):"
     );
     const protocolFeeCollector = Address.parse(protocolCollectorStr);
 
@@ -91,6 +91,6 @@ export async function run(provider: NetworkProvider) {
     ui.write(`FeeCollector : ${feeCollector.address.toString()}`);
     ui.write(`Factory      : ${factory.address.toString()}`);
     ui.write(`Fee BPS      : ${feeBps} (${feeBps / 100}%)`);
-    ui.write(`Protocol fee : 0.2% → ${protocolFeeCollector.toString()}`);
+    ui.write(`Protocol fee : 1.5% → ${protocolFeeCollector.toString()}`);
     ui.write("\nSave these addresses — you will need them for the relayer.");
 }

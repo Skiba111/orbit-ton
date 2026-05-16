@@ -65,29 +65,6 @@ Without this guard, anyone could send TON with an empty body to inflate the appa
 
 ### 15. Protocol fee is hardcoded in bytecode — cannot be bypassed
 
-`PROTOCOL_FEE_BPS = 20` (0.2%) and `PROTOCOL_FEE_COLLECTOR_HASH` are constants compiled into the Subscription contract bytecode. No `save_storage` call, no factory configuration, no operator action can change them without recompiling from source.
+`PROTOCOL_FEE_BPS = 150` (1.5%) and `PROTOCOL_FEE_COLLECTOR_HASH` are constants compiled into the Subscription contract bytecode. No `save_storage` call, no factory configuration, no operator action can change them without recompiling from source.
 
-A service wishing to avoid the protocol fee would have to distribute modified bytecode. That bytecode would have a different hash, making it trivially detectable as non-official ORBIT. Subscribers can verify the code hash of their Subscription contract on-chain against the published ORBIT bytecode hash.
-
-The protocol fee collector address can be rotated per-factory via `OP_UPDATE_PROTOCOL_COLLECTOR` (restricted to the current `protocol_fee_collector` address — not the service owner). This allows the ORBIT team to redirect fees to a new wallet. Existing subscriptions are unaffected; only new subscriptions deployed after the update use the new address.
-
-See [PROTOCOL_FEE.md](PROTOCOL_FEE.md) for the full model.
-
-## What ORBIT does NOT protect
-
-- **Service contract behaviour** — ORBIT sends payment but cannot verify the service delivers the promised product.
-- **Relayer liveness** — If the relayer goes down, charges don't happen. Use keeper mode to allow external keepers to trigger charges.
-- **TON price volatility** — TON-denominated subscriptions have price risk. Use Jetton (e.g. USDT) plans to stabilise pricing.
-- **Factory owner key compromise** — The service owner key can add/remove plans, pause/resume the factory, and withdraw gas reserves. It cannot steal subscriber deposits. Rotate keys if compromised.
-- **Relayer key compromise** — A compromised relayer key can trigger charges earlier than scheduled (within `CHARGE_TOLERANCE_SEC`) but cannot steal funds or modify state beyond what a legitimate charge would do.
-- **FeeCollector owner key compromise** — A compromised key can schedule a withdrawal but cannot execute it for 24 hours. Rotate the key within the timelock window to cancel any pending withdrawal.
-
-## Known limitations
-
-- No on-chain price oracle: service owner sets plan prices; there is no automatic USD-pegged billing.
-- Single relayer key per factory: all subscriptions in a factory share one relayer key. Key rotation (`OP_ROTATE_RELAYER`) requires a separate transaction per subscription.
-- MRR counters (`total_charges`, `total_revenue`) are only updated via authenticated `OP_CHARGE_NOTIFICATION`. For auditing, cross-check on-chain events against the counter values.
-
-## Audit status
-
-Not yet externally audited. See the roadmap for planned audit timeline.
+A service 

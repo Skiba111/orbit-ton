@@ -29,7 +29,7 @@ const FEE_MSG_GAS: int = 10000000; // 0.01 TON
 // Returns (net_amount, service_fee, protocol_fee).
 //   net_amount    = amount the service actually receives
 //   service_fee   = configurable cut for the service's fee_collector
-//   protocol_fee  = hardcoded 0.2% for ORBIT protocol
+//   protocol_fee  = hardcoded 1.5% for ORBIT protocol
 @inline
 fun split_fee(gross: int, fee_bps: int): (int, int, int) {
     // Belt-and-suspenders: fee_bps should have been validated at plan creation,

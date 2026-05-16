@@ -1,35 +1,35 @@
-# Руководство по деплою ORBIT
+# ORBIT Deployment Guide
 
-## Что деплоится и кем
+## What gets deployed and by whom
 
-| Контракт | Кто деплоит | Когда |
+| Contract | Deployed by | When |
 |---|---|---|
-| **FeeCollector** | ORBIT-команда (один раз) | Перед любым Factory |
-| **Factory** | Оператор сервиса | Один раз на сервис |
-| **Subscription** | Factory автоматически | При каждой подписке пользователя |
+| **FeeCollector** | ORBIT team (once) | Before any Factory |
+| **Factory** | Service operator | Once per service |
+| **Subscription** | Factory automatically | On each user subscribe |
 
 ---
 
-## Требования
+## Requirements
 
 - Node.js 18+
-- `ts-node` (устанавливается через `npm install` в репозитории)
-- Кошелёк TON с балансом ≥ 2 TON
-- Два Ed25519 ключа (генерируются ниже)
+- `ts-node` (installed via `npm install` in the repository)
+- TON wallet with balance ≥ 2 TON
+- Two Ed25519 keys (generated below)
 
 ---
 
-## Шаг 0 — Генерация ключей
+## Step 0 — Generate keys
 
-Нужны два отдельных ключа:
+You need two separate keys:
 
-| Ключ | Режим хранения | Для чего |
+| Key | Storage | Purpose |
 |---|---|---|
-| **Relayer key** | Hot (на сервере в `.env`) | Подписывает внешние сообщения OP_CHARGE_EXT |
-| **Fee-collector key** | Cold (hardware / офлайн) | Подписывает вывод комиссий из FeeCollector |
+| **Relayer key** | Hot (on server in `.env`) | Signs external messages `OP_CHARGE_EXT` |
+| **Fee-collector key** | Cold (hardware / offline) | Signs withdrawals from FeeCollector |
 
 ```bash
-# Генерация ключа relayer
+# Generate relayer key
 node -e "
 const { mnemonicNew, mnemonicToPrivateKey } = require('@ton/crypto');
 mnemonicNew(24).then(async m => {
@@ -38,50 +38,50 @@ mnemonicNew(24).then(async m => {
     console.log('Pubkey (hex):', Buffer.from(kp.publicKey).toString('hex'));
 });
 "
-# Повторите для fee-collector ключа — мнемонику сохраните офлайн
+# Repeat for the fee-collector key — store the mnemonic offline
 ```
 
-> **Важно:** это два разных ключа! Relayer-ключ лежит на сервере. Fee-collector ключ — офлайн.
+> **Important:** these are two different keys. The relayer key lives on the server. The fee-collector key stays offline.
 
 ---
 
-## Шаг 1 — Настройка .env
+## Step 1 — Configure .env
 
 ```env
-# .env в корне репозитория — в .gitignore, НИКОГДА не коммитьте
+# .env in the repository root — in .gitignore, NEVER commit this file
 
-WALLET_MNEMONIC="слово1 слово2 ... слово24"  # кошелёк для оплаты деплоя
-FEE_COLLECTOR_PUBKEY="abcdef1234..."          # hex pubkey fee-collector ключа (холодного)
-TONCENTER_API_KEY="ваш_ключ"                 # получить на toncenter.com
-NETWORK=testnet                               # testnet | mainnet
-WALLET_VERSION=v5                             # v5=Tonkeeper/TG Wallet; v4=старый Tonkeeper
+WALLET_MNEMONIC="word1 word2 ... word24"   # wallet that pays for deployment
+FEE_COLLECTOR_PUBKEY="abcdef1234..."        # hex pubkey of the cold fee-collector key
+TONCENTER_API_KEY="your_key"               # get one at toncenter.com
+NETWORK=testnet                             # testnet | mainnet
+WALLET_VERSION=v5                           # v5 = Tonkeeper/TG Wallet; v4 = older Tonkeeper
 ```
 
-Убедитесь что на кошельке достаточно TON:
-- **Testnet:** запросите тестовые монеты в @testgiver_ton_bot
-- **Mainnet:** минимум 2 TON (1 на FeeCollector + 0.5 на Factory + запас)
+Make sure the wallet has enough TON:
+- **Testnet:** request test coins from @testgiver_ton_bot
+- **Mainnet:** minimum 2 TON (1 for FeeCollector + 0.5 for Factory + buffer)
 
 ---
 
-## Шаг 2 — Деплой FeeCollector и Factory
+## Step 2 — Deploy FeeCollector and Factory
 
 ```bash
 ts-node scripts/deploy-standalone.ts
 ```
 
-Скрипт:
-1. Выводит баланс и seqno вашего кошелька (если < 0.5 TON — выдаёт ошибку)
-2. Компилирует все Tolk-контракты (~15 секунд)
-3. Деплоит FeeCollector (если ещё не задеплоен)
-4. Интерактивно запрашивает параметры Factory:
-   - **Service owner address** — ваш адрес (управление Factory)
-   - **Service fee bps** — комиссия сервиса (100 = 1%, 0 = без комиссии)
-   - **Relayer pubkey hex** — hex pubkey RELAYER-ключа
-   - **Protocol fee collector address** — адрес FeeCollector (или ORBIT-адрес)
-5. Деплоит Factory
-6. Выводит итоговые адреса
+The script:
+1. Shows your wallet balance and seqno (errors if < 0.5 TON)
+2. Compiles all Tolk contracts (~15 seconds)
+3. Deploys FeeCollector (if not already deployed)
+4. Interactively prompts for Factory parameters:
+   - **Service owner address** — your address (Factory management)
+   - **Service fee bps** — service fee in basis points (100 = 1%, 0 = no fee)
+   - **Relayer pubkey hex** — hex pubkey of the relayer key
+   - **Protocol fee collector address** — FeeCollector address (or ORBIT address)
+5. Deploys Factory
+6. Prints the resulting addresses
 
-**Пример вывода:**
+**Example output:**
 ```
 ╔═══════════════════════════════════════════════════════════════╗
 ║                ORBIT Deployment Complete ✅                   ║
@@ -94,11 +94,23 @@ ts-node scripts/deploy-standalone.ts
 ╚═══════════════════════════════════════════════════════════════╝
 ```
 
+### Alternative: deploy via Registry
+
+If an ORBIT Registry is already deployed, skip step 2 entirely and register instead:
+
+```bash
+# Add to .env:
+# REGISTRY_ADDRESS=EQD...  ← ORBIT Registry address
+ts-node scripts/register-service.ts
+```
+
+This sends 0.3 TON to the Registry, which deploys a Factory for you with ORBIT fee settings enforced. Copy the printed Factory address into `FACTORY_ADDRESS`.
+
 ---
 
-## Шаг 3 — Настройка сервера (VPS)
+## Step 3 — Server setup (VPS)
 
-### Установка Node.js и PM2
+### Install Node.js and PM2
 
 ```bash
 # Ubuntu 22.04
@@ -107,7 +119,7 @@ sudo apt-get install -y nodejs
 sudo npm install -g pm2 ts-node typescript
 ```
 
-### Клонирование и зависимости
+### Clone and install dependencies
 
 ```bash
 git clone https://github.com/Skiba111/orbit-ton.git ~/orbit
@@ -115,48 +127,48 @@ cd ~/orbit
 npm install --legacy-peer-deps
 ```
 
-### .env на сервере
+### .env on the server
 
 ```bash
 nano ~/orbit/.env
 ```
 
 ```env
-# .env на сервере — только переменные для relayer/webhook
-FACTORY_ADDRESS="EQD...адрес_Factory..."
-RELAYER_MNEMONIC="слово1 слово2 ... слово24"  # мнемоника relayer-ключа
+# Server .env — relayer and webhook variables only
+FACTORY_ADDRESS="EQD...your_factory_address..."
+RELAYER_MNEMONIC="word1 word2 ... word24"   # relayer key mnemonic
 NETWORK=testnet
 POLL_INTERVAL_MS=60000
-TONCENTER_API_KEY="ваш_ключ"
+TONCENTER_API_KEY="your_key"
 
 WEBHOOK_URL=https://api.yourapp.com/orbit/webhook
-WEBHOOK_SECRET=длинная-случайная-строка-минимум-32-символа
+WEBHOOK_SECRET=long-random-string-at-least-32-chars
 WEBHOOK_PORT=3001
 LOG_FILE=data/charges.log
 ```
 
-Сгенерировать безопасный `WEBHOOK_SECRET`:
+Generate a secure `WEBHOOK_SECRET`:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### Запуск через PM2
+### Start with PM2
 
 ```bash
 cd ~/orbit
 
-pm2 start "ts-node scripts/relayer.ts"        --name relayer
-pm2 start "npm run webhook"                    --name webhook
+pm2 start "ts-node scripts/relayer.ts"     --name relayer
+pm2 start "npm run webhook"                --name webhook
 
-pm2 save        # сохранить конфигурацию
-pm2 startup     # настроить автостарт (выполните команду которую выведет)
+pm2 save       # save process list
+pm2 startup    # enable autostart on reboot (run the command it prints)
 
-# Проверить
+# Verify
 pm2 list
 pm2 logs relayer --lines 30
 ```
 
-### Reverse-proxy (nginx + HTTPS)
+### Reverse proxy (nginx + HTTPS)
 
 ```nginx
 # /etc/nginx/sites-available/orbit
@@ -182,29 +194,29 @@ sudo systemctl reload nginx
 
 ---
 
-## Шаг 4 — E2E тест (обязательно перед mainnet)
+## Step 4 — E2E test (required before mainnet)
 
 ```bash
-# В локальном .env добавьте:
+# Add to your local .env:
 WEBHOOK_URL=https://api.yourapp.com/orbit/webhook
-WEBHOOK_SECRET=та_же_строка_что_на_сервере
+WEBHOOK_SECRET=same_string_as_on_server
 
 ts-node scripts/test-e2e.ts
 ```
 
-Тест:
-1. POST на webhook (проверяет доступность и секрет)
-2. Деплоит тестовую Factory (period=120s, price=0.2 TON)
-3. Создаёт подписку с правильным форматом тела
-4. Ожидает обнаружения relayer'ом и первого списания
+The test:
+1. POSTs to the webhook (verifies reachability and secret)
+2. Deploys a test Factory (period=120s, price=0.2 TON)
+3. Creates a subscription with the correct message body format
+4. Waits for the relayer to discover it and trigger the first charge
 
-Смотреть логи сервера:
+Monitor server logs:
 ```bash
 pm2 logs relayer --lines 30
 cat ~/orbit/data/charges.log
 ```
 
-Ожидаемый результат:
+Expected output:
 ```
 [relayer] Discovered subscription: EQD...
 [relayer] Initial scan complete (1 pages, 1 subscriptions)
@@ -213,22 +225,22 @@ cat ~/orbit/data/charges.log
 
 ---
 
-## Шаг 5 — Mainnet деплой
+## Step 5 — Mainnet deployment
 
-После успешного E2E на testnet:
+After a successful E2E test on testnet:
 
 ```bash
-# В .env:
+# In .env:
 NETWORK=mainnet
-TONCENTER_API_KEY="mainnet_ключ"   # отдельный API-ключ для mainnet
+TONCENTER_API_KEY="your_mainnet_key"   # separate API key for mainnet
 
-# Кошелёк должен иметь ≥ 2 TON реальных монет
+# Wallet must have ≥ 2 real TON
 ts-node scripts/deploy-standalone.ts
 ```
 
-На сервере обновить `.env` и перезапустить:
+On the server, update `.env` and restart:
 ```bash
-# Изменить NETWORK=mainnet и FACTORY_ADDRESS на mainnet-адрес
+# Change NETWORK=mainnet and set FACTORY_ADDRESS to the mainnet address
 nano ~/orbit/.env
 pm2 restart relayer --update-env
 pm2 restart webhook --update-env
@@ -236,7 +248,7 @@ pm2 restart webhook --update-env
 
 ---
 
-## Обновление кода на сервере
+## Updating server code
 
 ```bash
 cd ~/orbit
@@ -247,23 +259,23 @@ pm2 restart webhook --update-env
 
 ---
 
-## Обновление контрактов
+## Upgrading contracts
 
-Контракты ORBIT immutable после деплоя. Для обновления:
-1. Задеплоить новую Factory с обновлённым `subCode`
-2. Существующие подписки продолжают работать на старом коде
-3. Новые подписки деплоятся с новым кодом
-4. Обновить `FACTORY_ADDRESS` в `.env` relayer'а
+ORBIT contracts are immutable after deployment. To upgrade:
+1. Deploy a new Factory with updated `subCode`
+2. Existing subscriptions continue running on the old code
+3. New subscriptions are deployed with the new code
+4. Update `FACTORY_ADDRESS` in the relayer `.env`
 
-Механизма апгрейда нет намеренно — это свойство безопасности.
+There is no upgrade mechanism by design — this is a security property. Subscribers can always verify the exact bytecode their contract runs.
 
 ---
 
-## Справочник адресов
+## Address reference
 
-| Контракт | Testnet | Mainnet |
+| Contract | Testnet | Mainnet |
 |---|---|---|
-| FeeCollector | `EQDDU30Vfvjf4wVgyw5Mzh3aMmcvP7Y0sFb2zQ-2tTNbadze` | *(после деплоя)* |
-| Factory (production) | `EQADc2gC0KFW-vNPeHJ18EFG81YMBWwR6qQsbSSaWCUmQuJ2` | *(после деплоя)* |
-| Factory (E2E тест) | `EQDYJOcdv9C_Uf3tNqCvgPuAQT-hVxLdOEfJePtSiR_YjVCS` | — |
-| Relayer pubkey | `52dfadb8...` | *(может быть другим)* |
+| FeeCollector | `EQDDU30Vfvjf4wVgyw5Mzh3aMmcvP7Y0sFb2zQ-2tTNbadze` | *(after deploy)* |
+| Factory (production) | `EQADc2gC0KFW-vNPeHJ18EFG81YMBWwR6qQsbSSaWCUmQuJ2` | *(after deploy)* |
+| Factory (E2E test) | `EQDYJOcdv9C_Uf3tNqCvgPuAQT-hVxLdOEfJePtSiR_YjVCS` | — |
+| Relayer pubkey | `52dfadb8e95cfce76eb724f79758ad9c06117913f3a080f7f749d130216338a8` | *(may differ)* |

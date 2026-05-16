@@ -6,35 +6,35 @@ Every ORBIT billing cycle deducts two fees from the gross plan amount before sen
 
 | Fee | Rate | Who sets it | Recipient | Changeable? |
 |-----|------|-------------|-----------|-------------|
-| **Protocol fee** | 0.2% (hardcoded) | ORBIT team — baked into bytecode | ORBIT `FeeCollector` | No — changing it requires recompiling with a different hash |
+| **Protocol fee** | 1.5% (hardcoded) | ORBIT team — baked into bytecode | ORBIT `FeeCollector` | No — changing it requires recompiling with a different hash |
 | **Service fee** | 0–10% (`fee_bps`) | Factory deployer at deploy time | Service `fee_collector` | No — immutable per factory after deploy |
 
-**Net received by service** = `plan_price × (1 − fee_bps/10000 − 0.002)`
+**Net received by service** = `plan_price × (1 − fee_bps/10000 − 0.015)`
 
 ### Example — 1 TON/month plan, service fee 1% (100 bps)
 
 | Flow | Amount | Destination |
 |------|--------|-------------|
 | Gross | 1.000 TON | — |
-| Protocol fee (0.2%) | 0.002 TON | ORBIT `FeeCollector` |
+| Protocol fee (1.5%) | 0.015 TON | ORBIT `FeeCollector` |
 | Service fee (1%) | 0.010 TON | Service `fee_collector` |
-| **Net to service** | **0.988 TON** | `service_addr` |
+| **Net to service** | **0.983 TON** | `service_addr` |
 
 ### Pricing formula
 
 To deliver a target net amount to the service:
 
 ```
-plan_price = desired_net / (1 − service_fee_rate − 0.002)
+plan_price = desired_net / (1 − service_fee_rate − 0.015)
 ```
 
-Example: to net 1 TON with 1% service fee → `plan_price = 1 / (1 − 0.01 − 0.002) ≈ 1.012 TON`
+Example: to net 1 TON with 1% service fee → `plan_price = 1 / (1 − 0.01 − 0.015) ≈ 1.017 TON`
 
 ---
 
 ## Protocol fee implementation
 
-`PROTOCOL_FEE_BPS = 20` is a compile-time constant in `utils/protocol-config.tolk`. It is compiled into every Subscription contract's bytecode. There is no storage slot, no setter, and no admin function that can alter it at runtime.
+`PROTOCOL_FEE_BPS = 150` is a compile-time constant in `utils/protocol-config.tolk`. It is compiled into every Subscription contract's bytecode. There is no storage slot, no setter, and no admin function that can alter it at runtime.
 
 A service that wants to avoid the protocol fee must compile its own Subscription bytecode — the resulting code hash will differ from the published ORBIT hash, making it immediately detectable on-chain.
 
@@ -67,11 +67,11 @@ If the owner key is compromised, the timelock window allows rotating the key and
 
 | `fee_bps` | Service fee % | Net to service (on 1 TON plan) |
 |-----------|--------------|--------------------------------|
-| 0 | 0% | 0.998 TON |
-| 10 | 0.1% | 0.997 TON |
-| 100 | 1.0% | 0.988 TON |
-| 500 | 5.0% | 0.948 TON |
-| 1000 | 10.0% (max) | 0.898 TON |
+| 0 | 0% | 0.993 TON |
+| 10 | 0.1% | 0.992 TON |
+| 100 | 1.0% | 0.983 TON |
+| 500 | 5.0% | 0.943 TON |
+| 1000 | 10.0% (max) | 0.893 TON |
 
 `fee_bps` is validated against `MAX_FEE_BPS = 1000` at deploy time. Values above 10% are rejected by the Factory.
 

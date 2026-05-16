@@ -1,73 +1,95 @@
 # ORBIT — Recurring Payments on TON
 
-ORBIT — модульная библиотека смарт-контрактов для подписочного биллинга на блокчейне TON. Позволяет любому сервису принимать регулярные платежи в TON или Jetton-токенах без необходимости строить биллинговую инфраструктуру с нуля.
+ORBIT is a modular smart-contract library for subscription billing on the TON blockchain. Any service can accept recurring payments in TON or Jetton tokens without building billing infrastructure from scratch.
 
 ```
 Subscriber ──► Factory ──► Subscription ──► Service
                                 │
-                                └──► FeeCollector (protocol fee)
+                                └──► FeeCollector (protocol fee 1.5%)
 ```
 
-> **Статус (май 2026):** контракты задеплоены на testnet, E2E-тест пройден — 6 успешных списаний подтверждены через webhook. Mainnet-деплой — следующий шаг.
+> **Status (May 2026):** contracts deployed on testnet, E2E cycle confirmed — 6 successful charges verified via webhook. Mainnet deployment is next.
 
 ---
 
-## Содержание
+## Why ORBIT exists
 
-- [Возможности](#возможности)
-- [Архитектура](#архитектура)
-- [Быстрый старт](#быстрый-старт)
-- [Деплой](#деплой)
-- [Интеграция бэкенда](#интеграция-бэкенда)
-- [Сборка и тесты](#сборка-и-тесты)
-- [Адреса testnet](#адреса-testnet)
-- [Структура репозитория](#структура-репозитория)
-- [Комиссии](#комиссии)
-- [Безопасность](#безопасность)
-- [Лицензия](#лицензия)
+**TON has no pull mechanism.** Unlike a credit card or bank account, you cannot debit a TON wallet without the owner signing every transaction. This means traditional recurring billing — charge the user automatically each month — is impossible on-chain without a dedicated contract.
+
+The naive alternative is to ask users to pay manually each period. In practice this kills retention:
+
+- Users who must re-approve a payment every month show **50%+ churn** compared to set-and-forget subscriptions.
+- You cannot remind them — there are no push notifications tied to wallet addresses.
+- Friction compounds: one missed period and the user is gone.
+
+ORBIT solves this with a **deposit model**. The subscriber funds a personal Subscription contract once. After that, charges happen automatically — triggered by a relayer or any permissionless keeper — with no further action required from the user.
 
 ---
 
-## Возможности
+## Table of contents
 
-- **TON и Jetton-биллинг** — нативная монета или любой TEP-74 токен
-- **Депозитная модель** — подписчик пополняет баланс заранее; нет pull-платежей
-- **Keeper-сеть** — любой желающий может триггерить списания и получать вознаграждение
-- **Грейс-период + ретрай** — 3 дня до отмены при нехватке средств
-- **Подписки с фиксированным сроком** — опциональный лимит `max_periods` с автоотменой
-- **Смена тарифа** — подписчик запрашивает переход; фабрика маршрутизирует безопасно
-- **Timelock-вывод комиссий** — 24-часовая задержка на вывод протокольной комиссии
-- **Полная проверяемость** — все денежные потоки детерминированы и верифицируемы on-chain
+- [Features](#features)
+- [Architecture](#architecture)
+- [Quick start](#quick-start)
+- [Deployment](#deployment)
+- [Backend integration](#backend-integration)
+- [Build and tests](#build-and-tests)
+- [Testnet addresses](#testnet-addresses)
+- [Repository structure](#repository-structure)
+- [Fees](#fees)
+- [Security](#security)
+- [License](#license)
 
 ---
 
-## Архитектура
+## Features
 
-| Контракт | Назначение |
+- **TON and Jetton billing** — native coin or any TEP-74 token (e.g. USDT)
+- **Deposit model** — subscriber pre-funds once; no pull payments, no repeated approvals
+- **Keeper network** — any third party can trigger charges and earn a reward (permissionless)
+- **Grace period + retry** — 3-day grace window before cancellation on insufficient funds
+- **Fixed-term subscriptions** — optional `max_periods` cap with automatic cancellation
+- **Plan change** — subscriber requests upgrade/downgrade; factory routes safely
+- **Timelock withdrawals** — 24-hour delay on protocol fee withdrawals
+- **Fully verifiable** — all money flows are deterministic and auditable on-chain
+- **Registry integration** — one transaction to deploy a fully configured Factory
+
+---
+
+## Architecture
+
+| Contract | Role |
 |---|---|
-| `Registry` | Точка входа для сервис-разработчиков; деплоит Factory с enforced-комиссиями ORBIT |
-| `Factory` | Деплоит Subscription-контракты; хранит реестр тарифов; маршрутизирует смену тарифов |
-| `Subscription` | Биллинговое состояние одного пользователя; хранит депозит подписчика |
-| `FeeCollector` | Накапливает протокольные комиссии; двухфазный вывод с timelock'ом |
+| `Registry` | Entry point for service developers — deploys Factory with ORBIT fee settings enforced |
+| `Factory` | Deploys Subscription contracts; stores plan registry; routes plan changes |
+| `Subscription` | Per-user billing state; holds the subscriber's deposit |
+| `FeeCollector` | Accumulates protocol fees; two-phase withdrawal with 24h timelock |
 
-### Поток платежа
+### Payment flow
 
 ```
-Подписчик пополняет Subscription (при подписке)
+Subscriber funds Subscription (at subscribe time)
      │
-     ▼  каждый period секунд — trigg от relayer/keeper
-Subscription.OP_CHARGE_EXT  ←── внешнее сообщение с Ed25519-подписью
+     ▼  every `period` seconds — triggered by relayer or keeper
+Subscription.OP_CHARGE_EXT  ◄── external message with Ed25519 signature
      │
-     ├── protocol_fee (0.2%, вшита в байткод) ──► FeeCollector
-     ├── service_fee  (fee_bps, задаётся при деплое Factory) ──► fee_collector
-     └── net_amount ──────────────────────────────────────────► Service
+     ├── protocol_fee (1.5%, hardcoded in bytecode) ──► FeeCollector
+     ├── service_fee  (fee_bps, set at Factory deploy) ──► fee_collector
+     └── net_amount ────────────────────────────────────► Service wallet
 ```
+
+### Key security properties
+
+- The subscriber's deposit lives in **their own contract** — you never hold their funds.
+- `fee_bps` and `fee_collector` are **immutable after Factory deploy** — baked in by Registry, cannot be changed by the service operator.
+- The protocol fee (1.5%) is **hardcoded in Subscription bytecode** — impossible to bypass without recompiling, which changes the contract hash and makes it detectable.
+- A compromised relayer key can trigger charges but **cannot steal funds** or modify state beyond a legitimate charge.
 
 ---
 
-## Быстрый старт
+## Quick start
 
-### 1. Клонирование и установка зависимостей
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/Skiba111/orbit-ton.git
@@ -75,105 +97,106 @@ cd orbit-ton
 npm install
 ```
 
-### 2. Настройка .env
+### 2. Configure .env
 
-Создайте файл `.env` в корне репозитория:
+Create a `.env` file in the repository root:
 
 ```env
-# .env — НИКОГДА не коммитьте этот файл (он в .gitignore)
+# .env — NEVER commit this file (it is in .gitignore)
 
-# --- Деплой ---
-WALLET_MNEMONIC="слово1 слово2 ... слово24"   # кошелёк для оплаты деплоя
-FEE_COLLECTOR_PUBKEY="abcdef1234..."           # hex Ed25519 pubkey для fee-collector ключа
-TONCENTER_API_KEY="ваш_ключ"                  # необязательно, повышает лимиты
-NETWORK=testnet                                # testnet | mainnet
-WALLET_VERSION=v5                              # v4 | v5 (v5 = Tonkeeper)
+# --- Deploy ---
+WALLET_MNEMONIC="word1 word2 ... word24"     # wallet that pays for deployment
+FEE_COLLECTOR_PUBKEY="abcdef1234..."          # hex Ed25519 pubkey for the fee-collector key
+TONCENTER_API_KEY="your_key"                  # optional, increases rate limits
+NETWORK=testnet                               # testnet | mainnet
+WALLET_VERSION=v5                             # v4 | v5 (v5 = Tonkeeper)
 
-# --- Relayer (на сервере) ---
-FACTORY_ADDRESS="EQD..."                       # адрес задеплоенной Factory
-RELAYER_MNEMONIC="слово1 слово2 ... слово24"  # отдельный ключ для relayer
-POLL_INTERVAL_MS=60000                         # интервал опроса, мс
-WEBHOOK_URL=https://yourapp.com/orbit/webhook  # URL для уведомлений о списаниях
-WEBHOOK_SECRET=длинная-случайная-строка        # общий секрет с webhook-сервером
+# --- Relayer (on your server) ---
+FACTORY_ADDRESS="EQD..."                      # address of the deployed Factory
+RELAYER_MNEMONIC="word1 word2 ... word24"    # separate key for relayer
+POLL_INTERVAL_MS=60000                        # polling interval in ms
+WEBHOOK_URL=https://yourapp.com/orbit/webhook # URL for charge notifications
+WEBHOOK_SECRET=long-random-string             # shared secret with webhook server
 ```
 
-### 3. Компиляция и тесты
+### 3. Build and test
 
 ```bash
-npm test   # запускает все тесты (Blueprint sandbox)
+npm test   # runs all tests in Blueprint sandbox
 ```
 
-### 4. Интеграция через Registry (для сервис-разработчиков)
+### 4. Register via Registry (recommended for service developers)
 
-Если ORBIT Registry уже задеплоен, вам не нужно деплоить Factory вручную:
+If an ORBIT Registry is already deployed, you do not need to deploy a Factory manually:
 
 ```bash
-# .env: добавьте REGISTRY_ADDRESS=EQD... (адрес ORBIT Registry)
+# Add to .env:
+# REGISTRY_ADDRESS=EQD...  ← address of the ORBIT Registry
 ts-node scripts/register-service.ts
-# → Отправляет 0.3 TON на Registry
-# → Registry деплоит Factory с вашим кошельком как service_addr
-# → Выводит адрес вашей Factory — скопируйте в FACTORY_ADDRESS
+# → Sends 0.3 TON to Registry
+# → Registry deploys a Factory with your wallet as service_addr
+# → Prints your Factory address — copy it into FACTORY_ADDRESS
 ```
 
-### 4а. Ручной деплой Factory (для ORBIT-оператора)
+### 4a. Manual Factory deploy (for the ORBIT operator)
 
 ```bash
 ts-node scripts/deploy-standalone.ts
 ```
 
-Скрипт интерактивно запросит параметры Factory и задеплоит FeeCollector + Factory. На выходе — адреса обоих контрактов.
+The script interactively prompts for Factory parameters and deploys FeeCollector + Factory. Output: addresses of both contracts.
 
-### 5. E2E тест (проверка полного цикла)
+### 5. E2E test (full cycle verification)
 
 ```bash
 ts-node scripts/test-e2e.ts
 ```
 
-Деплоит тестовую Factory с period=120s, отправляет подписку, проверяет webhook.
+Deploys a test Factory with period=120s, sends a subscribe transaction, verifies the webhook fires after the first charge.
 
 ---
 
-## Деплой
+## Deployment
 
-Полный гайд: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**
+Full guide: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**
 
-Краткая схема:
-1. Сгенерировать два Ed25519 ключа: один для relayer (hot), один для fee-collector (cold)
-2. Задеплоить через `ts-node scripts/deploy-standalone.ts`
-3. Запустить relayer и webhook-сервер через PM2 на VPS
+Short version:
+1. Generate two Ed25519 keys: one for the relayer (hot), one for the fee-collector (cold, stored offline).
+2. Deploy via `ts-node scripts/deploy-standalone.ts`.
+3. Run the relayer and webhook server on a VPS (PM2 recommended for process management).
 
 ---
 
-## Интеграция бэкенда
+## Backend integration
 
-### Отправка подписки (frontend → Factory)
+### Sending a subscription (frontend → Factory)
 
 ```typescript
 import { beginCell, toNano } from "@ton/core";
 
-// Тело сообщения: op(32) + query_id(64) + plan_id(32) + payment_type(2)
-// PAYMENT_TON = 1,  PAYMENT_JETTON = 2,  0 — НЕВАЛИДНО
+// Message body: op(32) + query_id(64) + plan_id(32) + payment_type(2)
+// PAYMENT_TON = 1,  PAYMENT_JETTON = 2  (0 is INVALID)
 const body = beginCell()
     .storeUint(0x4F520001, 32)  // OP_SUBSCRIBE
-    .storeUint(0,           64)  // query_id (можно 0)
-    .storeUint(0,           32)  // plan_id = 0 (первый тариф)
-    .storeUint(1,            2)  // payment_type = TON
+    .storeUint(0,           64)  // query_id (0 is fine)
+    .storeUint(0,           32)  // plan_id = 0 (first plan)
+    .storeUint(1,            2)  // payment_type = TON (must be 1, not 0)
     .endCell();
 
-// value = plan_price + 0.1 TON минимум (gas + storage reserve)
-// Рекомендуем: plan_price + 0.2 TON
+// value = plan_price + at least 0.1 TON (gas + storage reserve)
+// Recommended: plan_price + 0.2 TON
 await tonconnect.sendTransaction({
     messages: [{
         address: FACTORY_ADDRESS,
-        amount:  String(toNano("0.4")),   // для тарифа 0.2 TON
+        amount:  String(toNano("0.4")),   // for a 0.2 TON plan
         payload: body.toBoc().toString("base64"),
     }],
 });
 ```
 
-### Webhook — получение событий списания
+### Receiving charge events (webhook)
 
-После каждого подтверждённого списания relayer шлёт POST на `WEBHOOK_URL`:
+After each confirmed charge, the relayer sends a POST to `WEBHOOK_URL`:
 
 ```json
 {
@@ -185,11 +208,11 @@ await tonconnect.sendTransaction({
 }
 ```
 
-`address` — адрес Subscription-контракта подписчика. Используйте его для выдачи доступа в вашей системе.
+`address` is the subscriber's Subscription contract address. Use it to look up the user and grant access in your system.
 
-Готовый пример webhook-сервера: [`scripts/webhook-server.ts`](scripts/webhook-server.ts)
+Ready-to-use webhook server: [`scripts/webhook-server.ts`](scripts/webhook-server.ts)
 
-### Проверка статуса подписки (on-chain)
+### Checking subscription status (on-chain)
 
 ```typescript
 import { TonClient, Address } from "@ton/ton";
@@ -201,103 +224,109 @@ const client = new TonClient({
 });
 
 const sub = client.open(
-    Subscription.createFromAddress(Address.parse("EQD...адрес_подписки..."))
+    Subscription.createFromAddress(Address.parse("EQD...subscription_address..."))
 );
 
-const status  = await sub.getStatus();           // 1=TRIAL 2=ACTIVE 3=PAUSED 4=GRACE 5=CANCELLED
-const seqno   = await sub.getSeqno();            // количество успешных списаний
-const billing = await sub.getNextBillingTime();  // unix timestamp следующего списания
+const status      = await sub.getStatus();           // 1=TRIAL 2=ACTIVE 3=PAUSED 4=GRACE 5=CANCELLED
+const seqno       = await sub.getSeqno();            // number of successful charges
+const nextBilling = await sub.getNextBillingTime();  // unix timestamp of next charge
 ```
 
-Подробнее: **[docs/INTEGRATION.md](docs/INTEGRATION.md)**
+Full guide: **[docs/INTEGRATION.md](docs/INTEGRATION.md)**
 
 ---
 
-## Сборка и тесты
+## Build and tests
 
 ```bash
 npm install
-npm test                       # unit + integration тесты (Blueprint sandbox)
-ts-node scripts/test-e2e.ts    # E2E на testnet (требует .env с реальными ключами)
+npm test                       # unit + integration tests (Blueprint sandbox)
+ts-node scripts/test-e2e.ts    # E2E on testnet (requires .env with real keys)
 ```
+
+Test suite: 71 tests across security, integration, and Registry scenarios.
 
 ---
 
-## Адреса testnet
+## Testnet addresses
 
-| Контракт | Адрес |
+| Contract | Address |
 |---|---|
 | FeeCollector | `EQDDU30Vfvjf4wVgyw5Mzh3aMmcvP7Y0sFb2zQ-2tTNbadze` |
-| Factory (production: 1 TON/мес + 5 TON/мес) | `EQADc2gC0KFW-vNPeHJ18EFG81YMBWwR6qQsbSSaWCUmQuJ2` |
-| Factory (E2E тест: 0.2 TON / 2 мин) | `EQDYJOcdv9C_Uf3tNqCvgPuAQT-hVxLdOEfJePtSiR_YjVCS` |
+| Factory (production: 1 TON/month + 5 TON/month plans) | `EQADc2gC0KFW-vNPeHJ18EFG81YMBWwR6qQsbSSaWCUmQuJ2` |
+| Factory (E2E test: 0.2 TON / 2 min) | `EQDYJOcdv9C_Uf3tNqCvgPuAQT-hVxLdOEfJePtSiR_YjVCS` |
 | Relayer pubkey | `52dfadb8e95cfce76eb724f79758ad9c06117913f3a080f7f749d130216338a8` |
 
-> Mainnet-адреса будут опубликованы после mainnet-деплоя.
+> Mainnet addresses will be published after mainnet deployment.
 
 ---
 
-## Структура репозитория
+## Repository structure
 
 ```
-contracts/              Tolk-контракты: Subscription, Factory, FeeCollector
-billing/                Движок списания, роутер комиссий, планировщик ретраев
-payment/                Адаптеры платежей: TON и Jetton
-plans/                  Реестр тарифов и логика trial-периода
-core/                   Схема хранения, арифметика периодов, состояние подписки
-access/                 Менеджер ролей, аварийная пауза
-utils/                  Коды ошибок, опкоды, математика, oracle времени
-wrappers/               TypeScript-обёртки для Blueprint/sandbox-тестов
-tests/                  Тесты безопасности и интеграции
+contracts/              Tolk contracts: Subscription, Factory, Registry, FeeCollector
+billing/                Billing engine, fee router, retry scheduler
+payment/                Payment adapters: TON and Jetton
+plans/                  Plan registry and trial period logic
+core/                   Storage schema, period arithmetic, subscription state
+access/                 Role manager, emergency pause
+utils/                  Error codes, opcodes, math helpers, time oracle
+wrappers/               TypeScript wrappers for Blueprint/sandbox tests
+tests/                  Security, integration, and Registry test suites
 scripts/
-  deploy-standalone.ts  Деплой FeeCollector + Factory (без Blueprint, через TonCenter REST)
-  relayer.ts            Charge-relayer: WAL, exponential backoff, webhook, keeper-mode
-  webhook-server.ts     Пример webhook-получателя для вашего бэкенда
-  test-e2e.ts           E2E тест: деплой тестовой Factory → подписка → списание → webhook
-  patch-ton-core.ts     Полифил domainSign для @ton/core@0.56.x + @ton/ton@16
-sdk/react/              @orbit-ton/react — React hooks и компоненты (в разработке, не опубликован)
-docs/                   Документация разработчика
+  deploy-standalone.ts  Deploy FeeCollector + Factory (no Blueprint, via TonCenter REST)
+  register-service.ts   Register through Registry to get a managed Factory
+  relayer.ts            Charge relayer: WAL, exponential backoff, webhook, keeper mode
+  webhook-server.ts     Example webhook receiver for your backend
+  test-e2e.ts           E2E test: deploy test Factory → subscribe → charge → webhook
+  patch-ton-core.ts     domainSign polyfill for @ton/core@0.56.x + @ton/ton@16
+sdk/react/              @orbit-ton/react — React hooks and components (not yet published)
+docs/                   Developer documentation
 ```
 
 ---
 
-## Комиссии
+## Fees
 
-Каждый биллинговый цикл вычитает **две комиссии** из суммы тарифа перед отправкой сервису:
+Every billing cycle deducts **two fees** from the plan amount before sending to the service:
 
-| Комиссия | Кто устанавливает | Куда идёт | Значение |
-|-----|------------|---------------|----------|
-| **Service fee** | Оператор Factory (`fee_bps`) | `fee_collector` фабрики | 0 – 10% (configurable) |
-| **Protocol fee** | Вшита в байткод (`PROTOCOL_FEE_BPS = 20`) | ORBIT `protocol_fee_collector` | 0.2% (фиксировано) |
+| Fee | Set by | Destination | Value |
+|---|---|---|---|
+| **Service fee** | Factory operator (`fee_bps`) | Factory's `fee_collector` | 0 – 10% (configurable) |
+| **Protocol fee** | Hardcoded in bytecode (`PROTOCOL_FEE_BPS = 150`) | ORBIT `protocol_fee_collector` | 1.5% (fixed) |
 
-**Пример** — тариф 1 TON/месяц, service fee = 1% (100 bps):
+**Example** — plan price 1 TON/month, service fee = 0% (default):
 - Gross: 1.000 TON
-- Protocol fee (0.2%): 0.002 TON → ORBIT
-- Service fee (1%): 0.010 TON → fee_collector
-- **Сервис получает**: 0.988 TON
+- Protocol fee (1.5%): 0.015 TON → ORBIT
+- Service fee (0%): 0.000 TON
+- **Service receives**: 0.993 TON
 
-Протокольная комиссия вшита в байткод — её нельзя изменить без перекомпиляции, что даст другой hash байткода.
+The protocol fee is compiled into the Subscription bytecode — it cannot be modified without recompiling, which produces a different contract hash and is trivially detectable on-chain.
 
-Подробнее: [docs/PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md)
+Full fee model: [docs/PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md)
 
 ---
 
-## Безопасность
+## Security
 
-| Защита | Механизм |
+| Protection | Mechanism |
 |---|---|
-| Replay-атаки | seqno + timestamp window (60s) на внешних сообщениях |
-| Двойное списание | флаг `charging_in_progress` для Jetton; `next_billing_time` для TON |
-| Истощение storage | `raw_reserve(storage_reserve, 0)` перед каждым send |
-| Bounce восстановление | депозит возвращается если платёжное сообщение отбито |
-| Компрометация ключа | 24-часовой timelock на вывод из FeeCollector |
-| Подмена подписки | Factory хранит sub_addr в `subscriber_info` — адрес не берётся от caller'а |
+| Replay attacks | seqno + 60s timestamp window on all external messages |
+| Double charge | `charging_in_progress` flag for Jetton; `next_billing_time` for TON |
+| Storage depletion | `raw_reserve(storage_reserve, 0)` before every send |
+| Bounce recovery | Deposit is restored if a payment message bounces |
+| Key compromise | 24h timelock on FeeCollector withdrawals |
+| Subscription spoofing | Factory stores `sub_addr` in `subscriber_info` — address is never taken from the caller |
+| Fee bypass | `fee_bps` is immutable after Factory deploy; `split_fee()` asserts cap at charge time |
+| Jetton griefing | TON deposits only update `deposit` when `payment_type == PAYMENT_TON` |
 
-Подробнее: [docs/SECURITY.md](docs/SECURITY.md)
+Full details: [docs/SECURITY.md](docs/SECURITY.md)
 
 ---
 
-## Лицензия
+## License
 
-Business Source License 1.1 — бесплатно для некоммерческого использования.
-Переходит в MIT 2029-05-15.
-Коммерческое лицензирование: skibatima9@gmail.com
+[Business Source License 1.1](LICENSE) — free for non-commercial use.  
+Converts to MIT on **2029-05-15**.  
+Commercial licensing: skibatima9@gmail.com
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   

@@ -55,9 +55,9 @@ Key properties:
 ### Testnet E2E confirmed ✅
 
 **E2E cycle verified on testnet:**
-- Factory: `EQDYJOcdv9C_Uf3tNqCvgPuAQT-hVxLdOEfJePtSiR_YjVCS` (period=120s)
-- Subscription: `EQAem3BPC7PvJzPGItrwNDVizMSqFIZ0nUDZvebfB4NBDn5w`
-- 6 confirmed charges via relayer, all received by webhook
+- Test Factory deployed with period=120s, price=0.2 TON
+- 6 confirmed charges triggered by relayer, all received by webhook
+- Full cycle confirmed: subscribe → charge × 6 → webhook
 
 **Bug fixes discovered during E2E:**
 - `scripts/relayer.ts`: TonCenter v2 API returns StateInit in `msg_data.init_state`, not `msg_data.init` — fixed detection logic

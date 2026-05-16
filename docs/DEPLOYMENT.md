@@ -87,8 +87,8 @@ The script:
 ║                ORBIT Deployment Complete ✅                   ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║  Network      : testnet
-║  FeeCollector : EQDDU30Vfvjf4wVgyw5Mzh3aMmcvP7Y0sFb2zQ-2tTNbadze
-║  Factory      : EQADc2gC0KFW-vNPeHJ18EFG81YMBWwR6qQsbSSaWCUmQuJ2
+║  FeeCollector : EQD<your_fee_collector_address>
+║  Factory      : EQD<your_factory_address>
 ╠═══════════════════════════════════════════════════════════════╣
 ║  → Copy Factory address to FACTORY_ADDRESS in your .env      ║
 ╚═══════════════════════════════════════════════════════════════╝
@@ -273,9 +273,13 @@ There is no upgrade mechanism by design — this is a security property. Subscri
 
 ## Address reference
 
-| Contract | Testnet | Mainnet |
-|---|---|---|
-| FeeCollector | `EQDDU30Vfvjf4wVgyw5Mzh3aMmcvP7Y0sFb2zQ-2tTNbadze` | *(after deploy)* |
-| Factory (production) | `EQADc2gC0KFW-vNPeHJ18EFG81YMBWwR6qQsbSSaWCUmQuJ2` | *(after deploy)* |
-| Factory (E2E test) | `EQDYJOcdv9C_Uf3tNqCvgPuAQT-hVxLdOEfJePtSiR_YjVCS` | — |
-| Relayer pubkey | `52dfadb8e95cfce76eb724f79758ad9c06117913f3a080f7f749d130216338a8` | *(may differ)* |
+After deployment, save your contract addresses for reference:
+
+| Contract | Address |
+|---|---|
+| FeeCollector | *(printed by deploy script)* |
+| Registry | *(printed by deploy script)* |
+| Factory | *(printed after `register-service.ts`)* |
+
+> Testnet and mainnet addresses are environment-specific and not published here.  
+> Verify deployed contracts against the hashes in [BYTECODE_HASHES.md](BYTECODE_HASHES.md).

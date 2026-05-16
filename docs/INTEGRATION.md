@@ -133,7 +133,7 @@ After each confirmed charge, the relayer sends a POST to your `WEBHOOK_URL`:
 ```json
 {
   "event":      "charge_confirmed",
-  "address":    "EQAem3BPC7PvJzPGItrwNDVizMSqFIZ0nUDZvebfB4NBDn5w",
+  "address":    "EQD_your_subscription_contract_address_here",
   "seqno_from": 0,
   "seqno_to":   1,
   "timestamp":  1747374000

@@ -1,97 +1,82 @@
-# ORBIT Protocol Fee
+# Protocol Fee Model
 
-## What it is
+## Overview
 
-ORBIT charges a **0.2% protocol fee** on every billing cycle processed through an official ORBIT Subscription contract. This fee funds ORBIT protocol development and infrastructure.
+Every ORBIT billing cycle deducts two fees from the gross plan amount before sending the remainder to the service:
 
-| Constant | Value | Location |
-|----------|-------|----------|
-| `PROTOCOL_FEE_BPS` | `20` (0.2%) | `utils/protocol-config.tolk` — compiled into bytecode |
-| `PROTOCOL_FEE_COLLECTOR_HASH` | 256-bit hash of ORBIT wallet | `utils/protocol-config.tolk` — compiled into bytecode |
+| Fee | Rate | Who sets it | Recipient | Changeable? |
+|-----|------|-------------|-----------|-------------|
+| **Protocol fee** | 0.2% (hardcoded) | ORBIT team — baked into bytecode | ORBIT `FeeCollector` | No — changing it requires recompiling with a different hash |
+| **Service fee** | 0–10% (`fee_bps`) | Factory deployer at deploy time | Service `fee_collector` | No — immutable per factory after deploy |
 
-## Why it is hardcoded in bytecode
+**Net received by service** = `plan_price × (1 − fee_bps/10000 − 0.002)`
 
-The fee constants are compiled into the Subscription contract binary, not stored in contract storage. This means:
+### Example — 1 TON/month plan, service fee 1% (100 bps)
 
-- **No service operator can change or bypass the fee.** No `save_storage`, no admin message, no factory configuration can alter what is baked into bytecode.
-- **Verifiability.** Anyone can compare the deployed contract's code hash against the published ORBIT bytecode hash. A different hash means different bytecode — and possibly no protocol fee (i.e., not official ORBIT).
-- **Immutability per subscription.** Once a Subscription is deployed, its fee rate and collector address are fixed for the lifetime of that contract.
+| Flow | Amount | Destination |
+|------|--------|-------------|
+| Gross | 1.000 TON | — |
+| Protocol fee (0.2%) | 0.002 TON | ORBIT `FeeCollector` |
+| Service fee (1%) | 0.010 TON | Service `fee_collector` |
+| **Net to service** | **0.988 TON** | `service_addr` |
 
-## How the fee flows
+### Pricing formula
 
-```
-Billing cycle fires
-    │
-    ├─ gross_amount deducted from subscriber deposit
-    │
-    ├─ protocol_fee = gross_amount × PROTOCOL_FEE_BPS / 10000
-    │       └─ sent to protocol_fee_collector (bounceable)
-    │              └─ if bounced → restored to subscriber deposit
-    │
-    ├─ service_fee = gross_amount × fee_bps / 10000
-    │       └─ sent to factory fee_collector (bounceable)
-    │
-    └─ net_amount = gross_amount − protocol_fee − service_fee
-            └─ sent to service address
-```
-
-All three sends are bounceable. If any bounces, the deposit is restored and the billing time rolls back — the subscriber is never silently drained.
-
-## Verifying official ORBIT bytecode
-
-To verify that a deployed Subscription is using unmodified ORBIT bytecode:
-
-```bash
-# 1. Get the code hash of any deployed Subscription contract
-# (via TonCenter, tonscan.org, or any TON indexer)
-
-# 2. Build the official ORBIT Subscription from source
-npm run build
-
-# 3. Print its code hash
-node -e "
-const { Cell } = require('@ton/core');
-const { compileTolk } = require('./tests/helpers/compileTolk');
-compileTolk('subscription').then(code => {
-    console.log('Official code hash:', code.hash().toString('hex'));
-});
-"
-
-# 4. Compare the two hashes
-```
-
-A match confirms the deployed contract uses the official ORBIT bytecode — with 0.2% protocol fee intact and routing to the published ORBIT wallet.
-
-## Rotating the protocol fee collector
-
-The ORBIT team may need to redirect fees to a new wallet (key rotation, multisig upgrade, etc.). This is done per-factory via `OP_UPDATE_PROTOCOL_COLLECTOR`:
-
-- **Who can call it**: only the current `protocol_fee_collector` address (not the service owner)
-- **Effect**: updates the `protocol_fee_collector` field in that factory's storage
-- **Scope**: affects only new subscriptions deployed through that factory after the update; existing subscriptions use the address that was set at their deploy time
-
-```typescript
-// Factory wrapper — called by the ORBIT team from their wallet
-await factory.sendUpdateProtocolCollector(orbitWallet.getSender(), newCollectorAddress);
-```
-
-New subscriptions subsequently deployed through this factory will have `protocol_fee_collector = newCollectorAddress` in their state. Existing subscriptions are unaffected.
-
-## For service operators
-
-You do not control the protocol fee. When deploying a Factory, you pass the ORBIT-published `protocolFeeCollector` address. This address is baked into every Subscription your Factory deploys.
-
-When setting plan prices, account for the 0.2% protocol fee:
+To deliver a target net amount to the service:
 
 ```
-minimum_plan_price = desired_net_revenue / (1 − service_fee_rate − 0.002)
+plan_price = desired_net / (1 − service_fee_rate − 0.002)
 ```
 
-Example — you want to net 9.80 TON/month with a 1% service fee:
-```
-minimum_plan_price = 9.80 / (1 − 0.01 − 0.002) = 9.80 / 0.988 ≈ 9.919 TON
-```
+Example: to net 1 TON with 1% service fee → `plan_price = 1 / (1 − 0.01 − 0.002) ≈ 1.012 TON`
 
-## For subscribers
+---
 
-The plan price shown in the UI is the gross amount deducted from your deposit per cycle. The service receives slightly less after fees. You can always verify the fee split by reading the subscription's `feeBps` getter (service fee) — the 0.2% protocol fee is always present regardless of what `feeBps` says.
+## Protocol fee implementation
+
+`PROTOCOL_FEE_BPS = 20` is a compile-time constant in `utils/protocol-config.tolk`. It is compiled into every Subscription contract's bytecode. There is no storage slot, no setter, and no admin function that can alter it at runtime.
+
+A service that wants to avoid the protocol fee must compile its own Subscription bytecode — the resulting code hash will differ from the published ORBIT hash, making it immediately detectable on-chain.
+
+### Verifying the bytecode hash
+
+Subscribers can verify their Subscription contract uses official ORBIT code by comparing the on-chain code hash against the published hash in the ORBIT repository. Any ORBIT explorer or TON indexer can fetch the code cell hash for a given contract address.
+
+---
+
+## Protocol fee collector address
+
+`PROTOCOL_FEE_COLLECTOR_HASH` is also a compile-time constant. All fees for subscriptions deployed from a given Factory go to the `protocol_fee_collector` address stored in that Factory's state at the time the Subscription was deployed.
+
+The ORBIT team can rotate this address for **new** subscriptions via `OP_UPDATE_PROTOCOL_COLLECTOR`. Only the current `protocol_fee_collector` wallet can issue this operation — not the factory owner. Existing deployed subscriptions continue sending to their original stored address and are unaffected by the rotation.
+
+---
+
+## FeeCollector withdrawal
+
+Protocol fees accumulate in the `FeeCollector` contract. Withdrawal is protected by a 24-hour two-phase timelock:
+
+1. **`OP_COLLECT`** — owner schedules a withdrawal; amount and destination are stored.
+2. **`OP_CONFIRM_COLLECT`** — after 24 hours, owner executes the withdrawal.
+
+If the owner key is compromised, the timelock window allows rotating the key and cancelling the pending withdrawal before funds move.
+
+---
+
+## Service fee (`fee_bps`) reference table
+
+| `fee_bps` | Service fee % | Net to service (on 1 TON plan) |
+|-----------|--------------|--------------------------------|
+| 0 | 0% | 0.998 TON |
+| 10 | 0.1% | 0.997 TON |
+| 100 | 1.0% | 0.988 TON |
+| 500 | 5.0% | 0.948 TON |
+| 1000 | 10.0% (max) | 0.898 TON |
+
+`fee_bps` is validated against `MAX_FEE_BPS = 1000` at deploy time. Values above 10% are rejected by the Factory.
+
+---
+
+## Jetton subscriptions
+
+For Jetton subscriptions (e.g. USDT), the plan price is paid in Jetton tokens. The **protocol fee is always collected in TON** — it is taken from the TON value attached to the charge message, not from the Jetton amount. This keeps the `FeeCollector` single-asset and ensures the protocol always receives spendable TON regardless of which Jetton is used.

@@ -43,18 +43,21 @@ When a subscription runs low on deposit, ORBIT does not cancel immediately. Inst
 
 ### Protocol fee always in TON
 
-Even for Jetton subscriptions, the protocol fee (`fee_bps` × amount) is paid in TON. This keeps FeeCollector simple (single asset), ensures the protocol always has gas to operate, and makes fee accounting deterministic regardless of which Jetton is used.
+Even for Jetton subscriptions, the protocol fee (0.2%, `PROTOCOL_FEE_BPS = 20`, hardcoded in bytecode) is collected in TON — not in the Jetton token. This keeps FeeCollector single-asset, ensures the protocol always has spendable TON, and makes fee accounting deterministic regardless of which Jetton is used. The service fee (`fee_bps`) is also taken in TON for Jetton subscriptions.
 
 ## Economic Model
 
 | Actor | Earns | Pays |
 |---|---|---|
-| Protocol operator | `fee_bps` × amount per charge | Deployment gas (one-time) |
-| Service | `net_amount` per charge | Nothing (deposit is subscriber's) |
+| ORBIT protocol | 0.2% of every charge (hardcoded in bytecode) | Deployment gas (one-time) |
+| Service / Factory deployer | `fee_bps` × amount (service fee, 0–10%) + `net_amount` | Nothing (deposit is subscriber's) |
 | Subscriber | The service product | Deposit + gas |
 | Keeper | 0.01 TON base + up to 0.01 TON bonus per charge | Transaction gas (~0.005 TON) |
 
-The protocol fee is configurable per Factory (0–10%) and is immutable for existing subscriptions once deployed.
+Two fees are deducted from every charge:
+
+- **Protocol fee**: 0.2% (`PROTOCOL_FEE_BPS = 20`), hardcoded in Subscription bytecode. Cannot be changed without recompiling. Sent to the ORBIT FeeCollector.
+- **Service fee** (`fee_bps`): 0–10%, set by the factory deployer at deploy time. Immutable for existing subscriptions once the Factory is deployed. Sent to the service's `fee_collector` address.
 
 ## Comparison with Alternatives
 

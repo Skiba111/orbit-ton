@@ -31,10 +31,12 @@
 //   relayer_pubkey   (256 bits)
 //
 // Ref 2 — protocol fee collector (267 bits):
-//   protocol_fee_collector (267 bits) — ORBIT's hardcoded collection address.
-//   Baked in at deploy time from PROTOCOL_FEE_COLLECTOR_HASH in protocol-config.tolk.
-//   Cannot be changed by the service; only the ORBIT team can rotate it via
-//   OP_UPDATE_PROTOCOL_COLLECTOR on the Factory (affects new subs only).
+//   protocol_fee_collector (267 bits) — ORBIT's fee collection address.
+//   Passed by the Factory at Subscription deploy time (from Factory storage).
+//   The Factory receives this address as a deploy-time parameter; it is NOT
+//   taken from PROTOCOL_FEE_COLLECTOR_HASH at runtime (that constant is a
+//   reference only). Cannot be changed by the service; only the ORBIT team
+//   can rotate it via OP_UPDATE_PROTOCOL_COLLECTOR on the Factory (new subs only).
 //
 // relayer_pubkey: Ed25519 public key; 0 = key-less (keeper_mode only).
 // factory_addr: address of the deploying Factory; used to authenticate

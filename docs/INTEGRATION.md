@@ -272,11 +272,14 @@ import { Factory } from "../wrappers/Factory";
 import { TonClient, Address } from "@ton/ton";
 
 const factory = client.open(Factory.createFromAddress(Address.parse(FACTORY_ADDRESS)));
-const plans = await factory.getPlans();
 
-for (const plan of plans) {
+// Получаем количество планов, затем загружаем каждый по отдельности
+const planCount = await factory.getPlanCount(provider);
+
+for (let planId = 0; planId < planCount; planId++) {
+    const plan = await factory.getPlanData(provider, planId);
     if (!plan.active) continue;
-    console.log(`Plan ${plan.planId}:`);
+    console.log(`Plan ${planId}:`);
     console.log(`  Цена:    ${plan.price / 1_000_000_000n} TON`);
     console.log(`  Период:  ${plan.period / 86400} дней`);
     console.log(`  Trial:   ${plan.trialPeriod > 0 ? plan.trialPeriod / 86400 + " дней" : "нет"}`);

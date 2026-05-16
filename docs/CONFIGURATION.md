@@ -13,7 +13,7 @@
 | `CHARGE_TOLERANCE_SEC` | 120 s | How early a charge can arrive before `next_billing_time` |
 | `MIN_PERIOD` | 3600 s (1 hour) | Minimum billing period |
 | `MAX_PERIOD` | 315360000 s (10 years) | Maximum billing period |
-| `MAX_FEE_BPS` | 1000 (10%) | Maximum protocol fee |
+| `MAX_FEE_BPS` | 1000 (10%) | Maximum service fee (`fee_bps`) |
 | `STORAGE_RESERVE` | set per sub | Minimum TON kept for rent (passed at deploy time) |
 
 ### Factory (`contracts/factory.tolk`)

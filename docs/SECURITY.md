@@ -46,11 +46,18 @@ In `keeper_mode = 1`, any external actor can trigger a charge by sending a valid
 
 `keeper_wallet` is validated as a non-null address (`!is_addr_none`) before `acceptExternalMessage()` is called. This prevents an external message with a zero address from causing the keeper reward to be sent to an invalid destination.
 
+### 15. Protocol fee is hardcoded in bytecode — cannot be bypassed
+
+`PROTOCOL_FEE_BPS = 150` (1.5%) and `PROTOCOL_FEE_COLLECTOR_HASH` are constants compiled into the Subscription contract bytecode. No `save_storage` call, no factory configuration, no operator action can change them without recompiling from source.
+
+A service that bypasses the protocol fee produces bytecode with a different code hash — trivially detectable on-chain against the published hashes in [BYTECODE_HASHES.md](BYTECODE_HASHES.md).
+
 ### 16. `fee_bps` is immutable after Factory deploy — no backdoor
 
 `fee_bps` is stored in Factory state at deploy time and cannot be changed afterwards. The `OP_UPDATE_FEE_BPS` handler was removed (it previously allowed the service owner to zero out ORBIT's platform fee after registering through the Registry). Additionally, `split_fee()` in the billing engine asserts `fee_bps <= MAX_FEE_BPS` at charge time as a belt-and-suspenders guard.
 
 ### 17. Registry enforces fee settings at the protocol level
+
 Service operators who register through the Registry receive a Factory with `fee_bps` and `fee_collector` baked in from Registry state. These values are copied into the Factory's immutable storage at deploy time — the service cannot change them after registration. This makes the ORBIT fee model trustless: the fee is set by the ORBIT operator and cannot be bypassed by any action of the service operator.
 
 ### 18. Jetton deposit isolation — empty-body TON does not inflate token balance
@@ -61,10 +68,4 @@ Without this guard, anyone could send TON with an empty body to inflate the appa
 
 ### 19. `OP_CHANGE_PLAN` minimum gas guard — Factory drain prevention
 
-`OP_CHANGE_PLAN` in the Factory forwards `FACTORY_DEPLOY_GAS` (0.05 TON) to the subscription via `OP_APPLY_PLAN`. Without a minimum `msg_value` guard, a subscriber could send near-zero-value plan-change messages and gradually drain the Factory's balance. The guard `assert(msg_value >= FACTORY_DEPLOY_GAS)` ensures the subscriber covers the forwarding cost.
-
-### 15. Protocol fee is hardcoded in bytecode — cannot be bypassed
-
-`PROTOCOL_FEE_BPS = 150` (1.5%) and `PROTOCOL_FEE_COLLECTOR_HASH` are constants compiled into the Subscription contract bytecode. No `save_storage` call, no factory configuration, no operator action can change them without recompiling from source.
-
-A service 
+`OP_CHANGE_PLAN` in the Factory forwards `FACTORY_DEPLOY_GAS` (0.05 TON) to the subscription via `OP_APPLY_PLAN`. Without a minimum `msg_value` guard, a subscriber could send near-zero-value plan-change messages and gradually drain the Factory's balance. The guard `assert(msg_value >= FACTORY_DEPLOY_GAS)` ensures the subscriber covers the forwarding cost. 

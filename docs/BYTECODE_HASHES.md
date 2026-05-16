@@ -19,18 +19,18 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 
 | Field | Value |
 |-------|-------|
-| **code_hash** (cell hash) | `38ca5fc8e3879a211926192edae425f7079c24f1b9fd1327cd49b31c11b6585f` |
-| **boc_sha256** (SHA-256 of serialised BOC) | `6392960bfbaae0fd71ff5b352f82c22e60206f45cb3009e9b392066c136241af` |
-| BOC size | 4318 bytes |
-| `get_version()` | `1` → `2` (v2 adds Jetton deposit isolation fix) |
+| **code_hash** (cell hash) | `334455420888a262996314f7d37d9752d36b02460817f7ff48fa17ae4fc60e41` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `5bd9c30dccde5e2878df1276aa6b3a1fdbc501bc4dffd9717fe94cc77f5793f3` |
+| BOC size | 4319 bytes |
+| `get_version()` | `2` |
 
 ## Factory contract (`contracts/factory.tolk`)
 
 | Field | Value |
 |-------|-------|
-| **code_hash** (cell hash) | `ae3db687280739351be2186c5d2e6d943035ac0124d3e3b2f4e878be8aa4e438` |
-| **boc_sha256** (SHA-256 of serialised BOC) | `2938f6df1fb0560a05843105115a9987f2ba6c3aae5ab6651326cbdd9c6214a3` |
-| BOC size | 2360 bytes |
+| **code_hash** (cell hash) | `ff41736ad5a446d9d5153fe29db20142da5e9adfe593f3cb1a26f4ec7acabcda` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `e59e41151ff4c78c305dbe09f56e7162de9d9e9c00526405f2ae86423d050dd0` |
+| BOC size | 2361 bytes |
 | `get_version()` | `2` |
 
 ## Registry contract (`contracts/registry.tolk`)
@@ -52,7 +52,8 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
   It is useful for file-level verification but depends on the serialiser version.
 - Both hashes above were produced with `optimizationLevel: 2` (the production default).
   Changing the optimisation level will change the hashes.
-- These hashes reflect **v0.1.2** with all security fixes applied:
+- These hashes reflect the current codebase with all security fixes applied:
+  - `PROTOCOL_FEE_BPS = 150` (1.5%) baked into Subscription and Factory bytecode
   - `OP_UPDATE_FEE_BPS` removed from Factory (fee_bps immutable)
   - Jetton deposit isolation fix in Subscription (empty-body payment_type guard)
   - `OP_CHANGE_PLAN` minimum msg_value guard in Factory
@@ -62,4 +63,4 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 
 ---
 
-*Last updated: 2026-05-16 — ORBIT v0.1.2*
+*Last updated: 2026-05-17 — ORBIT v0.1.2 (PROTOCOL_FEE_BPS = 150)*

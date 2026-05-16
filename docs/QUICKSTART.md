@@ -33,7 +33,7 @@ You'll see:
 ✅ Registered! Your Factory: EQAbc...xyz
 ```
 
-This deploys a Factory contract owned by your wallet with ORBIT's 0.5% platform fee baked in.
+This deploys a Factory contract owned by your wallet with ORBIT's 1.5% protocol fee baked into the Subscription bytecode.
 
 ---
 

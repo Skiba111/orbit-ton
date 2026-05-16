@@ -18,7 +18,7 @@ Every ORBIT billing cycle deducts two fees from the gross plan amount before sen
 | Gross | 1.000 TON | — |
 | Protocol fee (1.5%) | 0.015 TON | ORBIT `FeeCollector` |
 | Service fee (1%) | 0.010 TON | Service `fee_collector` |
-| **Net to service** | **0.983 TON** | `service_addr` |
+| **Net to service** | **0.975 TON** | `service_addr` |
 
 ### Pricing formula
 
@@ -65,13 +65,16 @@ If the owner key is compromised, the timelock window allows rotating the key and
 
 ## Service fee (`fee_bps`) reference table
 
+Protocol fee is always **1.5%** (0.015 TON on a 1 TON plan).  
+Net = `plan_price − protocol_fee(1.5%) − service_fee(fee_bps)`
+
 | `fee_bps` | Service fee % | Net to service (on 1 TON plan) |
 |-----------|--------------|--------------------------------|
-| 0 | 0% | 0.993 TON |
-| 10 | 0.1% | 0.992 TON |
-| 100 | 1.0% | 0.983 TON |
-| 500 | 5.0% | 0.943 TON |
-| 1000 | 10.0% (max) | 0.893 TON |
+| 0 | 0% | 0.985 TON |
+| 10 | 0.1% | 0.984 TON |
+| 100 | 1.0% | 0.975 TON |
+| 500 | 5.0% | 0.935 TON |
+| 1000 | 10.0% (max) | 0.885 TON |
 
 `fee_bps` is validated against `MAX_FEE_BPS = 1000` at deploy time. Values above 10% are rejected by the Factory.
 

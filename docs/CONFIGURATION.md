@@ -43,9 +43,9 @@ Every billing cycle deducts **two fees** from the gross plan amount before sendi
 **Net amount received by service** = `plan_price × (1 − fee_bps/10000 − 0.015)`
 
 Example — 10 TON/month plan, service fee 0% (default):
-- Protocol fee: 0.07 TON → ORBIT wallet
-- Service fee: 0 TON
-- **Net to service**: 9.93 TON
+- Protocol fee (1.5%): 0.15 TON → ORBIT FeeCollector
+- Service fee (0%): 0.00 TON
+- **Net to service**: 9.85 TON
 
 > **Important for pricing**: set `plan_price` high enough to cover both fees and still deliver the desired net revenue.
 > `plan_price = desired_net / (1 − service_fee_rate − 0.015)`
@@ -54,10 +54,10 @@ Example — 10 TON/month plan, service fee 0% (default):
 
 | fee_bps | Service fee % | Net to service (on 10 TON plan) |
 |---------|--------------|----------------------------------|
-| 0 | 0% | 9.93 TON |
-| 10 | 0.1% | 9.92 TON |
-| 100 | 1.0% | 9.83 TON |
-| 1000 | 10.0% (max) | 8.93 TON |
+| 0 | 0% | 9.85 TON |
+| 10 | 0.1% | 9.84 TON |
+| 100 | 1.0% | 9.75 TON |
+| 1000 | 10.0% (max) | 8.85 TON |
 
 Protocol fee is always 1.5% and is always collected in TON regardless of subscription payment type (TON or Jetton).
 
@@ -87,7 +87,7 @@ Used by `scripts/deploy-registry.ts` and `scripts/deploy-standalone.ts`.
 | `TONCENTER_API_KEY` | (empty) | TonCenter API key (recommended) |
 | `NETWORK` | `testnet` | `mainnet` or `testnet` |
 | `WALLET_VERSION` | `v5` | `v4` or `v5` (v5 = Tonkeeper / TG Wallet) |
-| `PLATFORM_FEE_BPS` | `50` | Platform fee baked into all Registry-deployed Factories (50 = 0.5%) |
+| `PLATFORM_FEE_BPS` | `0` | Additional platform fee baked into Registry-deployed Factories (0 = no extra fee; protocol fee 1.5% always applies regardless) |
 
 ## Service registration environment variables
 

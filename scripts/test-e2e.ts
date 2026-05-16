@@ -235,14 +235,17 @@ async function testSubscribe(
     });
 
     // Subscribe to plan 0 (0.2 TON / 2 min, no trial)
-    // Format: op(32) + query_id(64) + plan_id(32) + payment_type(2)
-    // Value:  plan_price(0.2) + gas(0.2) = 0.4 TON
-    const PAYMENT_TON = 0;
+    // Factory body format: op(32) + query_id(64) + plan_id(32) + payment_type(2)
+    // Factory always reads query_id(64) after op before processing!
+    // PAYMENT_TON = 1, PAYMENT_JETTON = 2  (0 is invalid → assert!)
+    // Value:  plan_price(0.2) + STORAGE_RESERVE(0.05) + FACTORY_DEPLOY_GAS(0.05) = 0.3 TON min
+    //         Sending 0.4 TON for extra safety margin.
+    const PAYMENT_TON = 1;
     const subscribeBody = beginCell()
         .storeUint(0x4F520001, 32) // FactoryOps.SUBSCRIBE
         .storeUint(0, 64)           // query_id
         .storeUint(0, 32)           // plan_id = 0
-        .storeUint(PAYMENT_TON, 2)  // payment_type = TON
+        .storeUint(PAYMENT_TON, 2)  // payment_type = TON (1)
         .endCell();
 
     const seqno = await getSeqno(walletAddr);

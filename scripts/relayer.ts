@@ -159,7 +159,7 @@ interface TonCenterTransaction {
     transaction_id: { lt: string; hash: string };
     out_msgs: Array<{
         destination: string;
-        msg_data: { "@type": string; init?: string; body?: string };
+        msg_data: { "@type": string; init?: string; init_state?: string; body?: string };
     }>;
 }
 
@@ -182,7 +182,7 @@ function collectSubscriptions(
 ): void {
     for (const tx of txns) {
         for (const msg of tx.out_msgs) {
-            if (msg.msg_data?.init && msg.destination && !known.has(msg.destination)) {
+            if ((msg.msg_data?.init || msg.msg_data?.init_state) && msg.destination && !known.has(msg.destination)) {
                 console.log(`[relayer] Discovered subscription: ${msg.destination}`);
                 db.subscriptions.push(msg.destination);
                 known.add(msg.destination);

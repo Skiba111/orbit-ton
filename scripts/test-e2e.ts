@@ -235,11 +235,14 @@ async function testSubscribe(
     });
 
     // Subscribe to plan 0 (0.2 TON / 2 min, no trial)
-    // Send: price (0.2) + gas (0.3) = 0.5 TON
+    // Format: op(32) + query_id(64) + plan_id(32) + payment_type(2)
+    // Value:  plan_price(0.2) + gas(0.2) = 0.4 TON
+    const PAYMENT_TON = 0;
     const subscribeBody = beginCell()
-        .storeUint(0x5fcc3d14, 32) // op::subscribe
+        .storeUint(0x4F520001, 32) // FactoryOps.SUBSCRIBE
         .storeUint(0, 64)           // query_id
-        .storeUint(0, 8)            // plan_id = 0
+        .storeUint(0, 32)           // plan_id = 0
+        .storeUint(PAYMENT_TON, 2)  // payment_type = TON
         .endCell();
 
     const seqno = await getSeqno(walletAddr);
@@ -247,7 +250,7 @@ async function testSubscribe(
 
     await sendTx(walletAddr, walletInit, seqno, walletV5, secretKey, [{
         to:     factory.address,
-        value:  toNano("0.5"),
+        value:  toNano("0.4"),   // plan_price(0.2) + gas(0.2)
         bounce: true,
         body:   subscribeBody,
     }]);

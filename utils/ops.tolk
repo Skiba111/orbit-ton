@@ -69,4 +69,4 @@ const OP_REGISTRY_PAUSE:              int = 0x4F520064; // owner: pause new regi
 const OP_REGISTRY_RESUME:             int = 0x4F520065; // owner: resume registrations
 const OP_REGISTRY_WITHDRAW:           int = 0x4F520066; // owner: withdraw excess TON
 const OP_REGISTRY_UPDATE_PROTOCOL_COLLECTOR: int = 0x4F520067; // owner: rotate protocol_fee_collector
-const OP_REGISTRY_DEREGISTER:         int = 0x4F520068; // owner: emergency remove a stale entry
+const OP_REGISTRY_DEREGISTER:               int = 0x4F520068; // owner: emergency removal of a service entry

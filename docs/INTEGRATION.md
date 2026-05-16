@@ -1,6 +1,7 @@
 # Руководство по интеграции ORBIT
 
 Добавьте подписочный биллинг ORBIT в своё приложение. Из документа вы узнаете как:
+- Получить Factory через Registry (рекомендуемый путь)
 - Отправить подписку от имени пользователя
 - Принимать webhook-события о списаниях
 - Проверять статус подписки on-chain
@@ -10,9 +11,35 @@
 
 ## Требования
 
-- Задеплоенная Factory (см. [DEPLOYMENT.md](DEPLOYMENT.md))
-- Запущенный relayer (настраивается в DEPLOYMENT.md)
 - Node.js 18+ на бэкенде
+- Запущенный relayer (настраивается в DEPLOYMENT.md)
+- Factory-контракт (получается через Registry — см. шаг 0 ниже)
+
+---
+
+## 0. Получить Factory через Registry (рекомендуемый путь)
+
+Вместо ручного деплоя Factory используйте Registry — ORBIT разворачивает Factory за вас с уже зашитыми настройками комиссий.
+
+```bash
+# Установить переменные в .env:
+# REGISTRY_ADDRESS=EQD...  ← адрес ORBIT Registry
+# WALLET_MNEMONIC="слово1 слово2 ... слово24"
+# NETWORK=testnet
+
+ts-node scripts/register-service.ts
+```
+
+Скрипт:
+1. Отправляет `OP_REGISTRY_REGISTER` (0.3 TON) на Registry
+2. Registry деплоит Factory с вашим кошельком как `service_addr`
+3. Выводит адрес вашей Factory — скопируйте его в `.env` как `FACTORY_ADDRESS`
+
+После этого вы можете добавлять тарифные планы через `OP_ADD_PLAN` на вашей Factory.
+
+> **Что зашито намертво:** `fee_bps` и `fee_collector` — комиссии ORBIT. Вы не можете их изменить. Вы управляете только тарифами (планами) своей Factory.
+
+---
 
 ---
 

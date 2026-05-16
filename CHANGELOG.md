@@ -5,6 +5,31 @@ Format: [Semantic Versioning](https://semver.org). Breaking changes are marked *
 
 ---
 
+## [0.1.2] — 2026-05-16
+
+### Registry — platform entry point
+
+**New contract: `contracts/registry.tolk`**
+
+The Registry is a single on-chain entry point for service integration. A developer sends one transaction (0.3 TON) and receives a fully configured Factory with ORBIT fee settings enforced at the bytecode level — no manual deploy required.
+
+Key properties:
+- `platform_fee_bps` and `fee_collector` are copied into every Factory at deploy time and cannot be overridden by the service operator
+- One Factory per sender — re-registration reverts with `ERROR_ALREADY_EXISTS`
+- Owner-controlled: pause/resume registrations, update fee settings for future Factories, withdraw excess TON
+
+**New files:**
+- `contracts/registry.tolk` — Registry contract
+- `utils/ops.tolk` — +7 opcodes `OP_REGISTRY_*` (0x4F520060–0x4F520066)
+- `wrappers/Registry.ts` — TypeScript wrapper with all send/get methods
+- `wrappers/registry.compile.ts` — compile helper
+- `scripts/deploy-registry.ts` — deploys FeeCollector + Registry (ORBIT operator)
+- `scripts/register-service.ts` — sends OP_REGISTRY_REGISTER (service developer)
+
+**Bug fix in `wrappers/Registry.ts`:** added missing `getProtocolFeeCollector()` getter.
+
+---
+
 ## [0.1.1] — 2026-05-16
 
 ### Testnet E2E confirmed ✅

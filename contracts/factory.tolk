@@ -451,21 +451,6 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
         return;
     }
 
-    // ── OP_UPDATE_FEE_BPS ─────────────────────────────────────────────────────
-    // Updates the protocol fee for NEW subscriptions only.
-    // Existing subscriptions snapshot fee_bps at deploy time and are unaffected.
-    if (op == OP_UPDATE_FEE_BPS) {
-        require_owner(sender, service_addr);
-        var new_fee_bps: int = in_msg_body.loadUint(16);
-        validate_fee_bps(new_fee_bps);
-        save_factory_storage(
-            relayer_pubkey, seqno, paused, plan_count, new_fee_bps,
-            total_charges, total_revenue, keeper_pool,
-            plans, subscriber_info, sub_code, service_addr, fee_collector, protocol_fee_collector
-        );
-        return;
-    }
-
     // ── OP_UPDATE_PROTOCOL_COLLECTOR ─────────────────────────────────────────
     // Rotates the ORBIT protocol fee collection address for NEW subscriptions.
     // Auth: only the current protocol_fee_collector can call this — no key needed,

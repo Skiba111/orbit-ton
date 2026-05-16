@@ -50,7 +50,11 @@ const OP_FUND_KEEPER_POOL:       int = 0x4F520009; // service funds keeper rewar
 const OP_SET_MAX_PERIODS:        int = 0x4F520017; // service sets fixed-term cap on existing sub
 
 // ── Factory admin ops ──────────────────────────────────────────────────────
-const OP_UPDATE_FEE_BPS:              int = 0x4F52000A; // service updates protocol fee for NEW subs only
+// NOTE: OP_UPDATE_FEE_BPS (0x4F52000A) has been REMOVED from factory.tolk.
+// fee_bps is now immutable after Factory deployment — snapshot protection for
+// both subscribers (no bait-and-switch) and ORBIT (no fee zeroing via Registry).
+// Constant preserved here for historical reference only; handler no longer exists.
+const OP_UPDATE_FEE_BPS:              int = 0x4F52000A; // REMOVED — fee_bps is immutable
 const OP_UPDATE_PROTOCOL_COLLECTOR:   int = 0x4F52000B; // ORBIT owner rotates protocol_fee_collector
 
 // ── Protocol fee billing op ────────────────────────────────────────────────
@@ -64,3 +68,4 @@ const OP_REGISTRY_UPDATE_RELAYER:     int = 0x4F520063; // owner: update relayer
 const OP_REGISTRY_PAUSE:              int = 0x4F520064; // owner: pause new registrations
 const OP_REGISTRY_RESUME:             int = 0x4F520065; // owner: resume registrations
 const OP_REGISTRY_WITHDRAW:           int = 0x4F520066; // owner: withdraw excess TON
+const OP_REGISTRY_UPDATE_PROTOCOL_COLLECTOR: int = 0x4F520067; // owner: rotate protocol_fee_collector

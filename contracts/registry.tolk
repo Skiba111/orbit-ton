@@ -226,6 +226,10 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
     if (op == OP_REGISTRY_REGISTER) {
         require_not_paused(paused);
         assert(msg_value >= REGISTRY_MIN_VALUE, ERROR_INSUFFICIENT_FUNDS);
+        // Safety: ensure Registry has enough balance to forward FACTORY_INIT_DEPOSIT
+        // and still maintain REGISTRY_RESERVE for rent after execution.
+        // my_balance includes the incoming msg_value at this point.
+        assert(my_balance >= safe_add(REGISTRY_RESERVE, FACTORY_INIT_DEPOSIT), ERROR_INSUFFICIENT_FUNDS);
 
         var service_hash: int = sender.hash();
         var (_, already_registered) = get_factory_for_service(services, service_hash);
@@ -300,6 +304,21 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
         save_registry_storage(
             new_relayer, paused, platform_fee_bps, factory_count,
             owner_addr, fee_collector, protocol_fee_collector,
+            factory_code, subscription_code, services
+        );
+        return;
+    }
+
+    // ── OP_REGISTRY_UPDATE_PROTOCOL_COLLECTOR ────────────────────────────────
+    // Rotates the ORBIT protocol_fee_collector for future Factory deployments.
+    // Existing Factories keep their original address — only new registrations
+    // will bake in the new protocol_fee_collector.
+    if (op == OP_REGISTRY_UPDATE_PROTOCOL_COLLECTOR) {
+        require_owner(sender, owner_addr);
+        var new_protocol: slice = in_msg_body.loadAddress() as slice;
+        save_registry_storage(
+            relayer_pubkey, paused, platform_fee_bps, factory_count,
+            owner_addr, fee_collector, new_protocol,
             factory_code, subscription_code, services
         );
         return;

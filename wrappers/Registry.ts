@@ -14,13 +14,14 @@ import {
 // ── Opcodes ───────────────────────────────────────────────────────────────────
 
 export const RegistryOps = {
-    REGISTER:           0x4F520060,
-    UPDATE_FEE:         0x4F520061,
-    UPDATE_COLLECTOR:   0x4F520062,
-    UPDATE_RELAYER:     0x4F520063,
-    PAUSE:              0x4F520064,
-    RESUME:             0x4F520065,
-    WITHDRAW:           0x4F520066,
+    REGISTER:                    0x4F520060,
+    UPDATE_FEE:                  0x4F520061,
+    UPDATE_COLLECTOR:            0x4F520062,
+    UPDATE_RELAYER:              0x4F520063,
+    PAUSE:                       0x4F520064,
+    RESUME:                      0x4F520065,
+    WITHDRAW:                    0x4F520066,
+    UPDATE_PROTOCOL_COLLECTOR:   0x4F520067,
 } as const;
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -207,6 +208,24 @@ export class Registry implements Contract {
         });
     }
 
+    /** Rotate protocol_fee_collector for future Factory deployments (owner only). */
+    async sendUpdateProtocolCollector(
+        provider:     ContractProvider,
+        via:          Sender,
+        newCollector: Address,
+        value:        bigint = toNano("0.05"),
+    ) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(RegistryOps.UPDATE_PROTOCOL_COLLECTOR, 32)
+                .storeUint(0, 64)
+                .storeAddress(newCollector)
+            .endCell(),
+        });
+    }
+
     /** Withdraw excess TON to owner address (owner only). */
     async sendWithdraw(
         provider: ContractProvider,
@@ -259,13 +278,13 @@ export class Registry implements Contract {
     }
 
     /** Returns true when new registrations are paused. */
-    async isPaused(provider: ContractProvider): Promise<boolean> {
+    async getIsPaused(provider: ContractProvider): Promise<boolean> {
         const result = await provider.get("is_paused", []);
         return Number(result.stack.readBigNumber()) !== 0;
     }
 
-    /** Returns 1 if the given service address has already registered. */
-    async isRegistered(
+    /** Returns true if the given service address has already registered. */
+    async getIsRegistered(
         provider:    ContractProvider,
         serviceAddr: Address,
     ): Promise<boolean> {
@@ -285,6 +304,11 @@ export class Registry implements Contract {
 
     async getFeeCollector(provider: ContractProvider): Promise<Address> {
         const result = await provider.get("get_fee_collector", []);
+        return result.stack.readAddress();
+    }
+
+    async getProtocolFeeCollector(provider: ContractProvider): Promise<Address> {
+        const result = await provider.get("get_protocol_fee_collector", []);
         return result.stack.readAddress();
     }
 

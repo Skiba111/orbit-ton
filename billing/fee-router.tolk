@@ -19,6 +19,7 @@
 import "../utils/math-safe.tolk"
 import "../utils/ops.tolk"
 import "../utils/protocol-config.tolk"
+import "../utils/errors.tolk"
 
 // Minimum TON to attach when forwarding a fee message (covers gas on receipt).
 const FEE_MSG_GAS: int = 10000000; // 0.01 TON
@@ -31,6 +32,9 @@ const FEE_MSG_GAS: int = 10000000; // 0.01 TON
 //   protocol_fee  = hardcoded 0.2% for ORBIT protocol
 @inline
 fun split_fee(gross: int, fee_bps: int): (int, int, int) {
+    // Belt-and-suspenders: fee_bps should have been validated at plan creation,
+    // but guard here too so execute_charge never produces a negative net_amount.
+    assert(fee_bps <= MAX_FEE_BPS, ERROR_INVALID_AMOUNT);
     var service_fee:  int = bps_of(gross, fee_bps);
     var protocol_fee: int = bps_of(gross, PROTOCOL_FEE_BPS);
     var net:          int = safe_sub(safe_sub(gross, service_fee), protocol_fee);

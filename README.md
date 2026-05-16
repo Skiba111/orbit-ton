@@ -45,6 +45,7 @@ Subscriber ──► Factory ──► Subscription ──► Service
 
 | Контракт | Назначение |
 |---|---|
+| `Registry` | Точка входа для сервис-разработчиков; деплоит Factory с enforced-комиссиями ORBIT |
 | `Factory` | Деплоит Subscription-контракты; хранит реестр тарифов; маршрутизирует смену тарифов |
 | `Subscription` | Биллинговое состояние одного пользователя; хранит депозит подписчика |
 | `FeeCollector` | Накапливает протокольные комиссии; двухфазный вывод с timelock'ом |
@@ -102,7 +103,19 @@ WEBHOOK_SECRET=длинная-случайная-строка        # общи�
 npm test   # запускает все тесты (Blueprint sandbox)
 ```
 
-### 4. Деплой на testnet
+### 4. Интеграция через Registry (для сервис-разработчиков)
+
+Если ORBIT Registry уже задеплоен, вам не нужно деплоить Factory вручную:
+
+```bash
+# .env: добавьте REGISTRY_ADDRESS=EQD... (адрес ORBIT Registry)
+ts-node scripts/register-service.ts
+# → Отправляет 0.3 TON на Registry
+# → Registry деплоит Factory с вашим кошельком как service_addr
+# → Выводит адрес вашей Factory — скопируйте в FACTORY_ADDRESS
+```
+
+### 4а. Ручной деплой Factory (для ORBIT-оператора)
 
 ```bash
 ts-node scripts/deploy-standalone.ts

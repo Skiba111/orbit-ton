@@ -75,6 +75,32 @@ Each plan stored in the Factory has:
 | `active` | bit | Whether new subscriptions can use this plan |
 | `name_hash` | uint256 | sha256 of human-readable plan name (for display) |
 
+## Deploy environment variables
+
+Used by `scripts/deploy-registry.ts` and `scripts/deploy-standalone.ts`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `WALLET_MNEMONIC` | **(required)** | 24-word mnemonic of the deployer wallet |
+| `FEE_COLLECTOR_PUBKEY` | **(required)** | Hex Ed25519 pubkey for FeeCollector cold key |
+| `RELAYER_PUBKEY` | **(required for Registry deploy)** | Hex Ed25519 pubkey of the ORBIT relayer |
+| `TONCENTER_API_KEY` | (empty) | TonCenter API key (recommended) |
+| `NETWORK` | `testnet` | `mainnet` or `testnet` |
+| `WALLET_VERSION` | `v5` | `v4` or `v5` (v5 = Tonkeeper / TG Wallet) |
+| `PLATFORM_FEE_BPS` | `50` | Platform fee baked into all Registry-deployed Factories (50 = 0.5%) |
+
+## Service registration environment variables
+
+Used by `scripts/register-service.ts` (called by service operators, not ORBIT).
+
+| Variable | Default | Description |
+|---|---|---|
+| `WALLET_MNEMONIC` | **(required)** | 24-word mnemonic of the service operator wallet |
+| `REGISTRY_ADDRESS` | **(required)** | ORBIT Registry contract address |
+| `NETWORK` | `testnet` | `mainnet` or `testnet` |
+| `WALLET_VERSION` | `v5` | `v4` or `v5` |
+| `TONCENTER_API_KEY` | (empty) | TonCenter API key (recommended) |
+
 ## Relayer environment variables
 
 | Variable | Default | Description |

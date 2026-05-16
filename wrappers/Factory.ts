@@ -13,7 +13,7 @@ export const FactoryOps = {
     CHANGE_PLAN:                0x4F520007,
     CHARGE_NOTIFICATION:        0x4F520008,
     FUND_KEEPER_POOL:           0x4F520009,
-    UPDATE_FEE_BPS:             0x4F52000A,
+    // UPDATE_FEE_BPS (0x4F52000A) REMOVED — fee_bps is immutable after deploy.
     UPDATE_PROTOCOL_COLLECTOR:  0x4F52000B,
 } as const;
 
@@ -320,19 +320,6 @@ export class Factory implements Contract {
                 .storeUint(FactoryOps.UPDATE_PROTOCOL_COLLECTOR, 32)
                 .storeUint(0, 64)
                 .storeAddress(newCollector)
-            .endCell(),
-        });
-    }
-
-    // Updates protocol fee for NEW subscriptions only; existing subs are unaffected.
-    async sendUpdateFeeBps(provider: ContractProvider, via: Sender, feeBps: number) {
-        await provider.internal(via, {
-            value:    toNano("0.05"),
-            sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body:     beginCell()
-                .storeUint(FactoryOps.UPDATE_FEE_BPS, 32)
-                .storeUint(0, 64)
-                .storeUint(feeBps, 16)
             .endCell(),
         });
     }

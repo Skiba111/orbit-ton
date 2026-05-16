@@ -75,6 +75,9 @@ fun onExternalMessage(in_msg: slice) {
         require_not_paused(paused_global);
         require_seqno(incoming_seqno, seqno);
         assert(is_msg_fresh(timestamp), ERROR_MSG_EXPIRED);
+        // Keeper wallet must be a real address — addr_none would cause
+        // send_keeper_reward to target an invalid destination.
+        assert(!is_addr_none(keeper_wallet), ERROR_UNAUTHORIZED);
         acceptExternalMessage();
     }
 

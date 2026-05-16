@@ -1,334 +1,309 @@
-# Integration Guide
+# Руководство по интеграции ORBIT
 
-Integrate ORBIT recurring payments into your dApp in 15 minutes.
+Добавьте подписочный биллинг ORBIT в своё приложение. Из документа вы узнаете как:
+- Отправить подписку от имени пользователя
+- Принимать webhook-события о списаниях
+- Проверять статус подписки on-chain
+- Обеспечить безопасность webhook-эндпоинта
 
-## Prerequisites
+---
 
-- A deployed Factory contract (see [DEPLOYMENT.md](DEPLOYMENT.md))
-- TonConnect integration in your app (`@tonconnect/ui-react`)
-- Node 18+ and React 18+
+## Требования
 
-## 1. Install
+- Задеплоенная Factory (см. [DEPLOYMENT.md](DEPLOYMENT.md))
+- Запущенный relayer (настраивается в DEPLOYMENT.md)
+- Node.js 18+ на бэкенде
 
-```bash
-npm install @orbit-ton/react @ton/core @tonconnect/ui-react
-```
+---
 
-## 2. Wrap your app
+## 1. Формат сообщения OP_SUBSCRIBE
 
-```tsx
-import { TonConnectUIProvider } from "@tonconnect/ui-react";
-import { OrbitProvider }        from "@orbit-ton/react";
+Чтобы подписчик оформил подписку, его кошелёк должен отправить сообщение на адрес вашей Factory.
 
-const ORBIT_CONFIG = {
-    factoryAddress: "EQD...",  // your deployed Factory address
-    endpoint: "https://toncenter.com/api/v2/jsonRPC",
-    apiKey:   process.env.TONCENTER_API_KEY,
-};
-
-export default function Root({ children }) {
-    return (
-        <TonConnectUIProvider manifestUrl="https://yourapp.com/tonconnect-manifest.json">
-            <OrbitProvider config={ORBIT_CONFIG}>
-                {children}
-            </OrbitProvider>
-        </TonConnectUIProvider>
-    );
-}
-```
-
-## 3. Show pricing plans
-
-```tsx
-import { useFactory, SubscribeButton } from "@orbit-ton/react";
-
-export function PricingPage() {
-    const { plans, loading, error } = useFactory();
-
-    if (loading) return <p>Loading plans…</p>;
-    if (error)   return <p>Error: {error}</p>;
-
-    return (
-        <div>
-            {plans.filter(p => p.active).map(plan => (
-                <PlanCard key={plan.planId} plan={plan} />
-            ))}
-        </div>
-    );
-}
-
-function PlanCard({ plan }) {
-    return (
-        <div>
-            <h3>{plan.price / 1_000_000_000n} TON / {plan.period / 86400} days</h3>
-            <SubscribeButton
-                plan={plan}
-                depositPeriods={3}     // pre-fund 3 billing cycles
-                onSuccess={() => alert("Subscribed!")}
-            />
-        </div>
-    );
-}
-```
-
-## 4. Display subscription status
-
-```tsx
-import { useSubscription, SubscriptionStatus as Codes } from "@orbit-ton/react";
-
-const STATUS_LABEL: Record<number, string> = {
-    [Codes.TRIAL]:     "Free trial",
-    [Codes.ACTIVE]:    "Active",
-    [Codes.PAUSED]:    "Paused",
-    [Codes.GRACE]:     "Payment overdue",
-    [Codes.CANCELLED]: "Cancelled",
-};
-
-export function SubscriptionBadge({ subscriptionAddress }: { subscriptionAddress: string }) {
-    const { data, loading } = useSubscription(subscriptionAddress);
-
-    if (loading || !data) return null;
-
-    const label    = STATUS_LABEL[data.status] ?? "Unknown";
-    const daysLeft = Math.floor((data.nextBillingTime - Date.now() / 1000) / 86400);
-
-    return (
-        <div>
-            <span>{label}</span>
-            {data.status === Codes.ACTIVE && <span> · renews in {daysLeft}d</span>}
-            <span> · deposit: {data.deposit / 1_000_000_000n} TON</span>
-        </div>
-    );
-}
-```
-
-## 5. Top up deposit
-
-```tsx
-import { TopUpDeposit } from "@orbit-ton/react";
-
-// subscriptionAddress: the address of the user's Subscription contract
-<TopUpDeposit subscriptionAddress={subAddr} />
-```
-
-## 5b. Understanding fees
-
-Before sending payment to your service, every billing cycle deducts two fees:
+### Формат тела сообщения
 
 ```
-Subscriber deposit
-    └─ gross_amount (plan price)
-           ├─ protocol fee (0.2%, fixed in bytecode) → ORBIT wallet
-           ├─ service fee (configurable, e.g. 1%)    → your fee_collector
-           └─ net_amount                             → your service address
+op          (32 бита) = 0x4F520001   — OP_SUBSCRIBE
+query_id    (64 бита)               — произвольный идентификатор запроса (можно 0)
+plan_id     (32 бита)               — ID тарифного плана (0, 1, 2, ...)
+payment_type (2 бита)               — 1 = TON,  2 = Jetton  (0 — НЕВАЛИДНО!)
 ```
 
-**What your service receives** = `plan_price × (1 − service_fee_bps/10000 − 0.002)`
+> **Критически важно:** Factory всегда читает `query_id` (64 бита) после `op`. Если пропустить `query_id` — сообщение отобьётся с ошибкой underflow. `PAYMENT_TON = 1` (не 0!).
 
-Example — 10 TON/month, service fee 2%:
-- Protocol fee: 0.02 TON
-- Service fee: 0.20 TON
-- **Net to service**: 9.78 TON
+### Пример на TypeScript
 
-**The subscriber deposits `plan_price` per cycle, not `net_amount`.**
-When displaying plan prices to subscribers, show the full `plan_price` from the factory — that is what leaves their deposit. Your service should be aware that it receives slightly less.
+```typescript
+import { beginCell, toNano } from "@ton/core";
 
-**Important for Jetton plans**: the subscriber's deposit is in Jettons, but the gas for protocol fee and service fee routing is paid in TON. The TON attached to the subscribe message must cover:
-- Subscription contract gas budget (≥ 0.2 TON recommended)
-- Jetton transfer fees (≥ 0.05 TON per cycle × pre-funded periods)
+// Тело для TON-подписки на тариф 0
+const body = beginCell()
+    .storeUint(0x4F520001, 32)  // OP_SUBSCRIBE
+    .storeUint(0,           64)  // query_id (0 — допустимо)
+    .storeUint(0,           32)  // plan_id = 0
+    .storeUint(1,            2)  // payment_type = PAYMENT_TON (1)
+    .endCell();
 
-If the TON part is too small, charges will fail even when the Jetton deposit is sufficient. Use `value ≥ 0.2 TON + 0.05 × depositPeriods` when subscribing to Jetton plans.
+// value = plan_price + STORAGE_RESERVE(0.05 TON) + FACTORY_DEPLOY_GAS(0.05 TON) + запас
+// Формула: value >= plan_price + 0.1 TON
+// Рекомендуем: plan_price + 0.2 TON
+const PLAN_PRICE = toNano("1"); // 1 TON/месяц
+const value = PLAN_PRICE + toNano("0.2");
+```
 
-## 6. Jetton subscriptions
+### Через TonConnect (frontend)
 
-For Jetton (e.g. USDT) subscriptions, pass `paymentType` and the subscriber's Jetton wallet address:
+```typescript
+import { useTonConnectUI } from "@tonconnect/ui-react";
+import { beginCell, toNano } from "@ton/core";
 
-```tsx
-import { buildSubscribeCell, PAYMENT_JETTON } from "@orbit-ton/react";
-import { useTonConnectUI }                     from "@tonconnect/ui-react";
+function SubscribeButton({ planId, planPrice }: { planId: number; planPrice: bigint }) {
+    const [tonConnectUI] = useTonConnectUI();
 
-function JettonSubscribeButton({ plan, jettonWallet }) {
-    const [ui] = useTonConnectUI();
+    async function handleSubscribe() {
+        const body = beginCell()
+            .storeUint(0x4F520001, 32)
+            .storeUint(0,           64)
+            .storeUint(planId,      32)
+            .storeUint(1,            2)  // PAYMENT_TON = 1
+            .endCell();
 
-    async function subscribe() {
-        const body = buildSubscribeCell(plan.planId, PAYMENT_JETTON, jettonWallet);
-        await ui.sendTransaction({
+        await tonConnectUI.sendTransaction({
+            validUntil: Math.floor(Date.now() / 1000) + 300,
             messages: [{
                 address: FACTORY_ADDRESS,
-                amount:  String(toNano("0.2")), // gas only; Jetton tokens sent separately
+                amount:  String(planPrice + toNano("0.2")),
                 payload: body.toBoc().toString("base64"),
             }],
         });
     }
 
-    return <button onClick={subscribe}>Subscribe with USDT</button>;
+    return <button onClick={handleSubscribe}>Подписаться</button>;
 }
 ```
 
-## 7. Determine the subscription address
+### Jetton-подписка
 
-Before a subscriber has ever subscribed, you can pre-compute the address where their contract will be deployed:
+Для Jetton (например, USDT) дополнительно укажите адрес Jetton-кошелька подписчика:
 
 ```typescript
-import { Factory } from "@orbit-ton/react";
-import { TonClient, Address } from "@ton/core";
+const body = beginCell()
+    .storeUint(0x4F520001, 32)
+    .storeUint(0,           64)
+    .storeUint(planId,      32)
+    .storeUint(2,            2)   // PAYMENT_JETTON = 2
+    .storeAddress(subscriberJettonWalletAddress)  // адрес Jetton-кошелька подписчика
+    .endCell();
 
-const client  = new TonClient({ endpoint: "..." });
-const factory = client.open(Factory.createFromAddress(Address.parse(FACTORY_ADDRESS)));
-
-const subAddr = await factory.getSubscriptionAddress(
-    client.provider(Address.parse(FACTORY_ADDRESS)),
-    subscriber.address,
-    planId,
-);
+// value — только TON для газа (Jetton-токены отправляются отдельно)
+// Минимум: 0.2 TON; рекомендуем: 0.3 TON
 ```
 
-Use this address to gate access in your backend: poll its `get_status` getter or listen for `OP_CHARGE_INTERNAL` messages arriving at your service address.
+---
 
-## 8. Verifying access in your backend
+## 2. Webhook — приём событий списания
 
-### Via ORBIT relayer webhook (recommended)
-
-Set `WEBHOOK_URL` on your relayer. After every confirmed charge, the relayer POSTs:
+После каждого подтверждённого списания relayer отправляет POST на ваш `WEBHOOK_URL`:
 
 ```json
 {
   "event":      "charge_confirmed",
-  "address":    "EQD...",
-  "seqno_from": 4,
-  "seqno_to":   5,
-  "timestamp":  1718000000
+  "address":    "EQAem3BPC7PvJzPGItrwNDVizMSqFIZ0nUDZvebfB4NBDn5w",
+  "seqno_from": 0,
+  "seqno_to":   1,
+  "timestamp":  1747374000
 }
 ```
 
-`address` is the Subscription contract address. Map it to your user record and provision access.
+| Поле | Описание |
+|---|---|
+| `address` | Адрес Subscription-контракта подписчика |
+| `seqno_from` | Seqno до списания |
+| `seqno_to` | Seqno после (= количество успешных списаний) |
+| `timestamp` | Unix-время события |
 
-#### Webhook authentication (required in production)
+### Настройка relayer
 
-Without authentication anyone can POST a fake payload to your endpoint and get free access. Set a shared secret:
-
-```bash
-# .env on your server (both relayer and webhook-server must share this value)
-WEBHOOK_SECRET=some-long-random-string-here
+```env
+WEBHOOK_URL=https://api.yourapp.com/orbit/webhook
+WEBHOOK_SECRET=длинная-случайная-строка-минимум-32-символа
 ```
 
-Generate a strong secret:
+Сгенерировать секрет:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-The ORBIT relayer sends `X-Orbit-Secret` header with every POST. Verify it in your handler:
+### Обработчик webhook (Node.js)
 
 ```typescript
-app.post('/orbit/webhook', (req, res) => {
-    if (req.headers['x-orbit-secret'] !== process.env.WEBHOOK_SECRET) {
-        return res.sendStatus(401);
+import * as http from "http";
+
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "";
+
+const server = http.createServer((req, res) => {
+    if (req.method !== "POST" || req.url !== "/orbit/webhook") {
+        res.writeHead(404); res.end(); return;
     }
-    // ... handle event
+
+    // 1. Проверяем секрет
+    if (WEBHOOK_SECRET && req.headers["x-orbit-secret"] !== WEBHOOK_SECRET) {
+        res.writeHead(401); res.end("Unauthorized"); return;
+    }
+
+    // 2. Читаем тело
+    let body = "";
+    req.on("data", chunk => { body += chunk; });
+    req.on("end", async () => {
+        try {
+            const event = JSON.parse(body);
+            if (event.event === "charge_confirmed") {
+                await onChargeConfirmed(event.address, event.seqno_to);
+            }
+            res.writeHead(200); res.end("OK");
+        } catch {
+            res.writeHead(400); res.end("Bad Request");
+        }
+    });
 });
+
+async function onChargeConfirmed(subscriptionAddress: string, seqno: number) {
+    // Ваша логика: найти пользователя по subscriptionAddress и выдать доступ
+    console.log(`Списание подтверждено: ${subscriptionAddress}, seqno=${seqno}`);
+    // Пример:
+    // const user = await db.users.findOne({ subscriptionAddress });
+    // if (user) await grantAccess(user.id, billingPeriodDays);
+}
+
+server.listen(3001);
 ```
 
-For maximum security, verify the `seqno_to` on-chain before granting access:
+Готовый расширяемый пример: [`scripts/webhook-server.ts`](../scripts/webhook-server.ts)
+
+### Дополнительная верификация on-chain (опционально)
+
+Для максимальной безопасности проверяйте seqno прямо на блокчейне:
 
 ```typescript
-import { TonClient, Address } from "@ton/core";
-import { Subscription }       from "@orbit-ton/react";
+import { TonClient, Address } from "@ton/ton";
+import { Subscription }       from "../wrappers/Subscription";
 
-app.post('/orbit/webhook', async (req, res) => {
-    // 1. Check shared secret
-    if (req.headers['x-orbit-secret'] !== process.env.WEBHOOK_SECRET) {
-        return res.sendStatus(401);
-    }
+const client = new TonClient({
+    endpoint: "https://toncenter.com/api/v2/jsonRPC",
+    apiKey:   process.env.TONCENTER_API_KEY,
+});
 
-    const { address, seqno_to } = req.body;
-
-    // 2. Verify seqno on-chain — cannot be faked even if secret is leaked
+async function onChargeConfirmed(address: string, seqnoTo: number) {
+    // Верифицируем seqno on-chain — нельзя подделать даже при утечке WEBHOOK_SECRET
     const sub       = client.open(Subscription.createFromAddress(Address.parse(address)));
-    const realSeqno = await sub.getSeqno(client.provider(Address.parse(address)));
-    if (realSeqno < seqno_to) return res.sendStatus(400); // fake payload
+    const realSeqno = await sub.getSeqno();
+    if (realSeqno < seqnoTo) {
+        console.error("Подозрительный payload — seqno не совпадает");
+        return;
+    }
+    // Выдаём доступ
+}
+```
 
-    // 3. Grant access
-    // ...
-    res.sendStatus(200);
+---
+
+## 3. Проверка статуса подписки
+
+```typescript
+import { TonClient, Address } from "@ton/ton";
+import { Subscription }       from "../wrappers/Subscription";
+
+const client = new TonClient({
+    endpoint: "https://toncenter.com/api/v2/jsonRPC",
+    apiKey:   process.env.TONCENTER_API_KEY,
 });
+
+const sub = client.open(
+    Subscription.createFromAddress(Address.parse("EQD...адрес_подписки..."))
+);
+
+// Все геттеры вызываются без аргументов:
+const status      = await sub.getStatus();           // число (см. таблицу ниже)
+const seqno       = await sub.getSeqno();            // кол-во успешных списаний
+const nextBilling = await sub.getNextBillingTime();  // unix timestamp
+const deposit     = await sub.getDeposit();          // остаток депозита в nanoTON
 ```
 
-### Via on-chain message parsing (authoritative)
+**Коды статуса:**
 
-Your service receives `OP_CHARGE_INTERNAL` messages from the Subscription contract. The body contains:
-
-```
-op (32) | query_id (64) | subscriber_addr (267) | plan_id (32)
-```
-
-In Node.js (using `@ton/core`):
-
-```typescript
-import { Cell, Address } from "@ton/core";
-
-function parseChargeInternal(bodyBoc: string) {
-    const body = Cell.fromBoc(Buffer.from(bodyBoc, "base64"))[0].beginParse();
-    const op           = body.loadUint(32);    // 0x4F520020
-    const queryId      = body.loadUint(64);
-    const subscriber   = body.loadAddress();   // Address
-    const planId       = body.loadUint(32);
-    return { op, queryId, subscriber, planId };
-}
-```
-
-Only accept messages from addresses that are known subscriptions for your factory. Verify:
-
-```typescript
-import { Factory } from "@orbit-ton/react";
-import { TonClient, Address } from "@ton/core";
-
-async function isValidSubscription(
-    client:        TonClient,
-    factoryAddr:   string,
-    subAddr:       string,
-    subscriberAddr: Address,
-    planId:        number,
-): Promise<boolean> {
-    const factory  = client.open(Factory.createFromAddress(Address.parse(factoryAddr)));
-    const provider = client.provider(Address.parse(factoryAddr));
-    const expected = await factory.getSubscriptionAddress(provider, subscriberAddr, planId);
-    return expected.toString() === subAddr;
-}
-```
-
-### Via TonCenter event webhook (alternative)
-
-TonCenter supports account-level webhooks. Subscribe to events on your service address and filter for `OP_CHARGE_INTERNAL = 0x4F520020` in the incoming message op.
-
-## 9. TonConnect manifest
-
-TonConnect requires a manifest file hosted at a public URL. Create `public/tonconnect-manifest.json`:
-
-```json
-{
-  "url":      "https://yourapp.com",
-  "name":     "Your App Name",
-  "iconUrl":  "https://yourapp.com/icon-192.png",
-  "termsOfUseUrl": "https://yourapp.com/terms",
-  "privacyPolicyUrl": "https://yourapp.com/privacy"
-}
-```
-
-Pass the URL when initialising TonConnect:
-
-```tsx
-<TonConnectUIProvider manifestUrl="https://yourapp.com/tonconnect-manifest.json">
-    <App />
-</TonConnectUIProvider>
-```
-
-The `iconUrl` must be a square PNG, at least 192×192 px, served over HTTPS.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Код | Константа | Значение |
 |---|---|---|
-| Transaction rejected immediately | `payment_type` missing in body | Use `buildSubscribeCell` from SDK — never build body manually |
-| Subscription stuck in GRACE | Deposit too low after plan change | Call `TopUpDeposit` component or direct top-up |
-| Keeper not triggering charges | Relayer not running or wrong pubkey | Check `RELAYER_MNEMONIC` matches `relayer_pubkey` in factory config |
-| `ERROR_INSUFFICIENT_FUNDS` on subscribe | Sending too little TON | Value must cover `price × depositPeriods + 0.2 TON` for gas |
+| 1 | `STATUS_TRIAL` | Бесплатный trial, списания ещё не было |
+| 2 | `STATUS_ACTIVE` | Активна, платежи идут |
+| 3 | `STATUS_PAUSED` | На паузе (подписчик или сервис) |
+| 4 | `STATUS_GRACE` | Недостаточно средств, грейс-период (3 дня) |
+| 5 | `STATUS_CANCELLED` | Отменена, депозит возвращён |
+
+---
+
+## 4. Предварительный расчёт адреса подписки
+
+Адрес Subscription-контракта детерминирован — его можно вычислить до того, как пользователь подпишется:
+
+```typescript
+import { Factory } from "../wrappers/Factory";
+import { TonClient, Address } from "@ton/ton";
+
+const client  = new TonClient({ endpoint: "..." });
+const factory = client.open(Factory.createFromAddress(Address.parse(FACTORY_ADDRESS)));
+
+// Адрес подписки определяется: factory + subscriber + plan_id
+const subscriptionAddress = await factory.getSubscriptionAddress(
+    subscriberAddress,  // Address объект
+    planId,             // number
+);
+
+console.log("Адрес подписки:", subscriptionAddress.toString());
+```
+
+Используйте этот адрес в БД чтобы связать кошелёк пользователя с его подпиской.
+
+---
+
+## 5. Проверка тарифных планов Factory
+
+```typescript
+import { Factory } from "../wrappers/Factory";
+import { TonClient, Address } from "@ton/ton";
+
+const factory = client.open(Factory.createFromAddress(Address.parse(FACTORY_ADDRESS)));
+const plans = await factory.getPlans();
+
+for (const plan of plans) {
+    if (!plan.active) continue;
+    console.log(`Plan ${plan.planId}:`);
+    console.log(`  Цена:    ${plan.price / 1_000_000_000n} TON`);
+    console.log(`  Период:  ${plan.period / 86400} дней`);
+    console.log(`  Trial:   ${plan.trialPeriod > 0 ? plan.trialPeriod / 86400 + " дней" : "нет"}`);
+}
+```
+
+---
+
+## 6. React SDK (в разработке)
+
+Исходный код SDK находится в `sdk/react/`. На npm пока не опубликован. Следите за релизами.
+
+После публикации будет доступен:
+```bash
+npm install @orbit-ton/react
+```
+
+---
+
+## Устранение неполадок
+
+| Симптом | Причина | Решение |
+|---|---|---|
+| Транзакция сразу отбивается | Неверный `payment_type` (0 — невалидно) | Используйте `PAYMENT_TON = 1` |
+| Транзакция сразу отбивается | Недостаточно TON в value | `value >= plan_price + 0.1 TON` |
+| Relayer не видит подписку | `msg_data.init_state` не проверялся | Обновлено в текущей версии |
+| Relayer видит 0 подписок | Неправильный `FACTORY_ADDRESS` в `.env` | Проверить адрес Factory |
+| Webhook не приходит | `WEBHOOK_URL` или `WEBHOOK_SECRET` не совпадают | Одинаковые значения на сервере и в relayer `.env` |
+| `Error on ...: status 500` | Подписка истощила депозит | Нормально для тестовой подписки; пополните депозит |
+| `getSeqno(provider)` — ошибка | Устаревший API | Вызывайте без аргументов: `await sub.getSeqno()` |

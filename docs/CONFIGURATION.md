@@ -79,14 +79,16 @@ Each plan stored in the Factory has:
 
 | Variable | Default | Description |
 |---|---|---|
-| `FACTORY_ADDRESS` | (required) | Factory contract address |
-| `RELAYER_MNEMONIC` | (required) | Space-separated Ed25519 mnemonic |
-| `POLL_INTERVAL_MS` | 60000 | Polling interval |
+| `FACTORY_ADDRESS` | **(required)** | Factory contract address |
+| `RELAYER_MNEMONIC` | **(required)** | Space-separated Ed25519 mnemonic (relayer key) |
 | `NETWORK` | `testnet` | `mainnet` or `testnet` |
-| `DB_PATH` | `data/subscriptions.json` | Subscription index |
-| `WAL_PATH` | `data/relayer-wal.json` | Write-ahead log |
+| `POLL_INTERVAL_MS` | `60000` | Polling interval in ms |
+| `DB_PATH` | `data/subscriptions.json` | Local subscription index |
+| `WAL_PATH` | `data/relayer-wal.json` | Write-ahead log (charge intent journal) |
 | `WEBHOOK_URL` | (empty) | POST endpoint called after each confirmed charge |
-| `TONCENTER_API_KEY` | (empty) | TonCenter API key |
+| `WEBHOOK_SECRET` | (empty) | Shared secret — sent as `X-Orbit-Secret` header |
+| `INITIAL_SUBSCRIPTIONS` | (empty) | Comma-separated subscription addresses to seed on first run |
+| `TONCENTER_API_KEY` | (empty) | TonCenter API key (recommended — raises rate limits) |
 
 ## Webhook payload
 
@@ -110,6 +112,8 @@ Use this to update access control in your backend: mark the subscription as acti
 |---|---|---|
 | 1 | `PAYMENT_TON` | Subscription charged in TON |
 | 2 | `PAYMENT_JETTON` | Subscription charged in Jetton tokens |
+
+> **Important:** `payment_type = 0` is **invalid** — the Factory contract asserts `payment_type == 1 or 2`. Sending `0` will cause the transaction to bounce immediately.
 
 ## Status codes
 

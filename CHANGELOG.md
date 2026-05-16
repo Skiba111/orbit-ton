@@ -20,11 +20,22 @@ Key properties:
 
 **New files:**
 - `contracts/registry.tolk` — Registry contract
-- `utils/ops.tolk` — +7 opcodes `OP_REGISTRY_*` (0x4F520060–0x4F520066)
+- `utils/ops.tolk` — +8 opcodes `OP_REGISTRY_*` (0x4F520060–0x4F520067)
 - `wrappers/Registry.ts` — TypeScript wrapper with all send/get methods
 - `wrappers/registry.compile.ts` — compile helper
 - `scripts/deploy-registry.ts` — deploys FeeCollector + Registry (ORBIT operator)
 - `scripts/register-service.ts` — sends OP_REGISTRY_REGISTER (service developer)
+- `tests/registry.spec.ts` — 33 tests covering all Registry operations
+
+**Security fixes (also in this release):**
+
+| Fix | File | Detail |
+|-----|------|--------|
+| **BREAKING** `OP_UPDATE_FEE_BPS` removed | `contracts/factory.tolk` | Handler deleted — `fee_bps` is now fully immutable after Factory deploy. Previously a service operator could call this to zero out the ORBIT fee after registering through Registry. |
+| `keeper_wallet` addr_none guard | `contracts/subscription.tolk` | In keeper mode, `keeper_wallet` is now validated as a real address before `acceptExternalMessage()`. Prevents accidental or malicious sends to addr_none. |
+| `fee_bps` cap in billing engine | `billing/fee-router.tolk` | `split_fee()` now asserts `fee_bps <= MAX_FEE_BPS` at charge time. Belt-and-suspenders guard alongside the plan-creation check. |
+| Registry balance guard | `contracts/registry.tolk` | `OP_REGISTRY_REGISTER` now checks `my_balance >= REGISTRY_RESERVE + FACTORY_INIT_DEPOSIT` before sending the deploy message. |
+| `OP_REGISTRY_UPDATE_PROTOCOL_COLLECTOR` added | `contracts/registry.tolk` | Owner can rotate `protocol_fee_collector` for future Factory deployments (0x4F520067). Existing Factories unaffected. |
 
 **Bug fix in `wrappers/Registry.ts`:** added missing `getProtocolFeeCollector()` getter.
 
@@ -78,7 +89,7 @@ Key properties:
 - Keeper network with dual-reward model (base from subscription + bonus from keeper pool)
 - `OP_CHANGE_PLAN` — subscriber upgrades/downgrades via factory routing
 - `OP_SET_MAX_PERIODS` — service sets fixed-term cap on existing subscription
-- `OP_UPDATE_FEE_BPS` — service updates fee rate for new subscriptions only
+- ~~`OP_UPDATE_FEE_BPS`~~ — **removed in [0.1.2]** as a security fix; `fee_bps` is now immutable after Factory deploy
 
 **Security**
 - Ed25519 signature verification on all external messages

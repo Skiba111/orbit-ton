@@ -44,6 +44,25 @@ A 24-hour delay between scheduling (`OP_COLLECT`) and executing (`OP_CONFIRM_COL
 ### 14. Keeper mode is intentionally permissionless
 In `keeper_mode = 1`, any external actor can trigger a charge by sending a valid external message with the current seqno, a fresh timestamp, and their wallet address. This is by design — it creates an open market for charge execution. The subscriber is charged exactly what the plan specifies; only the keeper reward routing changes. The `keeper_wallet` address in the message controls where the 0.01 TON base reward is sent. If this permissionless model is undesirable, disable keeper mode and use only the relayer (`keeper_mode = 0`).
 
+`keeper_wallet` is validated as a non-null address (`!is_addr_none`) before `acceptExternalMessage()` is called. This prevents an external message with a zero address from causing the keeper reward to be sent to an invalid destination.
+
+### 16. `fee_bps` is immutable after Factory deploy — no backdoor
+
+`fee_bps` is stored in Factory state at deploy time and cannot be changed afterwards. The `OP_UPDATE_FEE_BPS` handler was removed (it previously allowed the service owner to zero out ORBIT's platform fee after registering through the Registry). Additionally, `split_fee()` in the billing engine asserts `fee_bps <= MAX_FEE_BPS` at charge time as a belt-and-suspenders guard.
+
+### 17. Registry enforces fee settings at the protocol level
+Service operators who register through the Registry receive a Factory with `fee_bps` and `fee_collector` baked in from Registry state. These values are copied into the Factory's immutable storage at deploy time — the service cannot change them after registration. This makes the ORBIT fee model trustless: the fee is set by the ORBIT operator and cannot be bypassed by any action of the service operator.
+
+### 18. Jetton deposit isolation — empty-body TON does not inflate token balance
+
+For Jetton subscriptions, the `deposit` field tracks the **Jetton token count**, not TON nanotons. The plain-TON (empty-body) message handler only updates `deposit` when `payment_type == PAYMENT_TON`. For Jetton subscriptions, incoming TON is accepted (goes to the contract balance for gas/rent) but `deposit` remains unchanged.
+
+Without this guard, anyone could send TON with an empty body to inflate the apparent token balance, bypass `has_funds_for_charge`, trigger a Jetton transfer with no actual tokens, receive an unhandled bounce, and leave `charging_in_progress = 1` permanently — permanently disabling the subscription (griefing attack).
+
+### 19. `OP_CHANGE_PLAN` minimum gas guard — Factory drain prevention
+
+`OP_CHANGE_PLAN` in the Factory forwards `FACTORY_DEPLOY_GAS` (0.05 TON) to the subscription via `OP_APPLY_PLAN`. Without a minimum `msg_value` guard, a subscriber could send near-zero-value plan-change messages and gradually drain the Factory's balance. The guard `assert(msg_value >= FACTORY_DEPLOY_GAS)` ensures the subscriber covers the forwarding cost.
+
 ### 15. Protocol fee is hardcoded in bytecode — cannot be bypassed
 
 `PROTOCOL_FEE_BPS = 20` (0.2%) and `PROTOCOL_FEE_COLLECTOR_HASH` are constants compiled into the Subscription contract bytecode. No `save_storage` call, no factory configuration, no operator action can change them without recompiling from source.

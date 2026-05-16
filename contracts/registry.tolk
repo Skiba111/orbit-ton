@@ -345,6 +345,27 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
         return;
     }
 
+    // ── OP_REGISTRY_DEREGISTER ────────────────────────────────────────────────
+    // Owner-only emergency op: removes a service from the registry.
+    // Use case: Factory deploy bounced (near-impossible but theoretically possible),
+    // leaving the services dict pointing to a non-existent Factory.  Also useful
+    // to remove a fraudulent/abandoned entry.
+    // After deregistration the service can re-register normally.
+    if (op == OP_REGISTRY_DEREGISTER) {
+        require_owner(sender, owner_addr);
+        var target_addr: slice = in_msg_body.loadAddress() as slice;
+        var target_hash: int = target_addr.hash();
+        var (_, was_registered) = get_factory_for_service(services, target_hash);
+        assert(was_registered, ERROR_NOT_FOUND);
+        services.uDictDelete(256, target_hash);
+        save_registry_storage(
+            relayer_pubkey, paused, platform_fee_bps, safe_sub(factory_count, 1),
+            owner_addr, fee_collector, protocol_fee_collector,
+            factory_code, subscription_code, services
+        );
+        return;
+    }
+
     // ── OP_REGISTRY_WITHDRAW ──────────────────────────────────────────────────
     // Withdraws excess TON above REGISTRY_RESERVE to owner_addr.
     if (op == OP_REGISTRY_WITHDRAW) {

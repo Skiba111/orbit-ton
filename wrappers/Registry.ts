@@ -22,6 +22,7 @@ export const RegistryOps = {
     RESUME:                      0x4F520065,
     WITHDRAW:                    0x4F520066,
     UPDATE_PROTOCOL_COLLECTOR:   0x4F520067,
+    DEREGISTER:                  0x4F520068,
 } as const;
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -222,6 +223,26 @@ export class Registry implements Contract {
                 .storeUint(RegistryOps.UPDATE_PROTOCOL_COLLECTOR, 32)
                 .storeUint(0, 64)
                 .storeAddress(newCollector)
+            .endCell(),
+        });
+    }
+
+    /** Emergency: remove a stale service entry (owner only).
+     *  Use when a Factory deploy bounced, leaving a registered-but-missing Factory.
+     *  After deregistration the service can re-register normally. */
+    async sendDeregister(
+        provider:    ContractProvider,
+        via:         Sender,
+        serviceAddr: Address,
+        value:       bigint = toNano("0.05"),
+    ) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(RegistryOps.DEREGISTER, 32)
+                .storeUint(0, 64)
+                .storeAddress(serviceAddr)
             .endCell(),
         });
     }

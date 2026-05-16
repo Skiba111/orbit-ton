@@ -352,7 +352,12 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
     // Security: the subscription address is looked up from subscriber_info —
     // NOT provided by the caller.  This prevents Bob from targeting Alice's
     // subscription with his own OP_CHANGE_PLAN message.
+    //
+    // Gas guard: Factory forwards FACTORY_DEPLOY_GAS to the subscription.
+    // Without this check a subscriber could repeatedly drain the Factory balance
+    // by sending near-zero msg_value while we pay 0.05 TON per forward.
     if (op == OP_CHANGE_PLAN) {
+        assert(msg_value >= FACTORY_DEPLOY_GAS, ERROR_INSUFFICIENT_FUNDS);
         var new_plan_id: int = in_msg_body.loadUint(32);
         var (new_price, new_period, new_trial_period) = require_active_plan(plans, new_plan_id);
 

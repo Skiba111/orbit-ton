@@ -93,7 +93,16 @@ fun onExternalMessage(in_msg: slice) {
 // ── Internal message handler ──────────────────────────────────────────────────
 
 fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg_body: slice) {
-    // Plain TON send (empty body) → add to deposit
+    // Plain TON send (empty body).
+    //
+    // TON subscriptions:  add msg_value to the tracked deposit ledger.
+    //
+    // Jetton subscriptions: accept the TON (it stays in the contract balance
+    //   for gas/rent) but do NOT add it to deposit.  deposit for Jetton tracks
+    //   token count, not nanotons.  Adding nanotons here would inflate the
+    //   apparent token balance, bypass has_funds_for_charge, trigger a Jetton
+    //   transfer with no real tokens, bounce unhandled, and leave
+    //   charging_in_progress=1 permanently (griefing / subscription bricking).
     if (in_msg_body.isEnd()) {
         var (
             seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
@@ -102,13 +111,16 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
             relayer_pubkey, protocol_fee_collector
         ) = load_storage();
-        save_storage(
-            seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
-            retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
-            amount, safe_add(deposit, msg_value), storage_reserve, fee_bps, trial_period,
-            service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
-            relayer_pubkey, protocol_fee_collector
-        );
+        if (payment_type == PAYMENT_TON) {
+            save_storage(
+                seqno, status, payment_type, charging_in_progress, paused_global, keeper_mode,
+                retry_count, period, next_billing_time, grace_end_time, plan_id, max_periods, periods_charged,
+                amount, safe_add(deposit, msg_value), storage_reserve, fee_bps, trial_period,
+                service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
+                relayer_pubkey, protocol_fee_collector
+            );
+        }
+        // For PAYMENT_JETTON: TON is silently accepted (gas/rent), deposit unchanged.
         return;
     }
 
@@ -478,5 +490,5 @@ get fun get_payment_type(): int {
 }
 
 get fun get_version(): int {
-    return 1; // bumped on every storage-breaking upgrade
+    return 2; // v2: Jetton deposit isolation fix (empty-body handler guards payment_type)
 }

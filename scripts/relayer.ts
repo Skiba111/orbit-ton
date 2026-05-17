@@ -124,7 +124,13 @@ interface WalEntry {
     address:        string;
     seqno:          number;
     attemptedAt:    number;
+    attempts:       number; // incremented on every replay attempt
 }
+
+// WAL entry is abandoned after this many retries OR this many seconds since first attempt.
+// Prevents stuck WAL from blocking billing indefinitely when TonCenter is flaky.
+const WAL_MAX_ATTEMPTS = 10;
+const WAL_MAX_AGE_S    = 1800; // 30 minutes
 
 interface Wal {
     pending: Record<string, WalEntry>; // keyed by address
@@ -144,7 +150,13 @@ function saveWal(wal: Wal): void {
 }
 
 function walLogIntent(wal: Wal, address: string, seqno: number): void {
-    wal.pending[address] = { address, seqno, attemptedAt: Math.floor(Date.now() / 1000) };
+    const existing = wal.pending[address];
+    wal.pending[address] = {
+        address,
+        seqno,
+        attemptedAt: existing?.attemptedAt ?? Math.floor(Date.now() / 1000),
+        attempts:    (existing?.attempts ?? 0) + 1,
+    };
     saveWal(wal);
 }
 
@@ -387,22 +399,60 @@ async function replayWal(wal: Wal, secretKey: Buffer, db: SubscriptionDB): Promi
     if (entries.length === 0) return;
     console.log(`[relayer] WAL recovery: ${entries.length} unconfirmed entries`);
 
+    const now = Math.floor(Date.now() / 1000);
+
     for (const entry of entries) {
         const addr = Address.parse(entry.address);
         const sub  = client.open(Subscription.createFromAddress(addr));
 
+        // ── Abandon check ─────────────────────────────────────────────────────
+        // If the WAL entry has been retried too many times or is too old, it is
+        // likely from a TonCenter outage that already resolved.  Check on-chain
+        // seqno once more; if not confirmed, abandon and let the main scan loop
+        // re-charge on the next poll cycle.
+        const age      = now - (entry.attemptedAt ?? now);
+        const tooOld   = age > WAL_MAX_AGE_S;
+        const tooMany  = (entry.attempts ?? 0) >= WAL_MAX_ATTEMPTS;
+
+        if (tooOld || tooMany) {
+            try {
+                const liveSeqno = await sub.getSeqno();
+                if (liveSeqno > entry.seqno) {
+                    walClearEntry(wal, entry.address);
+                    console.log(`[relayer] WAL: ${entry.address} confirmed on abandon-check (seqno=${liveSeqno})`);
+                } else {
+                    walClearEntry(wal, entry.address);
+                    console.warn(`[relayer] WAL: abandoned ${entry.address} after ${entry.attempts} attempts / ${age}s — will retry via normal scan`);
+                }
+            } catch {
+                walClearEntry(wal, entry.address);
+                console.warn(`[relayer] WAL: abandoned ${entry.address} (seqno check failed) — will retry via normal scan`);
+            }
+            continue;
+        }
+
         try {
             const liveSeqno = await sub.getSeqno();
             if (liveSeqno > entry.seqno) {
-                // Already confirmed on-chain
+                // Already confirmed on-chain — TonCenter 500 was a false negative
                 walClearEntry(wal, entry.address);
                 console.log(`[relayer] WAL: ${entry.address} already confirmed (seqno=${liveSeqno})`);
             } else {
                 // Not yet confirmed — retry
-                console.log(`[relayer] WAL: retrying ${entry.address} (seqno=${entry.seqno})`);
+                console.log(`[relayer] WAL: retrying ${entry.address} (attempt ${(entry.attempts ?? 0) + 1}, seqno=${entry.seqno})`);
                 await tryCharge(entry.address, secretKey, wal, db);
             }
         } catch (err) {
+            // After sendExternalMessage fails, check on-chain seqno once more —
+            // TonCenter sometimes returns 500 even when the tx was accepted.
+            try {
+                const liveSeqno = await sub.getSeqno();
+                if (liveSeqno > entry.seqno) {
+                    walClearEntry(wal, entry.address);
+                    console.log(`[relayer] WAL: ${entry.address} confirmed despite 500 (seqno=${liveSeqno})`);
+                    return;
+                }
+            } catch { /* ignore */ }
             console.error(`[relayer] WAL replay failed for ${entry.address}:`, (err as Error).message);
             markFailure(db, entry.address);
         }

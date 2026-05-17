@@ -8,13 +8,16 @@
 |---|---|---|
 | `CHARGE_GAS_BUDGET` | 0.03 TON | Reserved in deposit for charge transaction gas |
 | `KEEPER_REWARD` | 0.01 TON | Base reward per charge paid to a keeper |
-| `DEFAULT_GRACE_SEC` | 259200 (3 days) | Grace period before cancellation on insufficient funds |
+| `DEFAULT_GRACE_SEC` | 259200 (3 days) | Grace period before subscription enters cancellation flow |
+| `MAX_RETRY` | 5 | Max failed charge attempts before subscription is cancelled (within grace window) |
 | `EXT_MSG_TTL` | 60 s | External message timestamp validity window |
 | `CHARGE_TOLERANCE_SEC` | 120 s | How early a charge can arrive before `next_billing_time` |
 | `MIN_PERIOD` | 3600 s (1 hour) | Minimum billing period |
 | `MAX_PERIOD` | 315360000 s (10 years) | Maximum billing period |
 | `MAX_FEE_BPS` | 1000 (10%) | Maximum service fee (`fee_bps`) |
-| `STORAGE_RESERVE` | set per sub | Minimum TON kept for rent (passed at deploy time) |
+| `STORAGE_RESERVE` | 0.05 TON | Minimum TON always kept for rent (compile-time constant in `core/storage-layout.tolk`) |
+
+> **Cancellation trigger**: a subscription is cancelled when **either** the grace period expires (`DEFAULT_GRACE_SEC`) **or** the charge has failed `MAX_RETRY` times — whichever comes first.
 
 ### Factory (`contracts/factory.tolk`)
 
@@ -22,7 +25,7 @@
 |---|---|---|
 | `FACTORY_RESERVE` | 0.1 TON | Always kept in factory for rent |
 | `FACTORY_DEPLOY_GAS` | 0.05 TON | Gas forwarded for subscription deployment and plan changes |
-| `KEEPER_REWARD` | 0.01 TON | Bonus from keeper_pool per charge (when pool funded) |
+| `KEEPER_REWARD` | 0.01 TON | Shared constant (`utils/math-safe.tolk`); bonus from keeper_pool per charge (when pool funded) |
 
 ### FeeCollector (`contracts/fee-collector.tolk`)
 
@@ -115,6 +118,19 @@ Used by `scripts/register-service.ts` (called by service operators, not ORBIT).
 | `WEBHOOK_SECRET` | (empty) | Shared secret — sent as `X-Orbit-Secret` header |
 | `INITIAL_SUBSCRIPTIONS` | (empty) | Comma-separated subscription addresses to seed on first run |
 | `TONCENTER_API_KEY` | (empty) | TonCenter API key (recommended — raises rate limits) |
+
+## Relayer hardcoded constants
+
+These are compile-time constants in `scripts/relayer.ts` — not configurable via env vars.
+
+| Constant | Value | Description |
+|---|---|---|
+| `CHARGE_LEAD_S` | 120 s | Relayer attempts a charge up to 120 s before `next_billing_time`. Matches `CHARGE_TOLERANCE_SEC` in the contract. |
+| `WAL_MAX_ATTEMPTS` | 10 | WAL entry is abandoned after this many retry attempts |
+| `WAL_MAX_AGE_S` | 1800 s (30 min) | WAL entry is abandoned if it has been retrying for more than 30 minutes |
+| Backoff base | 5 s | Initial retry delay; doubles on each failure up to 5 minutes |
+
+After abandonment the WAL entry is cleared and the main scan loop will re-attempt the charge on the next poll cycle.
 
 ## Webhook payload
 

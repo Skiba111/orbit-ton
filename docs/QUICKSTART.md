@@ -22,8 +22,8 @@ cp .env.example .env        # fill in WALLET_MNEMONIC, set NETWORK=testnet
 ## Step 1 — Register your service (1 transaction)
 
 ```bash
-# Set the Registry address (testnet) in your .env:
-# REGISTRY_ADDRESS=EQ...
+# Set the mainnet Registry address in your .env:
+# REGISTRY_ADDRESS=EQAYj1s3g71yta1XaJUeCTEjMRtTBEzHL12-qBIQ4kSNSA_5
 
 npx ts-node scripts/register-service.ts
 ```
@@ -74,16 +74,16 @@ A `Subscription` contract is deployed at a deterministic address for this subscr
 
 The ORBIT relayer monitors subscriptions and sends `OP_CHARGE_EXT` when `next_billing_time` is due.
 
-For local testing, trigger a charge manually:
+Start the relayer on your server:
 
-```ts
-import { Subscription } from "./wrappers/Subscription";
-
-const sub = client.open(Subscription.createFromAddress(subAddr));
-
-// Relayer signs and sends the charge external message
-await sub.sendCharge(relayerKeypair, seqno, timestamp);
+```bash
+# On the server (after setting FACTORY_ADDRESS and RELAYER_MNEMONIC in .env):
+ts-node scripts/relayer.ts
+# → [relayer] Scanning N subscriptions…
+# → [relayer] Charged EQD... (seqno 0 → 1)
 ```
+
+The relayer handles key signing, WAL crash recovery, and webhook delivery automatically. There is no manual charge API — use the relayer script.
 
 ---
 

@@ -274,17 +274,31 @@ The Subscription contract address is deterministic — you can compute it before
 import { Factory } from "../wrappers/Factory";
 import { TonClient, Address } from "@ton/ton";
 
+const PAYMENT_TON    = 1;
+const PAYMENT_JETTON = 2;
+
 const client  = new TonClient({ endpoint: "..." });
 const factory = client.open(Factory.createFromAddress(Address.parse(FACTORY_ADDRESS)));
 
-// Address is determined by: factory + subscriber wallet + plan_id
+// For TON subscriptions (payment_type defaults to PAYMENT_TON = 1):
 const subscriptionAddress = await factory.getSubscriptionAddress(
     subscriberAddress,  // Address object
     planId,             // number
+    // paymentType defaults to PAYMENT_TON — omit for TON plans
+);
+
+// For Jetton subscriptions — payment_type is baked into the contract address:
+const jettonSubscriptionAddress = await factory.getSubscriptionAddress(
+    subscriberAddress,
+    planId,
+    PAYMENT_JETTON,
+    subscriberJettonWalletAddress,  // required for Jetton — must match OP_SUBSCRIBE exactly
 );
 
 console.log("Subscription address:", subscriptionAddress.toString());
 ```
+
+> **Important:** the subscription address is derived from `factory + subscriber + plan_id + payment_type + jetton_wallet`. Using the wrong `payment_type` or `jetton_wallet` produces a different address — you will not find the user's subscription. Always use the same parameters as the `OP_SUBSCRIBE` message.
 
 Store this address in your database to link the user's wallet to their subscription.
 
@@ -336,5 +350,5 @@ Available components: `OrbitProvider`, `useSubscription`, `useSubscribe`, `useFa
 | Relayer shows 0 subscriptions | Wrong `FACTORY_ADDRESS` in `.env` | Check Factory address |
 | Webhook not received | `WEBHOOK_URL` or `WEBHOOK_SECRET` mismatch | Must match exactly on server and relayer |
 | `Error on ...: status 500` | Subscription deposit exhausted | Normal for test subscription; top up deposit |
-| `getSeqno(provider)` — error | Deprecated API | Call without arguments: `await sub.getSeqno()` |
+| `getSeqno(provider)` — TypeScript error | Passing provider manually is not needed | When using `client.open(...)` the SDK injects the provider automatically. Call as `await sub.getSeqno()` with no arguments. |
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     

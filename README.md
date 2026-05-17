@@ -103,7 +103,7 @@
 
    Subscription.recv_external(OP_CHARGE_EXT)
         │
-        ├─► net_amount (plan_price × (1 − fee_bps − 1.5%)) ──► service wallet
+        ├─► net_amount (plan_price × (1 − fee_bps/10000 − 0.015)) ──► service wallet
         ├─► service_fee (fee_bps)                           ──► fee_collector
         ├─► protocol_fee (1.5%)                             ──► FeeCollector
         └─► OP_CHARGE_NOTIFICATION                          ──► Factory (MRR counter)
@@ -120,7 +120,7 @@
 | **TON & Jetton billing** | Native coin or any TEP-74 token (USDT, USDC, etc.) |
 | **Deposit model** | Subscriber pre-funds once; no pull payments, no repeated approvals |
 | **Permissionless keeper network** | Any third party can trigger charges and earn a reward |
-| **Grace period + retry** | 3-day grace window with exponential retry before cancellation |
+| **Grace period + retry** | 3-day grace window, up to 5 charge retries (relayer uses exponential backoff) |
 | **Fixed-term subscriptions** | Optional `max_periods` cap with automatic refund on expiry |
 | **Plan upgrade / downgrade** | Subscriber requests plan change; Factory routes it safely |
 | **Registry integration** | One transaction to get a fully configured Factory |
@@ -352,7 +352,7 @@ Full fee mechanics: [docs/PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md)
 | Threat | Protection |
 |---|---|
 | **Replay attack** | `seqno` monotonicity + 60 s timestamp window on all external messages |
-| **Double charge** | `charging_in_progress` flag (Jetton) · `next_billing_time` check (TON) |
+| **Double charge** | `charging_in_progress` flag (Jetton async guard) · `next_billing_time` check (TON and Jetton) |
 | **Storage depletion** | `raw_reserve(storage_reserve)` called before every outgoing message |
 | **Bounced payment** | `on_charge_bounced` restores full deposit; billing clock rolled back |
 | **Key compromise** | 24h timelock on FeeCollector; relayer key can only trigger valid charges |

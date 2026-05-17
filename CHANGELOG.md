@@ -47,7 +47,7 @@ Key properties:
 
 **New files:**
 - `contracts/registry.tolk` — Registry contract
-- `utils/ops.tolk` — +8 opcodes `OP_REGISTRY_*` (0x4F520060–0x4F520067)
+- `utils/ops.tolk` — +9 opcodes `OP_REGISTRY_*` (0x4F520060–0x4F520068)
 - `wrappers/Registry.ts` — TypeScript wrapper with all send/get methods
 - `wrappers/registry.compile.ts` — compile helper
 - `scripts/deploy-registry.ts` — deploys FeeCollector + Registry (ORBIT operator)

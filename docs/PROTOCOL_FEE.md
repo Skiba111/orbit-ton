@@ -48,7 +48,11 @@ Subscribers can verify their Subscription contract uses official ORBIT code by c
 
 `PROTOCOL_FEE_COLLECTOR_HASH` is also a compile-time constant. All fees for subscriptions deployed from a given Factory go to the `protocol_fee_collector` address stored in that Factory's state at the time the Subscription was deployed.
 
-The ORBIT team can rotate this address for **new** subscriptions via `OP_UPDATE_PROTOCOL_COLLECTOR`. Only the current `protocol_fee_collector` wallet can issue this operation — not the factory owner. Existing deployed subscriptions continue sending to their original stored address and are unaffected by the rotation.
+The ORBIT team can rotate this address using two paths:
+
+1. **Per-Factory rotation** — send `OP_UPDATE_PROTOCOL_COLLECTOR` directly to a Factory. Only the current `protocol_fee_collector` wallet can issue this (not the factory owner). The new address applies to all future Subscription deployments from that Factory. Existing deployed Subscriptions continue sending to their original stored address.
+
+2. **Registry-level rotation** — send `OP_REGISTRY_UPDATE_PROTOCOL_COLLECTOR` to the Registry (owner-authenticated). This updates the address for all **future** Factory deployments via the Registry. Existing deployed Factories and their Subscriptions are unaffected.
 
 ---
 

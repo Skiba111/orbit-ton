@@ -46,8 +46,7 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 
 ## Important notes
 
-- **code_hash** is the SHA-256 of the raw code cell.  It is what `get_code_hash()` (or `cell.hash()`) returns
-  and is the most stable identifier across different BOC serialisation formats.
+- **code_hash** is the canonical TON cell hash (SHA-256 of the standard cell representation including depth and refs descriptors), as returned by `cell.hash()` in `@ton/core`. It is the most stable identifier across different BOC serialisation formats.
 - **boc_sha256** is the SHA-256 of the canonical BOC produced by `@ton/core`'s `Cell.toBoc()`.
   It is useful for file-level verification but depends on the serialiser version.
 - Both hashes above were produced with `optimizationLevel: 2` (the production default).

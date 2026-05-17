@@ -37,6 +37,8 @@ If a payment message bounces (e.g. frozen service contract), `on_charge_bounced`
 ### 11. FeeCollector timelock
 A 24-hour delay between scheduling (`OP_COLLECT`) and executing (`OP_CONFIRM_COLLECT`) a withdrawal gives time to detect a compromised owner key and rotate it before funds move.
 
+To cancel a pending withdrawal, send `OP_COLLECT` with `amount = 0` — this clears the pending record without moving any funds. The owner can then re-schedule a withdrawal with a new amount at any time.
+
 ### 12. OP_CHANGE_PLAN spoofing prevention
 `OP_CHANGE_PLAN` messages from subscribers reach the Factory. The Factory looks up the subscriber's subscription address from its own `subscriber_info` dict — the address is NOT provided by the caller. This prevents an attacker from targeting another user's subscription.
 

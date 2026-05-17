@@ -99,7 +99,7 @@ Failed charges produce a failed transaction with a non-zero exit code. The contr
 
 - **Gas cost with no reward**: if the subscription deposit is exactly at the threshold, the charge may succeed but the reward may not cover gas. Monitor your keeper's balance.
 - **Race conditions**: multiple keepers may target the same subscription simultaneously. Only the first one whose transaction is included earns the reward. The others produce failed transactions.
-- **keeper_mode = 0**: if a subscription was deployed with `keeper_mode = false`, only the relayer's signed external messages are accepted. Unsigned keeper messages will be rejected. Check the `is_keeper_mode` getter before targeting a subscription.
+- **keeper_mode = 0**: if a subscription was deployed with `keeper_mode = 0` (the default), only the relayer's signed external messages are accepted. Unsigned keeper messages will be rejected. Check the `getIsKeeperMode()` getter before targeting a subscription.
 
 ## Checking keeper_mode
 

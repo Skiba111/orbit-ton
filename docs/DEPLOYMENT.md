@@ -76,11 +76,11 @@ This step is for the ORBIT platform operator who deploys the shared on-chain inf
 ts-node scripts/deploy-registry.ts
 ```
 
-The script:
+The script reads all parameters from `.env` (no interactive prompts). It:
 1. Shows your wallet balance and seqno (errors if balance < 0.5 TON)
 2. Compiles all Tolk contracts (~15 seconds)
 3. Deploys FeeCollector (if not already deployed) and prints its address
-4. Prompts for the `RELAYER_PUBKEY` and `PLATFORM_FEE_BPS` (already read from `.env`)
+4. Reads `RELAYER_PUBKEY` and `PLATFORM_FEE_BPS` from `.env`
 5. Deploys Registry with `fee_collector = FeeCollector`, `relayer_pubkey`, and `platform_fee_bps` baked in
 6. Prints Registry and FeeCollector addresses — copy them into `.env` and share the Registry address with service operators
 
@@ -150,9 +150,13 @@ nano ~/orbit/.env
 # Server .env — relayer and webhook variables only
 FACTORY_ADDRESS="EQD...your_factory_address..."
 RELAYER_MNEMONIC="word1 word2 ... word24"   # relayer key mnemonic
-NETWORK=testnet
+NETWORK=mainnet                             # testnet | mainnet
 POLL_INTERVAL_MS=60000
 TONCENTER_API_KEY="your_key"
+
+# Paths (optional — these are the defaults)
+DB_PATH=data/subscriptions.json            # local subscription index
+WAL_PATH=data/relayer-wal.json             # crash-safe charge intent journal
 
 WEBHOOK_URL=https://api.yourapp.com/orbit/webhook
 WEBHOOK_SECRET=long-random-string-at-least-32-chars

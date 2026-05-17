@@ -236,11 +236,6 @@ async function main() {
         throw new Error("Deployer wallet has < 1 TON — please top it up first");
     }
 
-    // ── Prompt for protocol fee collector ─────────────────────────────────────
-
-    const protocolStr = await ask("\nProtocol fee collector address (FeeCollector contract): ");
-    const protocolFeeCollector = Address.parse(protocolStr);
-
     // ── Compile ───────────────────────────────────────────────────────────────
 
     console.log("\n📦 Compiling contracts (this takes ~20 s)…");
@@ -259,6 +254,15 @@ async function main() {
         feeCollectorCode,
     );
     console.log(`FeeCollector : ${feeCollector.address.toString()}`);
+
+    // Protocol fee collector = the FeeCollector contract itself.
+    // Shown above so the user can verify before proceeding.
+    // To override (e.g. use a separate cold wallet), enter a different address.
+    const protocolDefault = feeCollector.address.toString();
+    const protocolStr = await ask(
+        `\nProtocol fee collector address [default: FeeCollector above]\n> `
+    );
+    const protocolFeeCollector = Address.parse(protocolStr.trim() || protocolDefault);
 
     if (await isDeployed(feeCollector.address)) {
         console.log("✅ Already deployed — skipping");

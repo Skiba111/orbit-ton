@@ -130,17 +130,24 @@ async function waitFactoryDeployed(registryAddr: Address, serviceAddr: Address, 
     const deadline = Date.now() + timeoutMs;
     process.stdout.write("  Waiting for Factory");
 
-    // Build the address slice argument for the getter
-    const addrCell = beginCell().storeAddress(serviceAddr).endCell().toBoc().toString("hex");
-    const stackArg = [["tvm.Slice", addrCell]];
+    // TonCenter v2: pass address as tvm.Cell (full BOC of cell containing address slice)
+    const addrBoc  = beginCell().storeAddress(serviceAddr).endCell().toBoc().toString("base64");
+    const stackArg = [["tvm.Cell", addrBoc]];
 
     while (Date.now() < deadline) {
         try {
             const stack = await runGetMethod(registryAddr, "get_factory_address", stackArg);
             if (stack.length > 0) {
-                const factoryAddr = stack[0][1];
+                const raw = stack[0][1] as string;
                 console.log(" ✅");
-                return factoryAddr;
+                // Parse the returned slice BOC into an Address
+                try {
+                    const cell  = Cell.fromBase64(raw);
+                    const addr  = cell.beginParse().loadAddress();
+                    return addr.toString();
+                } catch {
+                    return raw;
+                }
             }
         } catch {
             // Not yet registered — keep waiting

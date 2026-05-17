@@ -233,6 +233,20 @@ fun execute_charge(
     }
 
     // Service fee (configurable per-factory) and ORBIT protocol fee (hardcoded 1.5%).
+    //
+    // ⚠️  JETTON FEE LIMITATION: for Jetton subscriptions, `amount` is denominated
+    // in Jetton token units (e.g. 1_000_000 for 1 USDT with 6 decimals).
+    // split_fee() computes bps_of(amount, fee_bps) and bps_of(amount, PROTOCOL_FEE_BPS)
+    // against those token units — the resulting integers are then sent as nanotons.
+    // This means fees are near-zero TON for typical Jetton amounts.
+    //
+    // For TON subscriptions this is correct (amount IS in nanotons).
+    // For Jetton subscriptions with fee_bps > 0, service fees are essentially dust.
+    // ORBIT protocol fee is similarly affected.
+    //
+    // ✅ Current mitigation: PLATFORM_FEE_BPS = 0 and ORBIT currently only supports
+    // TON subscription plans in production. Do NOT launch Jetton plans with fee_bps > 0
+    // until a proper Jetton-fee accounting model is implemented.
     send_fee(fee_collector, fee_amount, subscriber_addr, plan_id);
     send_protocol_fee(protocol_fee_collector, protocol_fee, subscriber_addr, plan_id);
 
@@ -253,6 +267,15 @@ fun execute_charge(
 //
 // Called when a payment message bounces back (e.g. frozen service contract).
 // Restores the deducted deposit so the subscriber isn't silently drained.
+//
+// Known edge-case (extremely low probability): if BOTH OP_CHARGE_INTERNAL and
+// OP_FEE_PAYMENT bounce simultaneously (requires service_addr AND fee_collector
+// to be frozen at the same time), on_charge_bounced restores `amount` to deposit
+// while the separate OP_FEE_PAYMENT bounce handler also restores `fee_amount`.
+// This results in deposit slightly exceeding the real balance (by fee_amount).
+// has_funds_for_charge() will pass on the next cycle, but the actual send will
+// succeed because the raw balance still covers the charge (only the tracked
+// deposit is slightly inflated). Practically impossible under normal operation.
 fun on_charge_bounced(
     seqno: int, status: int, payment_type: int,
     charging_in_progress: int, paused_global: int, keeper_mode: int,

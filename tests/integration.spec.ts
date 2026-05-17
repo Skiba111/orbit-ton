@@ -168,6 +168,12 @@ describe("Factory → Subscription deployment", () => {
         const factory = blockchain.openContract(Factory.createFromConfig(cfg, factoryCode));
         await factory.sendDeploy(service.getSender(), toNano("1"));
 
+        // Pin blockchain.now so both getter calls receive the same timestamp.
+        // initial_billing_time() in trial-logic.tolk calls blockchain.now() which
+        // Blueprint reads from the real wall clock on each execution — without pinning,
+        // two calls spanning a second boundary would return different addresses.
+        blockchain.now = Math.floor(Date.now() / 1000);
+
         const addr1 = await factory.getSubscriptionAddress(subscriber.address, 0, 1, null);
         const addr2 = await factory.getSubscriptionAddress(subscriber.address, 0, 1, null);
 

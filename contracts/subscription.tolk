@@ -262,14 +262,23 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
         if (payment_type == PAYMENT_TON) {
             new_deposit = safe_add(deposit, msg_value);
         }
-        var new_status: int = status;
+
+        // Only reset retry_count and grace_end_time when transitioning GRACE → ACTIVE.
+        // Keeping them on a dust top-up that does not cover the billing amount would
+        // allow a subscriber to extend the grace period indefinitely by sending small
+        // amounts, preventing the charge-engine from ever reaching MAX_RETRY / cancel.
+        var new_status:    int = status;
+        var new_retry:     int = retry_count;
+        var new_grace_end: int = grace_end_time;
         if ((status == STATUS_GRACE) & has_funds_for_charge(new_deposit, amount, storage_reserve)) {
-            new_status = STATUS_ACTIVE;
+            new_status    = STATUS_ACTIVE;
+            new_retry     = 0;
+            new_grace_end = 0;
         }
 
         save_storage(
             seqno + 1, new_status, payment_type, charging_in_progress, paused_global, keeper_mode,
-            0, period, next_billing_time, 0, plan_id, max_periods, periods_charged,
+            new_retry, period, next_billing_time, new_grace_end, plan_id, max_periods, periods_charged,
             amount, new_deposit, storage_reserve, fee_bps, trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
             relayer_pubkey, protocol_fee_collector

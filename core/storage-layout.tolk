@@ -17,7 +17,7 @@
 //   [var] amount               — billing amount per cycle (coins, snapshot)
 //   [var] deposit              — subscriber's pre-funded balance (coins)
 //   [var] storage_reserve      — minimum balance kept for rent (coins)
-//   [16]  fee_bps              — protocol fee in basis points (0-1000)
+//   [16]  fee_bps              — service fee in basis points (0-1000); protocol fee is PROTOCOL_FEE_BPS=150 in protocol-config.tolk
 //   [32]  trial_period         — 0 = no trial
 //
 // Ref 0 — addresses (801 bits, fits in 1023):

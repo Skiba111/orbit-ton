@@ -7,6 +7,7 @@ import { sign } from "@ton/crypto";
 export const FeeCollectorOps = {
     COLLECT:         0x4F520040, // phase 1: schedule withdrawal (starts 24 h timelock)
     CONFIRM_COLLECT: 0x4F520041, // phase 2: execute after timelock expires
+    ROTATE_KEY:      0x4F520042, // emergency: rotate owner key + clear pending withdrawal
     FEE_PAYMENT:     0x4F520021, // accepted from any subscription (fee accumulation)
 } as const;
 
@@ -124,6 +125,26 @@ export class FeeCollector implements Contract {
         const seqno = await this.getSeqno(provider);
         await provider.external(
             buildSignedExtMsg(seqno, FeeCollectorOps.CONFIRM_COLLECT, null, secretKey, timestamp)
+        );
+    }
+
+    // ── Emergency key rotation ───────────────────────────────────────────────
+    //
+    // Replaces owner_pubkey with a new key and clears any pending withdrawal.
+    // Use when current key is compromised — after rotation all messages signed
+    // with the old key are rejected.
+
+    async sendRotateKey(
+        provider:   ContractProvider,
+        secretKey:  Buffer,      // current (possibly compromised) key — last use
+        newPubkey:  Buffer,      // 32-byte Ed25519 public key to install
+    ) {
+        const seqno   = await this.getSeqno(provider);
+        const payload = beginCell()
+            .storeBuffer(newPubkey)
+        .endCell();
+        await provider.external(
+            buildSignedExtMsg(seqno, FeeCollectorOps.ROTATE_KEY, payload, secretKey)
         );
     }
 

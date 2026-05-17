@@ -31,7 +31,7 @@ const PROTOCOL_FEE_BPS: int = 150;
 // Update this hash before mainnet deployment to match the deployed FeeCollector address.
 // Compute: node -e "const {Address}=require('@ton/core'); console.log('0x'+Address.parse('EQD...').hash.toString('hex'))"
 // NOTE: this constant is reference-only — actual routing uses the address passed at deploy time.
-const PROTOCOL_FEE_COLLECTOR_HASH: int = 0xc3537d157ef8dfe30560cb0e4cce1dda32672f3fb634b056f6cd0fb6b5335b69;
+const PROTOCOL_FEE_COLLECTOR_HASH: int = 0xd79931e826f8da865753dffb69786719d23ba200311f85306229c42e14f9e3cf;
 
 // Reference helper — NOT called at runtime. See note above.
 // workchain = 0, addr_std format (3-bit tag 0b100 + 8-bit workchain + 256-bit hash).

@@ -319,6 +319,8 @@ async function main() {
 
 main().catch(err => {
     console.error("\n❌ Deploy failed:", err.message);
+    console.error("   cause  :", err.cause ?? "(none)");
+    console.error("   stack  :", err.stack ?? "(none)");
     rl.close();
     process.exit(1);
 });

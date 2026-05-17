@@ -19,9 +19,9 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 
 | Field | Value |
 |-------|-------|
-| **code_hash** (cell hash) | `cca54369bc99c4118223273eef4c4e3ade6086d59117f6ad0f891d8e9f74ab74` |
-| **boc_sha256** (SHA-256 of serialised BOC) | `bf7d503f14899ce29b814dcd0aa7a16d008acb5e94c80b5462390d42b1124f69` |
-| BOC size | 4320 bytes |
+| **code_hash** (cell hash) | `d7d77a61c1a8a490bd830006af5f45ea0d49bd0d47f76d4782cd4413f8008a26` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `619b86736a1656b04e65f82d0a9d2d985f57a669d128f3ab2e2f4cfd6567a8a2` |
+| BOC size | 4322 bytes |
 | `get_version()` | `2` |
 
 ## Factory contract (`contracts/factory.tolk`)

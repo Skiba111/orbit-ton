@@ -23,9 +23,9 @@ Instead of deploying a Factory manually, use the ORBIT Registry — it deploys a
 
 ```bash
 # Add to .env:
-# REGISTRY_ADDRESS=EQD...  ← address of the deployed ORBIT Registry
+# REGISTRY_ADDRESS=EQAYj1s3g71yta1XaJUeCTEjMRtTBEzHL12-qBIQ4kSNSA_5   ← mainnet
 # WALLET_MNEMONIC="word1 word2 ... word24"
-# NETWORK=testnet
+# NETWORK=mainnet
 
 ts-node scripts/register-service.ts
 ```

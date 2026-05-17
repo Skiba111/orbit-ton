@@ -87,12 +87,14 @@ await sub.sendCharge(relayerKeypair, seqno, timestamp);
 
 ---
 
-## Testnet addresses
+## Mainnet addresses
 
 | Contract | Address |
 |----------|---------|
-| Registry | `EQ...` *(update after deploy)* |
-| FeeCollector | `EQ...` *(update after deploy)* |
+| Registry | `EQAYj1s3g71yta1XaJUeCTEjMRtTBEzHL12-qBIQ4kSNSA_5` |
+| FeeCollector | `EQDXmTHoJvjahldT3_tpeGcZ0juiADEfhTBiKcQuFPnjz6S0` |
+
+> Testnet: deploy your own Registry + FeeCollector via `deploy-registry.ts`.
 
 ---
 

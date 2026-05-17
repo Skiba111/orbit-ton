@@ -13,6 +13,7 @@
  */
 
 import { mnemonicToPrivateKey } from "@ton/crypto";
+import { WalletContractV4, WalletContractV5R1 } from "@ton/ton";
 
 async function main() {
     const mnemonic = process.argv[2];
@@ -27,8 +28,19 @@ async function main() {
         process.exit(1);
     }
 
-    const kp = await mnemonicToPrivateKey(words);
-    console.log("Public key (hex):", Buffer.from(kp.publicKey).toString("hex"));
+    const kp      = await mnemonicToPrivateKey(words);
+    const pubkey  = Buffer.from(kp.publicKey);
+
+    const v4  = WalletContractV4.create({ workchain: 0, publicKey: pubkey });
+    const v5  = WalletContractV5R1.create({
+        workchain: 0, publicKey: pubkey,
+        walletId: { networkGlobalId: -239 }, // mainnet
+    });
+
+    console.log("Public key (hex) :", pubkey.toString("hex"));
+    console.log("Wallet v4 address:", v4.address.toString({ bounceable: false }));
+    console.log("Wallet v5 address:", v5.address.toString({ bounceable: false }));
+    console.log("\nTop up the address matching your WALLET_VERSION in .env");
 }
 
 main().catch(err => {

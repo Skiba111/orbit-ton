@@ -8,7 +8,7 @@
 [![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen.svg)](tests/)
 [![TON](https://img.shields.io/badge/blockchain-TON-0098EA.svg?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMkM2LjQ4IDIgMiA2LjQ4IDIgMTJzNC40OCAxMCAxMCAxMCAxMC00LjQ4IDEwLTEwUzE3LjUyIDIgMTIgMnoiIGZpbGw9IndoaXRlIi8+PC9zdmc+)](https://ton.org)
 [![Language](https://img.shields.io/badge/language-Tolk-informational.svg)](https://docs.ton.org/v3/documentation/smart-contracts/tolk/overview)
-[![Status](https://img.shields.io/badge/status-testnet%20live-yellow.svg)]()
+[![Status](https://img.shields.io/badge/status-mainnet%20live-brightgreen.svg)]()
 
 </div>
 
@@ -286,12 +286,18 @@ orbit-ton/
 │   └── registry.spec.ts     ← Registry: deploy, register, deregister, admin
 │
 ├── scripts/
-│   ├── deploy-registry.ts   ← Deploy FeeCollector + Registry (ORBIT operator)
-│   ├── register-service.ts  ← Register via Registry to get a managed Factory
-│   ├── relayer.ts           ← Charge relayer: WAL, backoff, webhook, keeper mode
-│   ├── webhook-server.ts    ← Example webhook receiver for your backend
-│   ├── test-e2e.ts          ← E2E test: subscribe → charge → webhook on testnet
-│   └── patch-ton-core.ts    ← domainSign polyfill (@ton/core 0.56.x compat)
+│   ├── deploy-registry.ts      ← Deploy FeeCollector + Registry (ORBIT operator)
+│   ├── deploy-standalone.ts    ← Deploy FeeCollector + Factory directly (no Registry)
+│   ├── register-service.ts     ← Register via Registry to get a managed Factory
+│   ├── add-plan.ts             ← Add a subscription plan to a Factory
+│   ├── test-subscribe.ts       ← Send a test OP_SUBSCRIBE to a Factory
+│   ├── cancel-subscription.ts  ← Send OP_CANCEL to recover subscriber deposit
+│   ├── relayer.ts              ← Charge relayer: WAL, backoff, webhook, keeper mode
+│   ├── webhook-server.ts       ← Example webhook receiver for your backend
+│   ├── test-e2e.ts             ← E2E test: subscribe → charge → webhook on testnet
+│   ├── _get-pubkey.ts          ← Print wallet address and pubkey hex from mnemonic
+│   ├── _compute-hashes.ts      ← Recompute and print bytecode hashes for verification
+│   └── patch-ton-core.ts       ← domainSign polyfill (@ton/core 0.56.x compat)
 │
 ├── sdk/react/               ← @orbit-ton/react hooks and components (in dev)
 │
@@ -356,7 +362,7 @@ Full fee mechanics: [docs/PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md)
 | **Keeper pool drain** | `OP_CHARGE_NOTIFICATION` authenticated: sender must match stored `sub_addr` |
 | **Gas drain via plan change** | `OP_CHANGE_PLAN` requires `msg_value ≥ 0.05 TON` before forwarding |
 
-Full threat model with 19 documented properties: [docs/SECURITY.md](docs/SECURITY.md)
+Full threat model with 23 documented properties: [docs/SECURITY.md](docs/SECURITY.md)
 
 ---
 
@@ -367,7 +373,7 @@ Full threat model with 19 documented properties: [docs/SECURITY.md](docs/SECURIT
 | [QUICKSTART.md](docs/QUICKSTART.md) | 10-minute onboarding for service developers |
 | [INTEGRATION.md](docs/INTEGRATION.md) | Subscribe message format, webhook events, status getters, React SDK |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Key generation, server setup, PM2, nginx, mainnet checklist |
-| [SECURITY.md](docs/SECURITY.md) | Threat model and all 19 security properties |
+| [SECURITY.md](docs/SECURITY.md) | Threat model and all 23 security properties |
 | [PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md) | Fee split mechanics, invariants, bounced fee recovery |
 | [WHITEPAPER.md](docs/WHITEPAPER.md) | Protocol design decisions and architecture rationale |
 | [CONFIGURATION.md](docs/CONFIGURATION.md) | All tunable parameters and their defaults |

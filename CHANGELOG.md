@@ -5,12 +5,30 @@ Format: [Semantic Versioning](https://semver.org). Breaking changes are marked *
 
 ---
 
-## [Unreleased] — fee update
+## [0.1.3] — 2026-05-17
 
-### Fee adjustment
+### Mainnet deployment & operational scripts
 
-- `PROTOCOL_FEE_BPS` changed from 20 (0.2%) to 150 (1.5%) — updated in `utils/protocol-config.tolk`. All contract comments and documentation updated accordingly.
-- `PLATFORM_FEE_BPS` default in `scripts/deploy-registry.ts` changed from 50 to 0. Service developers who register via Registry now receive a Factory with 0% platform fee (in addition to the 1.5% protocol fee baked into bytecode).
+**Mainnet live:** Registry, FeeCollector, and Factory deployed to TON mainnet. First subscriptions created and confirmed.
+
+**New scripts:**
+- `scripts/add-plan.ts` — sends `OP_ADD_PLAN` to a Factory (env vars: `PLAN_PRICE_TON`, `PLAN_PERIOD_DAYS`, `PLAN_TRIAL_DAYS`, `PLAN_NAME`; override period with `PLAN_PERIOD_SEC` for sub-day testing)
+- `scripts/test-subscribe.ts` — sends `OP_SUBSCRIBE` to a Factory and waits for the Subscription contract to appear (uses Factory outgoing transactions — avoids TonCenter getter encoding issues)
+- `scripts/cancel-subscription.ts` — sends `OP_CANCEL` from the subscriber wallet to recover the deposit
+
+**Fee adjustment:**
+- `PROTOCOL_FEE_BPS` changed from 20 (0.2%) to 150 (1.5%) — updated in `utils/protocol-config.tolk`
+- `PLATFORM_FEE_BPS` default in `scripts/deploy-registry.ts` changed from 50 to 0 — service operators registered via Registry receive 0% platform fee on top of the 1.5% protocol fee
+
+**Bug fixes:**
+- `scripts/test-subscribe.ts`: `waitSubscription` now discovers new subscriptions via Factory outgoing transactions instead of the broken `get_subscription_address` TonCenter getter (TonCenter v2 returns 422 for that call due to stack encoding limitations)
+- `scripts/add-plan.ts`: period calculation uses `Math.round(parseFloat(...) * 86400)` instead of `parseInt` — fixes zero period for fractional day inputs
+- `tests/fee-collector.spec.ts`: removed `feeCollector as any` from all getter calls (SandboxContract auto-injects provider); replaced `.rejects.toThrow()` on post-accept VM failures with state side-effect checks
+
+**Documentation:**
+- All docs updated to reflect mainnet deployment
+- `SECURITY.md`: property count corrected to 23
+- `DEPLOYMENT.md`: Registry added to deployment table; `RELAYER_PUBKEY` added to env example; `deploy-registry.ts` vs `deploy-standalone.ts` distinction clarified
 
 ---
 

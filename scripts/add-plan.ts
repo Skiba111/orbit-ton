@@ -59,15 +59,18 @@ const WALLET_VERSION    = (process.env.WALLET_VERSION   ?? "v5").toLowerCase();
 // ── Plan parameters (override via env or edit here) ─────────────────────────
 
 const PLAN_PRICE_TON   = process.env.PLAN_PRICE_TON  ?? "1";       // TON per cycle
-const PLAN_PERIOD_DAYS = process.env.PLAN_PERIOD_DAYS ?? "30";      // billing period
+const PLAN_PERIOD_DAYS = process.env.PLAN_PERIOD_DAYS ?? "30";      // billing period in days
 const PLAN_TRIAL_DAYS  = process.env.PLAN_TRIAL_DAYS  ?? "0";       // 0 = no trial
 const PLAN_NAME        = process.env.PLAN_NAME        ?? "Basic";   // plan name
 
 // ── Derived ──────────────────────────────────────────────────────────────────
 
 const PLAN_PRICE_NANO  = toNano(PLAN_PRICE_TON);
-const PLAN_PERIOD_SEC  = parseInt(PLAN_PERIOD_DAYS) * 86400;
-const PLAN_TRIAL_SEC   = parseInt(PLAN_TRIAL_DAYS)  * 86400;
+// PLAN_PERIOD_SEC env var overrides PLAN_PERIOD_DAYS — use for sub-day test periods (e.g. "60")
+const PLAN_PERIOD_SEC  = process.env.PLAN_PERIOD_SEC
+    ? parseInt(process.env.PLAN_PERIOD_SEC)
+    : Math.round(parseFloat(PLAN_PERIOD_DAYS) * 86400);
+const PLAN_TRIAL_SEC   = Math.round(parseFloat(PLAN_TRIAL_DAYS) * 86400);
 const PLAN_NAME_HASH   = BigInt("0x" + Buffer.from(PLAN_NAME).toString("hex").padEnd(64, "0").slice(0, 64));
 
 const NETWORK_GLOBAL_ID = NETWORK === "mainnet" ? -239 : -3;

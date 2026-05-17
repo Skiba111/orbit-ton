@@ -4,9 +4,10 @@
 
 | Contract | Deployed by | When |
 |---|---|---|
-| **FeeCollector** | ORBIT team (once) | Before any Factory |
-| **Factory** | Service operator | Once per service |
-| **Subscription** | Factory automatically | On each user subscribe |
+| **FeeCollector** | ORBIT team (once) | Before Registry |
+| **Registry** | ORBIT team (once) | After FeeCollector |
+| **Factory** | Registry (automatically on registration) | Once per service |
+| **Subscription** | Factory (automatically on subscribe) | Once per user per plan |
 
 ---
 
@@ -52,9 +53,11 @@ mnemonicNew(24).then(async m => {
 
 WALLET_MNEMONIC="word1 word2 ... word24"   # wallet that pays for deployment
 FEE_COLLECTOR_PUBKEY="abcdef1234..."        # hex pubkey of the cold fee-collector key
+RELAYER_PUBKEY="52dfadb8..."               # hex pubkey of the relayer key (baked into Registry)
 TONCENTER_API_KEY="your_key"               # get one at toncenter.com
 NETWORK=testnet                             # testnet | mainnet
 WALLET_VERSION=v5                           # v5 = Tonkeeper/TG Wallet; v4 = older Tonkeeper
+PLATFORM_FEE_BPS=0                         # extra platform fee on top of 1.5% protocol fee (0 = off)
 ```
 
 Make sure the wallet has enough TON:
@@ -63,48 +66,58 @@ Make sure the wallet has enough TON:
 
 ---
 
-## Step 2 — Deploy FeeCollector and Factory
+## Step 2 — Deploy FeeCollector and Registry  *(ORBIT operator only)*
+
+> **Service developers skip this step** — use `register-service.ts` instead (see below).
+
+This step is for the ORBIT platform operator who deploys the shared on-chain infrastructure once.
+
+```bash
+ts-node scripts/deploy-registry.ts
+```
+
+The script:
+1. Shows your wallet balance and seqno (errors if balance < 0.5 TON)
+2. Compiles all Tolk contracts (~15 seconds)
+3. Deploys FeeCollector (if not already deployed) and prints its address
+4. Prompts for the `RELAYER_PUBKEY` and `PLATFORM_FEE_BPS` (already read from `.env`)
+5. Deploys Registry with `fee_collector = FeeCollector`, `relayer_pubkey`, and `platform_fee_bps` baked in
+6. Prints Registry and FeeCollector addresses — copy them into `.env` and share the Registry address with service operators
+
+**Example output:**
+```
+╔═══════════════════════════════════════════════════════════════╗
+║              ORBIT Deploy Complete ✅                         ║
+╠═══════════════════════════════════════════════════════════════╣
+║  Network       : mainnet
+║  FeeCollector  : EQD<fee_collector_address>
+║  Registry      : EQD<registry_address>
+╠═══════════════════════════════════════════════════════════════╣
+║  → REGISTRY_ADDRESS=EQD<registry_address>  (share with devs) ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+### Alternative: standalone deploy (no Registry)
+
+If you want to deploy a Factory directly without using the Registry:
 
 ```bash
 ts-node scripts/deploy-standalone.ts
 ```
 
-The script:
-1. Shows your wallet balance and seqno (errors if < 0.5 TON)
-2. Compiles all Tolk contracts (~15 seconds)
-3. Deploys FeeCollector (if not already deployed)
-4. Interactively prompts for Factory parameters:
-   - **Service owner address** — your address (Factory management)
-   - **Service fee bps** — service fee in basis points (100 = 1%, 0 = no fee)
-   - **Relayer pubkey hex** — hex pubkey of the relayer key
-   - **Protocol fee collector address** — FeeCollector address (or ORBIT address)
-5. Deploys Factory
-6. Prints the resulting addresses
+The script deploys FeeCollector + Factory in one flow and prompts interactively for parameters (owner address, service fee bps, relayer pubkey, protocol fee collector address). Use this for private setups where you do not need the shared Registry.
 
-**Example output:**
-```
-╔═══════════════════════════════════════════════════════════════╗
-║                ORBIT Deployment Complete ✅                   ║
-╠═══════════════════════════════════════════════════════════════╣
-║  Network      : testnet
-║  FeeCollector : EQD<your_fee_collector_address>
-║  Factory      : EQD<your_factory_address>
-╠═══════════════════════════════════════════════════════════════╣
-║  → Copy Factory address to FACTORY_ADDRESS in your .env      ║
-╚═══════════════════════════════════════════════════════════════╝
-```
+### For service operators — get a Factory via Registry
 
-### Alternative: deploy via Registry
-
-If an ORBIT Registry is already deployed, skip step 2 entirely and register instead:
+Once the ORBIT Registry is deployed, service operators get a Factory with a single transaction:
 
 ```bash
 # Add to .env:
-# REGISTRY_ADDRESS=EQD...  ← ORBIT Registry address
+# REGISTRY_ADDRESS=EQD...  ← ORBIT Registry address (published by ORBIT team)
 ts-node scripts/register-service.ts
 ```
 
-This sends 0.3 TON to the Registry, which deploys a Factory for you with ORBIT fee settings enforced. Copy the printed Factory address into `FACTORY_ADDRESS`.
+This sends 0.3 TON to the Registry, which deploys a Factory for your wallet with ORBIT fee settings enforced at the contract level. Copy the printed Factory address into `FACTORY_ADDRESS` in your server `.env`.
 
 ---
 

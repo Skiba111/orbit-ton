@@ -14,7 +14,7 @@ This guide takes you from zero to a working recurring subscription on TON testne
 git clone https://github.com/your-org/orbit-ton
 cd orbit-ton
 npm install
-cp .env.example .env        # fill in MNEMONIC, set NETWORK=testnet
+cp .env.example .env        # fill in WALLET_MNEMONIC, set NETWORK=testnet
 ```
 
 ---
@@ -105,9 +105,11 @@ npx ts-node scripts/deploy-registry.ts
 ```
 
 Required env vars:
-- `MNEMONIC` — your deployer wallet seed
-- `RELAYER_PUBKEY` — hex Ed25519 public key of your relayer
+- `WALLET_MNEMONIC` — 24-word seed phrase of the deployer wallet
+- `FEE_COLLECTOR_PUBKEY` — hex Ed25519 pubkey of the cold fee-collector key
+- `RELAYER_PUBKEY` — hex Ed25519 pubkey of the relayer key
 - `NETWORK` — `testnet` or `mainnet`
+- `WALLET_VERSION` — `v4` or `v5` (default: `v5`)
 
 ---
 

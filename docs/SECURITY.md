@@ -1,5 +1,7 @@
 # Security Model
 
+ORBIT implements 23 security properties covering replay attacks, fee bypass, key compromise, gas drain, Jetton atomicity, and more.
+
 ## What ORBIT protects
 
 ### 1. Double-charge guard

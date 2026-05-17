@@ -11,12 +11,13 @@
 //                    system:     OP_JETTON_TRANSFER_NOTIFICATION, OP_JETTON_EXCESSES
 //                    bounce:     handles bounced charge messages
 //
-// Jetton auto-learn:
-//   The jetton_wallet is set to addr_none at deploy for Jetton subscriptions.
-//   The first OP_JETTON_TRANSFER_NOTIFICATION from any address sets it permanently.
-//   All subsequent notifications must originate from that same address.
-//   This is standard TON Jetton pattern (Jetton wallet address is deterministic
-//   but not known until the first transfer arrives).
+// Jetton wallet:
+//   For Jetton subscriptions, jetton_wallet is set at deploy time from the
+//   subscriber_jetton_wallet parameter provided in OP_SUBSCRIBE.
+//   The Factory validates that this address is not addr_none before deploying.
+//   All OP_JETTON_TRANSFER_NOTIFICATION messages must originate from this address.
+//   The addr_none auto-learn path below is a safety fallback only — it should
+//   never be reached in correctly-deployed subscriptions.
 //
 // External message layouts:
 //   Standard (keeper_mode=0):
@@ -357,7 +358,7 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
         save_storage(
             seqno + 1, new_status, payment_type, charging_in_progress, paused_global, keeper_mode,
             retry_count, new_period, blockchain.now() + new_period, grace_end_time,
-            new_plan_id, max_periods, 0,
+            new_plan_id, max_periods, periods_charged,
             new_amount, deposit, storage_reserve, fee_bps, new_trial_period,
             service_addr, subscriber_addr, factory_addr, fee_collector, jetton_wallet,
             relayer_pubkey, protocol_fee_collector

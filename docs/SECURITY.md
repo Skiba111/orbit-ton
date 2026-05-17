@@ -68,4 +68,25 @@ Without this guard, anyone could send TON with an empty body to inflate the appa
 
 ### 19. `OP_CHANGE_PLAN` minimum gas guard — Factory drain prevention
 
-`OP_CHANGE_PLAN` in the Factory forwards `FACTORY_DEPLOY_GAS` (0.05 TON) to the subscription via `OP_APPLY_PLAN`. Without a minimum `msg_value` guard, a subscriber could send near-zero-value plan-change messages and gradually drain the Factory's balance. The guard `assert(msg_value >= FACTORY_DEPLOY_GAS)` ensures the subscriber covers the forwarding cost. 
+`OP_CHANGE_PLAN` in the Factory forwards `FACTORY_DEPLOY_GAS` (0.05 TON) to the subscription via `OP_APPLY_PLAN`. Without a minimum `msg_value` guard, a subscriber could send near-zero-value plan-change messages and gradually drain the Factory's balance. The guard `assert(msg_value >= FACTORY_DEPLOY_GAS)` ensures the subscriber covers the forwarding cost.
+
+### 20. `OP_APPLY_PLAN` preserves `periods_charged` — fixed-term subscriptions cannot be bypassed
+
+`OP_APPLY_PLAN` (sent by Factory in response to a subscriber's `OP_CHANGE_PLAN`) does **not** reset `periods_charged` to zero. A subscriber on a fixed-term plan (set via `OP_SET_MAX_PERIODS`) who switches plans retains their accumulated charge count — they cannot reset the counter by cycling through plan changes to extend beyond `max_periods`.
+
+### 21. FeeCollector `OP_ROTATE_KEY` — emergency key rotation
+
+`OP_ROTATE_KEY` allows the FeeCollector owner to replace the signing key in a single external message. When called:
+- The stored `owner_pubkey` is replaced with the new key immediately
+- Any pending withdrawal is cleared
+- All future messages must be signed with the new key — the old key becomes invalid
+
+**Use case:** if the owner key is compromised, the legitimate owner can race to issue `OP_ROTATE_KEY` with a new key before the attacker executes a pending withdrawal. After rotation, the attacker's old-key-signed `OP_CONFIRM_COLLECT` is rejected (signature mismatch against the rotated key). The owner then re-schedules any legitimate withdrawal with the new key.
+
+### 22. Jetton wallet validated non-null at subscribe time — misconfiguration prevented
+
+The Factory rejects `OP_SUBSCRIBE` for Jetton payment if the `subscriber_jetton_wallet` field is `addr_none`. A subscriber who provides an invalid (zero) wallet address would permanently misconfigure their subscription — all subsequent Jetton deposits would be routed to address zero and the subscription would be stuck. The guard `assert(!is_addr_none(subscriber_jetton_wallet))` at the Factory level prevents this contract from ever being deployed in a broken state.
+
+### 23. Re-subscription behavior — subscriber_info overwrite is by design
+
+If a subscriber calls `OP_SUBSCRIBE` a second time while an existing subscription is active, the Factory overwrites `subscriber_info` with the new subscription address. The old subscription continues operating (billing, grace, cancel) independently but the Factory stops tracking it for MRR analytics and keeper pool rewards. This is an intentional design: the subscriber is responsible for cancelling their old subscription before creating a new one. The `get_subscription_address` getter returns the most recently registered address for any given subscriber.

@@ -1,6 +1,6 @@
 # ORBIT Official Bytecode Hashes
 
-These hashes identify the canonical ORBIT v0.1.2 contract bytecode compiled from this repository.
+These hashes identify the canonical ORBIT v0.1.3 contract bytecode compiled from this repository.
 
 Any integrator can verify they are running official ORBIT code by recompiling from source and comparing hashes,
 or by checking the `get_version()` getter on a deployed contract.
@@ -19,18 +19,18 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 
 | Field | Value |
 |-------|-------|
-| **code_hash** (cell hash) | `334455420888a262996314f7d37d9752d36b02460817f7ff48fa17ae4fc60e41` |
-| **boc_sha256** (SHA-256 of serialised BOC) | `5bd9c30dccde5e2878df1276aa6b3a1fdbc501bc4dffd9717fe94cc77f5793f3` |
-| BOC size | 4319 bytes |
+| **code_hash** (cell hash) | `cca54369bc99c4118223273eef4c4e3ade6086d59117f6ad0f891d8e9f74ab74` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `bf7d503f14899ce29b814dcd0aa7a16d008acb5e94c80b5462390d42b1124f69` |
+| BOC size | 4320 bytes |
 | `get_version()` | `2` |
 
 ## Factory contract (`contracts/factory.tolk`)
 
 | Field | Value |
 |-------|-------|
-| **code_hash** (cell hash) | `ff41736ad5a446d9d5153fe29db20142da5e9adfe593f3cb1a26f4ec7acabcda` |
-| **boc_sha256** (SHA-256 of serialised BOC) | `e59e41151ff4c78c305dbe09f56e7162de9d9e9c00526405f2ae86423d050dd0` |
-| BOC size | 2361 bytes |
+| **code_hash** (cell hash) | `ce8901b421bd4b1e8a6c3c5e4bb618b25ed534add19e4dc55a6ed1174dd17518` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `25aba7bdf212533b3b9968901eb96d9b93ed0362b749e2f9be3f3887271b28c4` |
+| BOC size | 2371 bytes |
 | `get_version()` | `2` |
 
 ## Registry contract (`contracts/registry.tolk`)
@@ -60,7 +60,10 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
   - Registry balance guard before Factory deploy
   - `keeper_wallet` addr_none validation in Subscription
   - `split_fee` fee_bps ceiling assert in fee-router
+  - `periods_charged` preserved across plan changes (OP_APPLY_PLAN no longer resets to 0)
+  - Jetton `subscriber_jetton_wallet` validated non-null at Factory subscribe time
+  - `OP_ROTATE_KEY` added to FeeCollector for emergency key rotation
 
 ---
 
-*Last updated: 2026-05-17 — ORBIT v0.1.2 (PROTOCOL_FEE_BPS = 150)*
+*Last updated: 2026-05-17 — ORBIT v0.1.3*

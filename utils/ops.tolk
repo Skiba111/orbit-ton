@@ -42,6 +42,7 @@ const OP_CHARGE_NOTIFICATION:    int = 0x4F520008; // subscription reports succe
 // ── Fee collector ops ──────────────────────────────────────────────────────
 const OP_COLLECT:                int = 0x4F520040; // phase 1: request withdrawal (starts timelock)
 const OP_CONFIRM_COLLECT:        int = 0x4F520041; // phase 2: confirm after timelock expires
+const OP_ROTATE_KEY:             int = 0x4F520042; // emergency: rotate owner key + clear pending
 
 // ── Keeper / factory ops ───────────────────────────────────────────────────
 const OP_FUND_KEEPER_POOL:       int = 0x4F520009; // service funds keeper reward pool

@@ -255,6 +255,9 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
         var subscriber_jetton_wallet: slice = beginCell().storeUint(0, 2).endCell().beginParse();
         if (payment_type == PAYMENT_JETTON) {
             subscriber_jetton_wallet = in_msg_body.loadAddress() as slice;
+            // Reject addr_none — a subscriber who provides an invalid Jetton wallet would
+            // permanently misconfigure their subscription (deposits would be rejected).
+            assert(!sub_addr_is_none(subscriber_jetton_wallet), ERROR_INVALID_OP);
         }
 
         var (price, period, trial_period) = require_active_plan(plans, plan_id);

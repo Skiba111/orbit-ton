@@ -203,6 +203,27 @@ fun onExternalMessage(in_msg: slice) {
         return;
     }
 
+    // ── OP_ROTATE_KEY — emergency owner key rotation ──────────────────────────
+    // Replaces the owner public key with a new one and clears any pending
+    // withdrawal.  Use when the current key is compromised: once rotated, all
+    // future messages signed with the old key are rejected (signature check uses
+    // the stored owner_pubkey, which is now the new key).
+    //
+    // Security model:
+    //   1. Both owner and attacker can call this if the key is compromised.
+    //   2. Whoever sends first wins — the contract accepts the first valid rotation.
+    //   3. The owner should rotate immediately upon detecting compromise.
+    //   4. After rotation, the attacker's old-key-signed messages are invalid.
+    //   5. Any pending withdrawal is cleared as a safety measure — the owner
+    //      can re-schedule after rotation with the new key.
+    if (op == OP_ROTATE_KEY) {
+        var new_pubkey: int = in_msg.loadUint(256);
+        assert(new_pubkey != 0, ERROR_INVALID_STATE);
+        // Clear pending withdrawal: a compromised key may have queued one.
+        save_collector_storage(new_pubkey, seqno + 1, total_collected, empty_pending());
+        return;
+    }
+
     throw ERROR_INVALID_OP;
 }
 

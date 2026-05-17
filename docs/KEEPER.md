@@ -14,16 +14,25 @@ Keepers are external actors who trigger billing cycles on ORBIT subscriptions an
 
 The base reward is always available as long as the subscription has a funded deposit. The bonus reward comes from the factory's keeper pool — service operators can top it up with `OP_FUND_KEEPER_POOL`.
 
+## Two modes: relayer (signed) vs keeper (permissionless)
+
+ORBIT subscriptions support two charge modes. The mode is set at Factory deploy time and applies to every Subscription deployed by that Factory.
+
+| Mode | `keeper_mode` | Who can charge | Message format |
+|------|--------------|----------------|----------------|
+| **Relayer** | `0` (default) | Only the holder of `relayer_pubkey` | Ed25519 signed — 512-bit sig prefix |
+| **Keeper** | `1` | Anyone | Unsigned — just seqno + timestamp + op + wallet |
+
 ## How it works
 
-1. A keeper sends a signed `OP_CHARGE_EXT` external message to a subscription whose `next_billing_time` has passed.
-2. The Subscription contract verifies the message (seqno + timestamp freshness).
-3. If the subscription is chargeable, the billing cycle runs and the keeper's wallet receives the reward.
+1. A caller sends an `OP_CHARGE_EXT` external message to a Subscription whose `next_billing_time` has passed.
+2. The Subscription verifies the message (signature in relayer mode; seqno + timestamp freshness in both modes).
+3. If the subscription is chargeable, the billing cycle runs and the charge reward is sent to the relayer/keeper wallet.
 4. `next_billing_time` advances by one period, preventing double-charges.
 
-## Using the ORBIT relayer as a keeper
+## Using the ORBIT relayer (relayer mode — default)
 
-The built-in relayer (`scripts/relayer.ts`) operates in keeper-compatible mode. It discovers subscriptions via factory transaction history and sends charge messages automatically.
+The built-in relayer (`scripts/relayer.ts`) operates in **signed relayer mode** (`keeper_mode = 0`). It discovers subscriptions via factory transaction history and sends signed charge messages automatically.
 
 ```bash
 export FACTORY_ADDRESS="EQD..."
@@ -33,21 +42,32 @@ export POLL_INTERVAL_MS=60000
 ts-node scripts/relayer.ts
 ```
 
-The relayer's pubkey must match the `relayer_pubkey` stored in each subscription. This is set at factory deploy time and can be rotated per-subscription via `OP_ROTATE_RELAYER` (service owner only).
+The relayer's pubkey must match the `relayer_pubkey` stored in each Subscription. This is set at Factory deploy time via `deploy-registry.ts` (the `RELAYER_PUBKEY` env var).
 
-## Writing a custom keeper
+## Writing a custom keeper (keeper mode only)
 
-Any external message with this layout will trigger a charge:
+> **Requires `keeper_mode = 1`.** If the Factory was deployed with `keeper_mode = 0` (the default), unsigned messages are rejected. Check `getIsKeeperMode()` before targeting a subscription.
 
+In keeper mode, any external message with this layout triggers a charge:
+
+**Keeper mode (`keeper_mode = 1`) message layout:**
 ```
-seqno     (32 bits)   — current subscription seqno (from get_seqno getter)
-timestamp (32 bits)   — current unix time (must be within 60 s of on-chain time)
-op        (32 bits)   — 0x4F520030 (OP_CHARGE_EXT)
+seqno          (32 bits)  — current subscription seqno (from getSeqno getter)
+timestamp      (32 bits)  — current unix time (must be within 60 s of on-chain time)
+op             (32 bits)  — 0x4F520030 (OP_CHARGE_EXT)
+keeper_wallet  (addr)     — MsgAddress of your wallet — reward is sent here
 ```
 
-No signature is required when `keeper_mode = 1`. The message is accepted from any sender.
+**Relayer mode (`keeper_mode = 0`) message layout:**
+```
+signature      (512 bits) — Ed25519 signature over the remaining slice
+seqno          (32 bits)
+timestamp      (32 bits)
+op             (32 bits)  — 0x4F520030 (OP_CHARGE_EXT)
+```
 
 ```typescript
+// Keeper mode (keeper_mode = 1) — no signature required
 import { beginCell } from "@ton/core";
 
 const seqno     = await sub.getSeqno();
@@ -58,7 +78,7 @@ const extMsg = beginCell()
     .storeUint(timestamp,  32)
     .storeUint(0x4F520030, 32)  // OP_CHARGE_EXT
     .storeAddress(myWallet)     // keeper_wallet — reward destination
-.endCell();
+    .endCell();
 
 await client.sendExternalMessage(Subscription.createFromAddress(subAddr), extMsg);
 ```

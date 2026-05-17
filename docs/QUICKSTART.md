@@ -11,7 +11,7 @@ This guide takes you from zero to a working recurring subscription on TON testne
 - `.env` file configured (copy `.env.example`, fill in `MNEMONIC`)
 
 ```bash
-git clone https://github.com/your-org/orbit-ton
+git clone https://github.com/Skiba111/orbit-ton
 cd orbit-ton
 npm install
 cp .env.example .env        # fill in WALLET_MNEMONIC, set NETWORK=testnet

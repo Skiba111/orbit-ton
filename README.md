@@ -305,7 +305,7 @@ orbit-ton/
     ├── QUICKSTART.md        ← 10-minute onboarding
     ├── INTEGRATION.md       ← Full integration guide with code examples
     ├── DEPLOYMENT.md        ← Server and mainnet deployment guide
-    ├── SECURITY.md          ← Threat model, all 19 security properties
+    ├── SECURITY.md          ← Threat model, all 23 security properties
     ├── PROTOCOL_FEE.md      ← Fee mechanics and invariants
     ├── WHITEPAPER.md        ← Protocol design decisions
     ├── CONFIGURATION.md     ← All configurable parameters

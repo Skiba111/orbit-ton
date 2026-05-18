@@ -158,29 +158,6 @@
       text-align: center;
     }
 
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--blue);
-      background: var(--blue-dim);
-      border: 1px solid rgba(59,130,246,0.25);
-      padding: 5px 14px;
-      border-radius: 100px;
-      letter-spacing: 0.04em;
-      margin-bottom: 36px;
-    }
-
-    .hero-badge-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--blue);
-      box-shadow: 0 0 6px var(--blue);
-      animation: pulse 2s infinite;
-    }
-
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50%       { opacity: 0.6; transform: scale(0.85); }
@@ -196,9 +173,9 @@
 
     .hero h1 {
       font-size: clamp(44px, 6vw, 76px);
-      font-weight: 300;
+      font-weight: 400;
       line-height: 1.12;
-      letter-spacing: -0.03em;
+      letter-spacing: -0.035em;
       color: var(--text);
       margin-bottom: 24px;
       max-width: 780px;
@@ -316,18 +293,18 @@
 
     /* ── Section headings ──────────────────────────────────────────── */
     .section-label {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.14em;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--blue);
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
 
     .section-title {
       font-size: clamp(28px, 3.5vw, 42px);
-      font-weight: 300;
-      letter-spacing: -0.025em;
+      font-weight: 500;
+      letter-spacing: -0.03em;
       color: var(--text);
       line-height: 1.18;
       margin-bottom: 14px;
@@ -899,11 +876,6 @@
   <!-- ── Hero ────────────────────────────────────────────────────────── -->
   <section class="hero">
     <div class="container">
-
-      <div class="hero-badge">
-        <span class="hero-badge-dot"></span>
-        Mainnet Live · TON Blockchain
-      </div>
 
       <div class="hero-logo">
         <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">

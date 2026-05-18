@@ -128,7 +128,8 @@ These are compile-time constants in `scripts/relayer.ts` — not configurable vi
 | `CHARGE_LEAD_S` | 120 s | Relayer attempts a charge up to 120 s before `next_billing_time`. Matches `CHARGE_TOLERANCE_SEC` in the contract. |
 | `WAL_MAX_ATTEMPTS` | 10 | WAL entry is abandoned after this many retry attempts |
 | `WAL_MAX_AGE_S` | 1800 s (30 min) | WAL entry is abandoned if it has been retrying for more than 30 minutes |
-| Backoff base | 5 s | Initial retry delay; doubles on each failure up to 5 minutes |
+| `BACKOFF_BASE_S` | 30 s | Initial retry delay after a failed charge: 30 s → 60 s → 120 s → … |
+| `BACKOFF_MAX_S` | 3600 s (60 min) | Maximum backoff delay between retries |
 
 After abandonment the WAL entry is cleared and the main scan loop will re-attempt the charge on the next poll cycle.
 

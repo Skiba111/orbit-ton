@@ -68,19 +68,30 @@ op             (32 bits)  — 0x4F520030 (OP_CHARGE_EXT)
 
 ```typescript
 // Keeper mode (keeper_mode = 1) — no signature required
-import { beginCell } from "@ton/core";
+import { Address, beginCell } from "@ton/core";
+import { TonClient } from "@ton/ton";
+import { Subscription } from "../wrappers/Subscription";
 
-const seqno     = await sub.getSeqno();
-const timestamp = Math.floor(Date.now() / 1000);
+const client = new TonClient({
+    endpoint: "https://toncenter.com/api/v2/jsonRPC",
+    apiKey:   process.env.TONCENTER_API_KEY,
+});
+
+const subAddr    = Address.parse("EQD...subscription_address...");
+const myWallet   = Address.parse("EQD...your_keeper_wallet...");
+
+const sub        = client.open(Subscription.createFromAddress(subAddr));
+const seqno      = await sub.getSeqno();
+const timestamp  = Math.floor(Date.now() / 1000);
 
 const extMsg = beginCell()
     .storeUint(seqno,      32)
     .storeUint(timestamp,  32)
     .storeUint(0x4F520030, 32)  // OP_CHARGE_EXT
-    .storeAddress(myWallet)     // keeper_wallet — reward destination
+    .storeAddress(myWallet)     // keeper_wallet — reward is sent here
     .endCell();
 
-await client.sendExternalMessage(Subscription.createFromAddress(subAddr), extMsg);
+await client.sendExternalMessage(sub, extMsg);
 ```
 
 ## When charges fail

@@ -8,7 +8,7 @@ This guide takes you from zero to a working recurring subscription on TON testne
 
 - Node.js 18+
 - A TON wallet with some testnet TON ([faucet](https://t.me/testgiver_ton_bot))
-- `.env` file configured (copy `.env.example`, fill in `MNEMONIC`)
+- `.env` file configured (copy `.env.example`, fill in `WALLET_MNEMONIC`)
 
 ```bash
 git clone https://github.com/Skiba111/orbit-ton

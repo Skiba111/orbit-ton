@@ -266,7 +266,94 @@ const deposit     = await sub.getDeposit();          // remaining deposit in nan
 
 ---
 
-## 4. Pre-computing the subscription address
+## 4. Subscriber actions — cancel, pause, top-up
+
+All three actions are sent by the subscriber's wallet directly to the **Subscription contract address** (not the Factory). Each requires ~0.05 TON for gas; the excess is returned.
+
+### Cancel
+
+Immediately cancels the subscription and refunds the remaining deposit to the subscriber.
+
+```typescript
+import { beginCell, toNano } from "@ton/core";
+import { useTonConnectUI } from "@tonconnect/ui-react";
+
+const OP_CANCEL = 0x4F520010;
+
+function CancelButton({ subscriptionAddress }: { subscriptionAddress: string }) {
+    const [tonConnectUI] = useTonConnectUI();
+
+    async function handleCancel() {
+        const body = beginCell()
+            .storeUint(OP_CANCEL, 32)
+            .storeUint(0, 64)   // query_id
+            .endCell();
+
+        await tonConnectUI.sendTransaction({
+            validUntil: Math.floor(Date.now() / 1000) + 300,
+            messages: [{
+                address: subscriptionAddress,   // the Subscription contract, NOT the Factory
+                amount:  String(toNano("0.05")),
+                payload: body.toBoc().toString("base64"),
+            }],
+        });
+    }
+
+    return <button onClick={handleCancel}>Cancel subscription</button>;
+}
+```
+
+After cancellation:
+- `status` becomes `5` (`STATUS_CANCELLED`)
+- The remaining deposit is returned to the subscriber's wallet automatically
+- The subscription cannot be reactivated — the subscriber must create a new one via `OP_SUBSCRIBE`
+
+> Both the subscriber and the service owner can cancel. The service cannot cancel while a Jetton transfer is in progress (`charging_in_progress = 1`).
+
+### Pause
+
+Pauses billing without cancelling. The subscription stays alive; charges are skipped while paused.
+
+```typescript
+const OP_PAUSE_SUB = 0x4F520012;
+
+const body = beginCell()
+    .storeUint(OP_PAUSE_SUB, 32)
+    .storeUint(0, 64)
+    .endCell();
+// send to subscriptionAddress with toNano("0.05")
+```
+
+Resume with `OP_RESUME_SUB = 0x4F520013` (same message format).
+
+### Top-up deposit
+
+Adds TON to the subscription deposit so billing can continue (e.g. after a `STATUS_GRACE` warning).
+
+```typescript
+const OP_TOP_UP   = 0x4F520011;
+const topUpAmount = toNano("2");  // amount to add to deposit
+
+const body = beginCell()
+    .storeUint(OP_TOP_UP, 32)
+    .storeUint(0, 64)
+    .endCell();
+
+await tonConnectUI.sendTransaction({
+    validUntil: Math.floor(Date.now() / 1000) + 300,
+    messages: [{
+        address: subscriptionAddress,
+        amount:  String(topUpAmount + toNano("0.05")),  // topUp amount + gas
+        payload: body.toBoc().toString("base64"),
+    }],
+});
+```
+
+> **TON subscriptions only:** the contract also accepts a plain TON transfer (no body) as a deposit top-up. Using `OP_TOP_UP` with a `query_id` is recommended so you can track the transaction. For Jetton subscriptions, plain TON transfers are accepted for gas/rent but do **not** add to the tracked token deposit — top up by sending Jetton tokens via the standard Jetton transfer flow.
+
+---
+
+## 5. Pre-computing the subscription address
 
 The Subscription contract address is deterministic — you can compute it before the user subscribes:
 
@@ -304,7 +391,7 @@ Store this address in your database to link the user's wallet to their subscript
 
 ---
 
-## 5. Inspecting Factory plans
+## 6. Inspecting Factory plans
 
 ```typescript
 import { Factory } from "../wrappers/Factory";
@@ -327,7 +414,7 @@ for (let planId = 0; planId < planCount; planId++) {
 
 ---
 
-## 6. React SDK (in development)
+## 7. React SDK (in development)
 
 Source is in `sdk/react/`. Not yet published to npm. Watch releases.
 

@@ -5,7 +5,7 @@
 **Recurring subscription billing on the TON blockchain**
 
 [![License: BUSL-1.1](https://img.shields.io/badge/license-BUSL--1.1-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-83%20passing-brightgreen.svg)](tests/)
 [![TON](https://img.shields.io/badge/blockchain-TON-0098EA.svg?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMkM2LjQ4IDIgMiA2LjQ4IDIgMTJzNC40OCAxMCAxMCAxMCAxMC00LjQ4IDEwLTEwUzE3LjUyIDIgMTIgMnoiIGZpbGw9IndoaXRlIi8+PC9zdmc+)](https://ton.org)
 [![Language](https://img.shields.io/badge/language-Tolk-informational.svg)](https://docs.ton.org/v3/documentation/smart-contracts/tolk/overview)
 [![Status](https://img.shields.io/badge/status-mainnet%20live-brightgreen.svg)]()
@@ -172,7 +172,7 @@ WEBHOOK_SECRET=long-random-string-at-least-32-chars
 
 ```bash
 npm test
-# → 71 tests: security · integration · registry
+# → 83 tests: security · integration · registry
 ```
 
 ### 4. Get a Factory (service operators)
@@ -279,11 +279,12 @@ orbit-ton/
 │   ├── Registry.ts
 │   └── FeeCollector.ts
 │
-├── tests/                   ← Jest test suites (71 tests)
-│   ├── subscription.spec.ts ← Unit tests: all subscription ops
-│   ├── security.spec.ts     ← Exploit attempts and edge cases
-│   ├── integration.spec.ts  ← Full billing cycle: subscribe → charge → cancel
-│   └── registry.spec.ts     ← Registry: deploy, register, deregister, admin
+├── tests/                   ← Jest test suites (83 tests)
+│   ├── subscription.spec.ts    ← Unit tests: all subscription ops
+│   ├── security.spec.ts        ← Exploit attempts and edge cases
+│   ├── integration.spec.ts     ← Full billing cycle: subscribe → charge → cancel
+│   ├── registry.spec.ts        ← Registry: deploy, register, deregister, admin
+│   └── fee-collector.spec.ts   ← FeeCollector: timelock, key rotation, withdraw
 │
 ├── scripts/
 │   ├── deploy-registry.ts      ← Deploy FeeCollector + Registry (ORBIT operator)
@@ -371,7 +372,7 @@ Full threat model with 23 documented properties: [docs/SECURITY.md](docs/SECURIT
 | Document | Contents |
 |---|---|
 | [QUICKSTART.md](docs/QUICKSTART.md) | 10-minute onboarding for service developers |
-| [INTEGRATION.md](docs/INTEGRATION.md) | Subscribe message format, webhook events, status getters, React SDK |
+| [INTEGRATION.md](docs/INTEGRATION.md) | Subscribe message format, webhook events, status getters, subscriber actions (cancel/pause/top-up), React SDK |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Key generation, server setup, PM2, nginx, mainnet checklist |
 | [SECURITY.md](docs/SECURITY.md) | Threat model and all 23 security properties |
 | [PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md) | Fee split mechanics, invariants, bounced fee recovery |
@@ -387,7 +388,7 @@ Full threat model with 23 documented properties: [docs/SECURITY.md](docs/SECURIT
 
 ```bash
 npm install
-npm test                       # 71 tests — security · integration · registry
+npm test                       # 83 tests — security · integration · registry
 ts-node scripts/test-e2e.ts    # E2E on testnet (requires .env with real keys)
 ts-node scripts/_compute-hashes.ts  # Recompute and verify bytecode hashes
 ```

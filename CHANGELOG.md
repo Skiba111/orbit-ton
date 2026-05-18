@@ -25,10 +25,18 @@ Format: [Semantic Versioning](https://semver.org). Breaking changes are marked *
 - `scripts/add-plan.ts`: period calculation uses `Math.round(parseFloat(...) * 86400)` instead of `parseInt` — fixes zero period for fractional day inputs
 - `tests/fee-collector.spec.ts`: removed `feeCollector as any` from all getter calls (SandboxContract auto-injects provider); replaced `.rejects.toThrow()` on post-accept VM failures with state side-effect checks
 
+**Relayer: WAL stuck-entry fix**
+- Added `WAL_MAX_ATTEMPTS = 10` and `WAL_MAX_AGE_S = 1800` (30 min) abandon thresholds
+- WAL entries that exceed either limit are cleared and re-queued via the normal scan loop
+- Fixes permanently stuck WAL entries caused by TonCenter HTTP 500 false negatives (the node had accepted the tx but TonCenter returned 500 — the WAL would never advance)
+- Post-500 path now re-fetches subscription seqno to detect silent acceptance before retrying
+- Backoff constants corrected: `BACKOFF_BASE_S = 30 s`, `BACKOFF_MAX_S = 3600 s (1 h)`
+
 **Documentation:**
 - All docs updated to reflect mainnet deployment
 - `SECURITY.md`: property count corrected to 23
 - `DEPLOYMENT.md`: Registry added to deployment table; `RELAYER_PUBKEY` added to env example; `deploy-registry.ts` vs `deploy-standalone.ts` distinction clarified
+- `INTEGRATION.md`: added subscriber actions section (cancel, pause, top-up) with TonConnect examples and correct opcode values
 
 ---
 

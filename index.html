@@ -979,15 +979,25 @@
       }
       .btn-primary, .btn-text-link { width: 100%; max-width: 320px; justify-content: center; }
 
-      /* hero metrics — tighten padding */
-      .hero-metrics   { gap: 0; }
-      .hero-metric    { padding: 0 20px; }
-      .hero-metric-val { font-size: 48px; }
-      .hero-metric-sfx { font-size: 26px; }
-      .hero-metric-lbl { font-size: 11px; }
+      /* hero metrics — stack vertically, hide vlines */
+      .hero-metrics {
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+      }
+      .hero-metric-vline {
+        width: 48px;
+        height: 1px;
+        background: rgba(255,255,255,0.06);
+      }
+      .hero-metric      { padding: 24px 0; width: 100%; text-align: center; }
+      .hero-metric-val  { font-size: 56px; }
+      .hero-metric-sfx  { font-size: 30px; }
+      .hero-metric-label { font-size: 11px; letter-spacing: 0.18em; }
+      .hero-rule        { margin-bottom: 40px; }
 
-      /* dividers between metrics */
-      .hero-metric + .hero-metric { border-left: 1px solid rgba(255,255,255,0.07); }
+      /* arch diagram fee mini-cards — stack vertically */
+      .arch-diagram > div[style*="display:flex"] { flex-direction: column !important; }
 
       /* features */
       .features-grid { grid-template-columns: 1fr; }
@@ -1028,12 +1038,6 @@
       /* footer */
       .footer-inner  { flex-direction: column; align-items: flex-start; gap: 20px; }
       .footer-right  { text-align: left; }
-    }
-
-    @media (max-width: 380px) {
-      .hero-metric    { padding: 0 12px; }
-      .hero-metric-val { font-size: 40px; }
-      .hero-metric-sfx { font-size: 22px; }
     }
   </style>
 </head>

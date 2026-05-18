@@ -100,45 +100,70 @@
       color: var(--text);
     }
 
-    .nav-logo svg { width: 28px; height: 28px; }
+    .nav-logo svg { width: 36px; height: 36px; }
 
     .nav-logo-text {
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
     }
 
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
     }
 
+    /* nav tabs — numbered pill style */
     .nav-link {
-      font-size: 13.5px;
+      position: relative;
+      font-size: 13px;
+      font-weight: 500;
       color: var(--text-2);
       text-decoration: none;
-      padding: 6px 14px;
+      padding: 6px 16px 6px 30px;
       border-radius: var(--radius-sm);
-      transition: color .2s, background .2s;
-      font-weight: 400;
+      border: 1px solid transparent;
+      transition: color .2s, background .2s, border-color .2s;
+      letter-spacing: 0.01em;
     }
 
-    .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .nav-link::before {
+      content: attr(data-n);
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text-3);
+      line-height: 1;
+      transition: color .2s;
+    }
+
+    .nav-link:hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.05);
+      border-color: var(--border);
+    }
+
+    .nav-link:hover::before { color: var(--blue); }
 
     .nav-btn {
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       color: var(--text);
       text-decoration: none;
-      padding: 7px 16px;
+      padding: 7px 18px;
       border-radius: var(--radius-sm);
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.04);
       transition: border-color .2s, background .2s;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
+      letter-spacing: 0.02em;
     }
 
     .nav-btn:hover { border-color: var(--border-h); background: var(--blue-dim); }
@@ -169,7 +194,7 @@
       margin-bottom: 36px;
     }
 
-    .hero-logo svg { width: 72px; height: 72px; }
+    .hero-logo svg { width: 92px; height: 92px; }
 
     .hero h1 {
       font-size: clamp(44px, 6vw, 76px);
@@ -293,12 +318,25 @@
 
     /* ── Section headings ──────────────────────────────────────────── */
     .section-label {
-      font-size: 10.5px;
-      font-weight: 700;
-      letter-spacing: 0.18em;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
       color: var(--blue);
-      margin-bottom: 16px;
+      margin-bottom: 18px;
+    }
+
+    .section-label::before {
+      content: '';
+      display: inline-block;
+      width: 18px;
+      height: 2px;
+      background: var(--blue);
+      border-radius: 2px;
+      flex-shrink: 0;
     }
 
     .section-title {
@@ -859,9 +897,9 @@
         <span class="nav-logo-text">ORBIT</span>
       </a>
       <div class="nav-links">
-        <a href="docs/QUICKSTART.md"     class="nav-link">Quickstart</a>
-        <a href="docs/INTEGRATION.md"    class="nav-link">Integration</a>
-        <a href="docs/SECURITY.md"       class="nav-link">Security</a>
+        <a href="docs/QUICKSTART.md"  class="nav-link" data-n="01">Quickstart</a>
+        <a href="docs/INTEGRATION.md" class="nav-link" data-n="02">Integration</a>
+        <a href="docs/SECURITY.md"    class="nav-link" data-n="03">Security</a>
         <a href="https://github.com/Skiba111/orbit-ton" class="nav-btn" target="_blank" rel="noopener">
           <!-- GitHub icon -->
           <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">

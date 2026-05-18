@@ -115,12 +115,14 @@ Required env vars:
 
 ---
 
-## Security checklist before mainnet
+## Security checklist before mainnet (for ORBIT operators deploying their own Registry)
 
-- [ ] Replace `PROTOCOL_FEE_COLLECTOR_HASH` in `utils/protocol-config.tolk` with your mainnet cold wallet hash
+- [ ] Pass the correct `FeeCollector` address to `deploy-registry.ts` — this is the `protocolFeeCollector` that gets baked into every Factory and Subscription at deploy time
 - [ ] Use a multisig wallet as `owner_addr` for Registry
-- [ ] Verify bytecode hashes match `docs/BYTECODE_HASHES.md`
-- [ ] Run testnet E2E for at least 48 hours with the real relayer
+- [ ] Verify deployed bytecode hashes match `docs/BYTECODE_HASHES.md` — run `ts-node scripts/_compute-hashes.ts`
+- [ ] Run testnet E2E for at least 48 hours with the real relayer before switching to mainnet
+
+> **Note:** `PROTOCOL_FEE_COLLECTOR_HASH` in `utils/protocol-config.tolk` is a reference-only constant — it is not called at runtime and does not need to be edited. The actual fee routing uses the address you pass to the deploy script.
 
 ---
 

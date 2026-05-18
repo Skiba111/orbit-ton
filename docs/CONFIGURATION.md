@@ -181,7 +181,7 @@ Use this to update access control in your backend: mark the subscription as acti
 | 410 | `ERROR_PLAN_INACTIVE` | Subscribe attempt to deactivated plan |
 | 412 | `ERROR_ALREADY_EXISTS` | Duplicate operation |
 | 415 | `ERROR_INVALID_PLAN` | Plan ID out of range |
-| 416 | `ERROR_INVALID_AMOUNT` | Price = 0 or exceeds MAX_COINS |
+| 416 | `ERROR_INVALID_AMOUNT` | Price = 0 or exceeds MAX_COINS; also thrown when `fee_bps > MAX_FEE_BPS` (1000) |
 | 422 | `ERROR_INVALID_PERIOD` | Period outside [MIN_PERIOD, MAX_PERIOD] |
 | 423 | `ERROR_ALREADY_CHARGING` | Jetton charge in progress |
 | 424 | `ERROR_INVALID_SEQNO` | External message seqno mismatch |

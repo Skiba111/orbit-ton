@@ -27,10 +27,11 @@
 // 1.5% of every billing cycle — non-negotiable, lives in bytecode.
 const PROTOCOL_FEE_BPS: int = 150;
 
-// 256-bit account_id of the ORBIT FeeCollector contract.
-// Update this hash before mainnet deployment to match the deployed FeeCollector address.
-// Compute: node -e "const {Address}=require('@ton/core'); console.log('0x'+Address.parse('EQD...').hash.toString('hex'))"
-// NOTE: this constant is reference-only — actual routing uses the address passed at deploy time.
+// 256-bit account_id of the ORBIT FeeCollector contract (mainnet).
+// NOTE: this constant is reference-only — actual routing uses the address passed at deploy time
+// (see the comment block above). Changing this value does NOT affect deployed contracts.
+// To compute a hash for any address:
+//   node -e "const {Address}=require('@ton/core'); console.log('0x'+Address.parse('EQD...').hash.toString('hex'))"
 const PROTOCOL_FEE_COLLECTOR_HASH: int = 0xd79931e826f8da865753dffb69786719d23ba200311f85306229c42e14f9e3cf;
 
 // Reference helper — NOT called at runtime. See note above.

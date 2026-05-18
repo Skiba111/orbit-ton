@@ -52,9 +52,11 @@ In `keeper_mode = 1`, any external actor can trigger a charge by sending a valid
 
 ### 15. Protocol fee is hardcoded in bytecode — cannot be bypassed
 
-`PROTOCOL_FEE_BPS = 150` (1.5%) and `PROTOCOL_FEE_COLLECTOR_HASH` are constants compiled into the Subscription contract bytecode. No `save_storage` call, no factory configuration, no operator action can change them without recompiling from source.
+`PROTOCOL_FEE_BPS = 150` (1.5%) is a compile-time constant baked into the Subscription contract bytecode. No `save_storage` call, no factory configuration, no operator action can change it without recompiling from source.
 
-A service that bypasses the protocol fee produces bytecode with a different code hash — trivially detectable on-chain against the published hashes in [BYTECODE_HASHES.md](BYTECODE_HASHES.md).
+The protocol fee collector address is not a bytecode constant — it is stored in Factory state at deploy time and propagated to each Subscription. It is fixed per Subscription at deploy time and cannot be changed by the service operator after registration (see property #9 and #17).
+
+A service that bypasses the protocol fee must recompile `PROTOCOL_FEE_BPS` to 0 — producing bytecode with a different code hash. This is trivially detectable on-chain against the published hashes in [BYTECODE_HASHES.md](BYTECODE_HASHES.md).
 
 ### 16. `fee_bps` is immutable after Factory deploy — no backdoor
 

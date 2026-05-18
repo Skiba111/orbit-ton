@@ -1,6 +1,6 @@
 # ORBIT Official Bytecode Hashes
 
-These hashes identify the canonical ORBIT v0.1.3 contract bytecode compiled from this repository.
+These hashes identify the canonical ORBIT v0.1.4 contract bytecode compiled from this repository.
 
 Any integrator can verify they are running official ORBIT code by comparing the on-chain code hash against the values below,
 or by checking the `get_version()` getter on a deployed contract.
@@ -19,8 +19,8 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 
 | Field | Value |
 |-------|-------|
-| **code_hash** (cell hash) | `d7d77a61c1a8a490bd830006af5f45ea0d49bd0d47f76d4782cd4413f8008a26` |
-| **boc_sha256** (SHA-256 of serialised BOC) | `619b86736a1656b04e65f82d0a9d2d985f57a669d128f3ab2e2f4cfd6567a8a2` |
+| **code_hash** (cell hash) | `da48c1e2f7402f58f0aba75120853b4453607b6a9e96d5fcdd261aeb584ad9c5` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `5f88798772cf653323159c4b17a2a5c7776d640caef0ce57bc2c5fd1e93df9d1` |
 | BOC size | 4322 bytes |
 | `get_version()` | `2` |
 
@@ -28,8 +28,8 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 
 | Field | Value |
 |-------|-------|
-| **code_hash** (cell hash) | `ce8901b421bd4b1e8a6c3c5e4bb618b25ed534add19e4dc55a6ed1174dd17518` |
-| **boc_sha256** (SHA-256 of serialised BOC) | `25aba7bdf212533b3b9968901eb96d9b93ed0362b749e2f9be3f3887271b28c4` |
+| **code_hash** (cell hash) | `01461f4daf86b96c4e9a8c3242ac9491a4ce8b748d4a17a07c2de4fbbbcb6458` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `3c99f86cb59d89a772c106cd98f094639face4caf3155191809a2b4c0b9c6eac` |
 | BOC size | 2371 bytes |
 | `get_version()` | `2` |
 
@@ -41,6 +41,15 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 | **boc_sha256** (SHA-256 of serialised BOC) | `a55fb57b6c97d8e59119696f2f112e8c35c170c6963d483aebddb2b7bfbba940` |
 | BOC size | 1388 bytes |
 | `get_version()` | `1` |
+
+## FeeCollector contract (`contracts/fee-collector.tolk`)
+
+| Field | Value |
+|-------|-------|
+| **code_hash** (cell hash) | `75923afb5c38b0aea92713943f275c080e7e4c7e73ee1b2e45dddc1a31758180` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `2ac6d2ca60b5c018b2795469c67070dd18124de83228ea4d40714d0554beeece` |
+| BOC size | 636 bytes |
+| `get_seqno()` | monotonically increasing per withdrawal |
 
 ---
 
@@ -62,7 +71,9 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
   - `periods_charged` preserved across plan changes (OP_APPLY_PLAN no longer resets to 0)
   - Jetton `subscriber_jetton_wallet` validated non-null at Factory subscribe time
   - `OP_ROTATE_KEY` added to FeeCollector for emergency key rotation
+  - Dead code removed from `trial-logic.tolk` and `time-oracle.tolk`
+  - `get_balance_available()` in FeeCollector uses `safe_sub` consistently
 
 ---
 
-*Last updated: 2026-05-17 — ORBIT v0.1.3*
+*Last updated: 2026-05-18 — ORBIT v0.1.4*

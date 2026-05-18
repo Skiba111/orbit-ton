@@ -5,6 +5,35 @@ Format: [Semantic Versioning](https://semver.org). Breaking changes are marked *
 
 ---
 
+## [0.1.4] — 2026-05-18
+
+### Code cleanup & documentation audit
+
+**Dead code removal:**
+- `trial-logic.tolk` — removed unused `trial_is_used()` and `mark_trial_used()` helper functions; trial tracking is handled exclusively via `ever_trial_used` in Factory's `subscriber_info` dict
+- `utils/time-oracle.tolk` — removed unused `next_billing()` function; period advancement uses `advance_billing()` in `core/period-math.tolk`
+
+**Code consistency:**
+- `fee-collector.tolk` `get_balance_available()` — replaced raw subtraction with `safe_sub()` consistent with rest of codebase
+
+**Bytecode hashes updated** (v0.1.4):
+- `_compute-hashes.ts` now also computes and prints FeeCollector hash
+- All four contract hashes updated in `docs/BYTECODE_HASHES.md`
+
+**Documentation fixes:**
+- `INTEGRATION.md` — added explicit Jetton fee limitation warning; fixed `getDeposit()` comment (token units for Jetton plans, not nanoTON); added note that `OP_PAUSE_SUB` is rejected in `STATUS_GRACE`; unified `X-Orbit-Secret` header casing
+- `PROTOCOL_FEE.md` — added Jetton fee limitation section with production guidance
+- `SECURITY.md` — documented that `on_charge_bounced` intentionally does not increment seqno
+- `tests/security.spec.ts` — renamed "vuln 9 — fee routing transparency" to accurately describe what it tests
+
+**README cleanup:**
+- `.env` section simplified to `cp .env.example .env` with link to `docs/CONFIGURATION.md`
+- Repository Layout: internal module details removed; top-level description only
+- Removed `_compute-hashes.ts` from public "Build & Tests" section
+- Unified `X-Orbit-Secret` webhook header casing
+
+---
+
 ## [0.1.3] — 2026-05-17
 
 ### Mainnet deployment & operational scripts

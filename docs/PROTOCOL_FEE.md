@@ -86,4 +86,8 @@ Net = `plan_price − protocol_fee(1.5%) − service_fee(fee_bps)`
 
 ## Jetton subscriptions
 
-For Jetton subscriptions (e.g. USDT), the plan price is paid in Jetton tokens. The **protocol fee is always collected in TON** — it is taken from the TON value attached to the charge message, not from the Jetton amount. This keeps the `FeeCollector` single-asset and ensures the protocol always receives spendable TON regardless of which Jetton is used.
+For Jetton subscriptions (e.g. USDT), the plan price is paid in Jetton tokens.
+
+> **⚠️ Known limitation (current version):** For Jetton subscriptions, both the service fee (`fee_bps`) and the protocol fee are computed using `bps_of(amount, bps)` where `amount` is the Jetton token unit count. The resulting integer is then sent as nanoton. For typical Jetton amounts (e.g. 1 USDT = 1 000 000 micro-USDT) this produces near-zero fees in TON. **ORBIT currently uses `PLATFORM_FEE_BPS = 0` for Jetton deployments. Do not launch Jetton plans with `fee_bps > 0` until a dedicated Jetton fee model is implemented.**
+
+For TON subscriptions, the protocol fee is collected in nanoton from the plan amount — this is the fully supported and recommended path for any deployment where fee economics matter.

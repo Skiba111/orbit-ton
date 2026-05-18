@@ -241,9 +241,8 @@ get fun get_total_collected(): int {
 
 get fun get_balance_available(): int {
     var bal: int = contract.getOriginalBalance();
-    var avail: int = bal - COLLECTOR_RESERVE;
-    if (avail < 0) { return 0; }
-    return avail;
+    if (bal <= COLLECTOR_RESERVE) { return 0; }
+    return safe_sub(bal, COLLECTOR_RESERVE);
 }
 
 // Returns (request_time, amount, dest_hash) for the pending withdrawal.

@@ -33,9 +33,4 @@ fun is_msg_fresh(msg_timestamp: int): bool {
     return (age >= 0) && (age <= EXT_MSG_TTL);
 }
 
-// Computes the next billing timestamp, always advancing by full periods
-// (never drifts even if a charge arrives slightly late).
-@inline
-fun next_billing(prev_billing_time: int, period: int): int {
-    return prev_billing_time + period;
-}
+// Period advancement is handled by advance_billing() in core/period-math.tolk.

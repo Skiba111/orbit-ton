@@ -48,15 +48,9 @@ fun initial_status(trial_period: int, trial_used: int): int {
     return STATUS_ACTIVE;
 }
 
-// ── Factory trial-tracking dict helpers ──────────────────────────────────────
-
-// Key: address hash (256 bits), value: 1 bit "trial used"
-fun trial_is_used(used_trials: dict, subscriber_hash: int): bool {
-    var (_, found) = used_trials.uDictGet(256, subscriber_hash);
-    return found;
-}
-
-fun mark_trial_used(used_trials: dict, subscriber_hash: int): dict {
-    used_trials.uDictSet(256, subscriber_hash, beginCell().storeUint(1, 1).endCell().beginParse());
-    return used_trials;
-}
+// ── Factory trial-tracking ────────────────────────────────────────────────────
+//
+// Trial usage is tracked via the `ever_trial_used` field in the Factory's
+// `subscriber_info` dict (see factory.tolk: get_subscriber_info /
+// set_subscriber_info).  That mechanism is the single source of truth — there
+// are no standalone dict helpers here.

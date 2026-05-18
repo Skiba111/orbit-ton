@@ -1159,7 +1159,7 @@
         <div class="step">
           <div class="step-num">01</div>
           <h3>Service deploys a Factory</h3>
-          <p>One transaction to the Registry. A Factory contract is deployed with ORBIT fee settings enforced at the bytecode level. Add your subscription plans — price, period, trial duration.</p>
+          <p>One transaction to the Registry. A Factory contract is deployed with the 1.5% protocol fee compiled into every Subscription's bytecode, and your service fee locked at deploy time. Add your subscription plans — price, period, trial duration.</p>
         </div>
 
         <div class="step-arrow">→</div>
@@ -1175,7 +1175,7 @@
         <div class="step">
           <div class="step-num">03</div>
           <h3>Relayer charges on schedule</h3>
-          <p>Every billing period, the relayer or a permissionless keeper triggers the charge. Fees split automatically: protocol fee to ORBIT, service fee to you, net to your wallet. Your webhook fires.</p>
+          <p>Every billing period, the relayer or a permissionless keeper triggers the charge. The net amount goes directly to your wallet — protocol fee to ORBIT, service fee to your collector. Your webhook fires.</p>
         </div>
 
       </div>
@@ -1222,7 +1222,7 @@
             </svg>
           </div>
           <h3>Keeper network</h3>
-          <p>Any address can trigger charges in keeper mode and earn 0.01 TON per charge. No infrastructure required on your end — the market provides the trigger layer.</p>
+          <p>Any address can trigger charges in keeper mode and earn up to 0.02 TON per charge (base reward guaranteed; bonus when keeper pool is funded). No infrastructure required on your end — the market provides the trigger layer.</p>
         </div>
 
         <div class="feat">
@@ -1263,7 +1263,7 @@
             </svg>
           </div>
           <h3>Bounce recovery</h3>
-          <p>If a payment message bounces — e.g. frozen service contract — the deposit is fully restored and the billing clock rolled back. Subscribers are never silently drained.</p>
+          <p>If a payment message bounces — e.g. frozen service contract — the deposit is restored and the billing clock rolled back. Subscribers are never silently drained.</p>
         </div>
 
         <div class="feat">
@@ -1341,15 +1341,15 @@
           <div style="display:flex;gap:8px;padding:8px 0">
             <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px">
               <div style="color:var(--text-2);margin-bottom:3px">Net amount</div>
-              <div style="color:var(--text);font-size:11px">→ service wallet</div>
+              <div style="color:var(--text);font-size:11px">→ your wallet</div>
             </div>
             <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px">
               <div style="color:var(--text-2);margin-bottom:3px">Service fee</div>
-              <div style="color:var(--text);font-size:11px">→ fee_collector</div>
+              <div style="color:var(--text);font-size:11px">→ your fee_collector</div>
             </div>
             <div style="flex:1;background:var(--bg-card);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:10px 14px;font-size:12px">
-              <div style="color:var(--blue);margin-bottom:3px">1.5% fee</div>
-              <div style="color:var(--text-2);font-size:11px">→ FeeCollector</div>
+              <div style="color:var(--blue);margin-bottom:3px">Protocol fee (1.5%)</div>
+              <div style="color:var(--text-2);font-size:11px">→ ORBIT FeeCollector</div>
             </div>
           </div>
 
@@ -1566,7 +1566,7 @@
               <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd">git clone https://github.com/Skiba111/orbit-ton.git</span></div>
               <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd">cd orbit-ton &amp;&amp; npm install</span></div>
               <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd">cp .env.example .env</span></div>
-              <div class="term-line term-out"># set WALLET_MNEMONIC and NETWORK=mainnet</div>
+              <div class="term-line term-out"># set WALLET_MNEMONIC, REGISTRY_ADDRESS, and NETWORK=mainnet</div>
               <br/>
               <div class="term-line term-comment"># Register your service (0.3 TON)</div>
               <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd">ts-node scripts/register-service.ts</span></div>

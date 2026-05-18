@@ -4,7 +4,7 @@
 import { createHash } from "crypto";
 import { compileTolk } from "../tests/helpers/compileTolk";
 
-const contracts = ["subscription", "factory", "registry"] as const;
+const contracts = ["subscription", "factory", "registry", "fee-collector"] as const;
 
 (async () => {
     for (const name of contracts) {

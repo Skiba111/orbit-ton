@@ -25,6 +25,8 @@ Amount and period are locked into the Subscription at deploy time. Factory plan 
 ### 7. Bounce handler
 If a payment message bounces (e.g. frozen service contract), `on_charge_bounced` restores the deducted deposit and rolls back the billing time. Subscribers are not silently drained by a broken service.
 
+**Seqno note:** `on_charge_bounced` does **not** increment `seqno`. A bounce is not a successful charge, so the counter does not advance. The relayer's WAL tracks this by re-reading the on-chain seqno after each charge attempt and will retry in the next cycle.
+
 ### 8. Gas budget check
 `has_funds_for_charge` requires `deposit >= amount + storage_reserve + CHARGE_GAS_BUDGET`. This prevents charges that would leave the contract without gas for future operations.
 

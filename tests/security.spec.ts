@@ -225,9 +225,9 @@ describe("vuln 6 — plan snapshot immutability", () => {
     });
 });
 
-// ── vuln 9: fee routing ───────────────────────────────────────────────────────
+// ── vuln 9: fee split math + fee_collector storage persistence ───────────────
 
-describe("vuln 9 — fee routing transparency", () => {
+describe("vuln 9 — fee split correctness and fee_collector persistence", () => {
     it("service fee split is correct (20 bps = 0.2% on 1 TON)", () => {
         const gross  = toNano("1");
         const bps    = 20n;

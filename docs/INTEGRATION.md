@@ -124,6 +124,8 @@ const body = beginCell()
 // Minimum: 0.2 TON; recommended: 0.3 TON
 ```
 
+> **⚠️ Jetton fee limitation (current version):** For Jetton subscriptions the service fee (`fee_bps`) and protocol fee are computed against the Jetton token unit count, not the TON value. For example, on a 1 USDT plan (1 000 000 micro-USDT) with `fee_bps = 150`, the fee is `bps_of(1_000_000, 150) = 15 000` — which is then sent as 15 000 nanoton (~0.000015 TON), not 0.015 USDT. **In practice, fee collection for Jetton plans is near-zero.** ORBIT currently uses `PLATFORM_FEE_BPS = 0` for Jetton deployments and recommends TON-denominated plans for any deployment where fee economics matter. A dedicated Jetton fee model will be addressed in a future version.
+
 ---
 
 ## 2. Webhook — receiving charge events
@@ -172,7 +174,7 @@ const server = http.createServer((req, res) => {
     }
 
     // 1. Verify the secret
-    if (WEBHOOK_SECRET && req.headers["x-orbit-secret"] !== WEBHOOK_SECRET) {
+    if (WEBHOOK_SECRET && req.headers["X-Orbit-Secret"] !== WEBHOOK_SECRET) {
         res.writeHead(401); res.end("Unauthorized"); return;
     }
 
@@ -251,7 +253,7 @@ const sub = client.open(
 const status      = await sub.getStatus();           // number (see table below)
 const seqno       = await sub.getSeqno();            // number of successful charges
 const nextBilling = await sub.getNextBillingTime();  // unix timestamp
-const deposit     = await sub.getDeposit();          // remaining deposit in nanoTON
+const deposit     = await sub.getDeposit();          // remaining deposit: nanoTON for TON plans, token units for Jetton plans
 ```
 
 **Status codes:**
@@ -313,6 +315,8 @@ After cancellation:
 ### Pause
 
 Pauses billing without cancelling. The subscription stays alive; charges are skipped while paused.
+
+> **Note:** `OP_PAUSE_SUB` is only accepted in `STATUS_ACTIVE` or `STATUS_TRIAL`. A subscription in `STATUS_GRACE` cannot be paused — it must either be topped up (to resume normal billing) or cancelled.
 
 ```typescript
 const OP_PAUSE_SUB = 0x4F520012;

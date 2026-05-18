@@ -144,29 +144,12 @@ npm install
 
 ### 2. Configure `.env`
 
-```env
-# .env — NEVER commit this file
-
-# Deployment wallet (pays gas)
-WALLET_MNEMONIC="word1 word2 ... word24"
-WALLET_VERSION=v5                          # v5 = Tonkeeper / TG Wallet
-NETWORK=testnet                            # testnet | mainnet
-
-# Fee-collector cold key (Ed25519 pubkey hex, 64 chars)
-FEE_COLLECTOR_PUBKEY="abcdef1234..."
-
-# TonCenter API key (optional, increases rate limits)
-TONCENTER_API_KEY="your_key"
-
-# Relayer (on server)
-FACTORY_ADDRESS="EQD..."
-RELAYER_MNEMONIC="word1 word2 ... word24"
-POLL_INTERVAL_MS=60000
-
-# Webhook (optional)
-WEBHOOK_URL=https://api.yourapp.com/orbit/webhook
-WEBHOOK_SECRET=long-random-string-at-least-32-chars
+```bash
+cp .env.example .env
+# Fill in WALLET_MNEMONIC, REGISTRY_ADDRESS, and NETWORK
 ```
+
+All parameters and their defaults are documented in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ### 3. Run tests
 
@@ -221,7 +204,7 @@ await tonConnectUI.sendTransaction({
 // }
 
 app.post("/orbit/webhook", (req, res) => {
-    if (req.headers["x-orbit-secret"] !== process.env.WEBHOOK_SECRET) {
+    if (req.headers["X-Orbit-Secret"] !== process.env.WEBHOOK_SECRET) {
         return res.status(401).end();
     }
     const { address, seqno_to } = req.body;
@@ -244,34 +227,12 @@ orbit-ton/
 │   ├── registry.tolk        ← ORBIT platform entry point
 │   └── fee-collector.tolk   ← Protocol fee accumulator (24h timelock)
 │
-├── billing/                 ← Billing internals
-│   ├── charge-engine.tolk   ← Core charge logic, grace/retry, keeper rewards
-│   ├── fee-router.tolk      ← Fee split: net / service_fee / protocol_fee
-│   └── retry-scheduler.tolk ← Grace period and retry state machine
-│
-├── payment/                 ← Payment adapters
-│   ├── ton-adapter.tolk     ← TON send helpers
-│   └── jetton-adapter.tolk  ← TEP-74 Jetton transfer + EXCESSES handler
-│
-├── plans/                   ← Plan management
-│   ├── plan-registry.tolk   ← Dict-based plan storage (price/period/trial)
-│   └── trial-logic.tolk     ← One-time trial per subscriber per Factory
-│
-├── core/                    ← Shared primitives
-│   ├── storage-layout.tolk  ← pack_subscription / load_storage
-│   ├── subscription-state.tolk  ← Status codes, PAYMENT_TON/JETTON constants
-│   └── period-math.tolk     ← Billing time arithmetic
-│
-├── access/                  ← Access control
-│   ├── role-manager.tolk    ← require_owner / require_subscriber / addr_equal
-│   └── emergency-pause.tolk ← Global pause toggle
-│
-├── utils/                   ← Shared utilities
-│   ├── errors.tolk          ← All error codes in one place
-│   ├── ops.tolk             ← All 32-bit opcode constants
-│   ├── math-safe.tolk       ← safe_add / safe_sub / safe_mul / bps_of
-│   ├── time-oracle.tolk     ← blockchain.now() helpers, TTL checks
-│   └── protocol-config.tolk ← PROTOCOL_FEE_BPS = 150 (1.5%, bytecode constant)
+├── billing/                 ← Charge engine, fee routing, grace/retry logic
+├── payment/                 ← TON and Jetton payment adapters
+├── plans/                   ← Plan storage, trial logic
+├── core/                    ← Storage layout, state codes, billing math
+├── access/                  ← Owner/subscriber access control, pause toggle
+├── utils/                   ← Error codes, opcodes, math helpers, protocol config
 │
 ├── wrappers/                ← TypeScript contract wrappers (Blueprint / tests)
 │   ├── Subscription.ts
@@ -390,7 +351,6 @@ Full threat model with 23 documented properties: [docs/SECURITY.md](docs/SECURIT
 npm install
 npm test                       # 83 tests — security · integration · registry
 ts-node scripts/test-e2e.ts    # E2E on testnet (requires .env with real keys)
-ts-node scripts/_compute-hashes.ts  # Recompute and verify bytecode hashes
 ```
 
 ---

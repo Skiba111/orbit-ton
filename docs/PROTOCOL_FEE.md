@@ -46,7 +46,7 @@ Subscribers can verify their Subscription contract uses official ORBIT code by c
 
 ## Protocol fee collector address
 
-`PROTOCOL_FEE_COLLECTOR_HASH` is also a compile-time constant. All fees for subscriptions deployed from a given Factory go to the `protocol_fee_collector` address stored in that Factory's state at the time the Subscription was deployed.
+`PROTOCOL_FEE_COLLECTOR_HASH` in `utils/protocol-config.tolk` is a **reference-only constant** — it is not called at runtime and does not affect fee routing in any deployed contract. All fees go to the `protocol_fee_collector` address stored in the Factory's state, which is set when the Factory is deployed and propagated to each Subscription at subscribe time.
 
 The ORBIT team can rotate this address using two paths:
 

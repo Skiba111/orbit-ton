@@ -342,7 +342,7 @@ Gross amount (plan price)
 | Service fee (3%) | − 0.300 TON |
 | **Service receives** | **9.550 TON** |
 
-The protocol fee is compiled into every Subscription's bytecode. Changing it requires recompiling — which produces a different contract hash and is trivially detectable on-chain.
+The protocol fee is compiled into every Subscription's bytecode. It is enforced at runtime on every charge and cannot be altered in any deployed contract. Any contract not matching the official ORBIT code hash is immediately identifiable on-chain.
 
 Full fee mechanics: [docs/PROTOCOL_FEE.md](docs/PROTOCOL_FEE.md)
 

@@ -2,7 +2,7 @@
 
 These hashes identify the canonical ORBIT v0.1.3 contract bytecode compiled from this repository.
 
-Any integrator can verify they are running official ORBIT code by recompiling from source and comparing hashes,
+Any integrator can verify they are running official ORBIT code by comparing the on-chain code hash against the values below,
 or by checking the `get_version()` getter on a deployed contract.
 
 ## How to verify

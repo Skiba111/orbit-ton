@@ -1153,13 +1153,13 @@
     <div class="container">
       <div class="section-label">Fee model</div>
       <h2 class="section-title">Two fees. Fixed rules.<br/>No surprises.</h2>
-      <p class="section-sub">Both fees are deducted from the gross plan amount before the service receives its net. Protocol fee is hardcoded in bytecode — a service cannot bypass it without recompiling, which produces a different contract hash detectable on-chain.</p>
+      <p class="section-sub">Both fees are deducted from the gross plan amount before the service receives its net. The protocol fee is hardcoded in bytecode — enforced on every charge in every deployed contract. Any contract not matching the official ORBIT code hash is immediately identifiable on-chain.</p>
 
       <div class="fees-grid">
         <div class="fee-card">
           <div class="fee-pct fee-pct-blue">1.5%</div>
           <div class="fee-label">Protocol fee</div>
-          <div class="fee-desc">Hardcoded as <code style="font-size:11px;color:var(--blue);font-family:var(--mono)">PROTOCOL_FEE_BPS&nbsp;=&nbsp;150</code> in Subscription bytecode. Cannot be changed without recompiling. Set at contract deploy time and enforced on every charge. Collected in TON even for Jetton subscriptions.</div>
+          <div class="fee-desc">Hardcoded as <code style="font-size:11px;color:var(--blue);font-family:var(--mono)">PROTOCOL_FEE_BPS&nbsp;=&nbsp;150</code> in Subscription bytecode. Immutable in every deployed contract — no runtime call, no configuration, no operator action can alter it. Collected in TON even for Jetton subscriptions.</div>
         </div>
         <div class="fee-card">
           <div class="fee-pct fee-pct-gray">0–10%</div>

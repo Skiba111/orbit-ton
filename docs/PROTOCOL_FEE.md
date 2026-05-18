@@ -6,7 +6,7 @@ Every ORBIT billing cycle deducts two fees from the gross plan amount before sen
 
 | Fee | Rate | Who sets it | Recipient | Changeable? |
 |-----|------|-------------|-----------|-------------|
-| **Protocol fee** | 1.5% (hardcoded) | ORBIT team — baked into bytecode | ORBIT `FeeCollector` | No — changing it requires recompiling with a different hash |
+| **Protocol fee** | 1.5% (hardcoded) | ORBIT team — baked into bytecode | ORBIT `FeeCollector` | No — immutable in every deployed contract |
 | **Service fee** | 0–10% (`fee_bps`) | Factory deployer at deploy time | Service `fee_collector` | No — immutable per factory after deploy |
 
 **Net received by service** = `plan_price × (1 − fee_bps/10000 − 0.015)`
@@ -36,7 +36,7 @@ Example: to net 1 TON with 1% service fee → `plan_price = 1 / (1 − 0.01 − 
 
 `PROTOCOL_FEE_BPS = 150` is a compile-time constant in `utils/protocol-config.tolk`. It is compiled into every Subscription contract's bytecode. There is no storage slot, no setter, and no admin function that can alter it at runtime.
 
-A service that wants to avoid the protocol fee must compile its own Subscription bytecode — the resulting code hash will differ from the published ORBIT hash, making it immediately detectable on-chain.
+Every deployed Subscription carries a code hash. Any contract not matching the official ORBIT hash published in [BYTECODE_HASHES.md](BYTECODE_HASHES.md) is immediately identifiable on-chain by any subscriber or indexer.
 
 ### Verifying the bytecode hash
 

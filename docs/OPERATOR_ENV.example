@@ -1,0 +1,41 @@
+# ORBIT Service Operator — .env template
+#
+# This file is for third-party developers deploying their own Factory contract.
+# Copy to your project root as .env and fill in the values marked with ← YOU.
+# Values marked with ← ORBIT are published by the ORBIT team in DEPLOYMENT.md.
+#
+# NEVER commit .env to version control.
+
+# ── Your deployment wallet ────────────────────────────────────────────────────
+# The wallet that deploys the Factory AND the one you connect in ORBIT Dashboard.
+# These MUST be the same wallet — the Factory stores it as on-chain owner.
+WALLET_MNEMONIC="word1 word2 ... word24"    # ← YOU: your 24-word seed phrase
+WALLET_VERSION=v5                           # v5 = Tonkeeper / TG Wallet; v4 = old Tonkeeper
+NETWORK=testnet                             # testnet | mainnet
+
+# ── Your fee collector key ────────────────────────────────────────────────────
+# Controls withdrawals from your FeeCollector contract (your service fee wallet).
+# This is YOUR key — NOT the ORBIT relayer key.
+# Generate with: npx ts-node scripts/_get-pubkey.ts
+FEE_COLLECTOR_PUBKEY="abcdef1234..."        # ← YOU: your hex Ed25519 pubkey (64 chars)
+
+# ── TonCenter API key (optional) ──────────────────────────────────────────────
+TONCENTER_API_KEY=""                        # ← YOU (optional): get one at toncenter.com
+
+# ── Values from ORBIT documentation ──────────────────────────────────────────
+# DO NOT generate these yourself. Copy them from:
+#   https://github.com/Skiba111/orbit-ton/blob/main/docs/DEPLOYMENT.md
+#
+# These are entered interactively during deploy-standalone.ts.
+# For reference:
+#
+# RELAYER_PUBKEY        = <copy from ORBIT docs>
+# PROTOCOL_FEE_COLLECTOR = <copy from ORBIT docs>
+#
+# The RELAYER is ORBIT's hot wallet — it signs charge messages on your behalf.
+# The PROTOCOL_FEE_COLLECTOR is ORBIT's fee address — 1.5% of every charge goes here.
+# Both are baked permanently into your Factory contract at deploy time.
+
+# ── After deploy: your Factory address ───────────────────────────────────────
+# Printed by deploy-standalone.ts. Used by the relayer script if you run one.
+FACTORY_ADDRESS=""                          # ← set after running deploy-standalone.ts

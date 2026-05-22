@@ -1,9 +1,24 @@
 // ORBIT React SDK — public API.
 
-export { OrbitContext }                                   from "./hooks";
-export { useSubscription, useSubscribe, useFactory }      from "./hooks";
-export { buildSubscribeCell, PAYMENT_TON, PAYMENT_JETTON } from "./hooks";
-export type { PaymentType }                               from "./hooks";
+export { OrbitContext }                                                    from "./hooks";
+export { useSubscription, useSubscribe, useFactory }                       from "./hooks";
+export { useCancel, useTopUp, usePause, useResume, useChangePlan }         from "./hooks";
+export { buildSubscribeCell, PAYMENT_TON, PAYMENT_JETTON }                 from "./hooks";
+export type { PaymentType }                                                from "./hooks";
+
+// Operator REST API client (works in Node.js, browsers, edge runtimes)
+export { OrbitApiClient, OrbitApiError, verifyWebhookSignature }           from "./api";
+export type {
+    ApiClientConfig,
+    ServiceRecord,
+    PlanRecord,
+    SubscriptionRecord,
+    ChargeRecord,
+    AnalyticsOverview,
+    AnalyticsChartPoint,
+    WebhookEndpoint,
+    ApiKeyRecord,
+}                                                                          from "./api";
 
 export { SubscribeButton }     from "./components/SubscribeButton";
 export { SubscriptionStatus }  from "./components/SubscriptionStatus";

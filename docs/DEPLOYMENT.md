@@ -1,12 +1,54 @@
 # ORBIT Deployment Guide
 
+## Two distinct roles — read this first
+
+ORBIT separates **the protocol owner** (you, who runs the infrastructure) from
+**service operators** (third-party developers who integrate ORBIT into their products).
+These roles have different responsibilities and different keys.
+
+```
+ORBIT Protocol Owner (you)           Service Operators (third parties)
+─────────────────────────────────    ─────────────────────────────────
+• Run RELAYER on your server         • Deploy their own Factory contract
+• Run KEEPER on your server          • Set their wallet as Factory owner
+• Own protocolFeeCollector wallet    • Copy your RELAYER_PUBKEY from docs
+• Publish RELAYER_PUBKEY in docs     • Copy your PROTOCOL_FEE_COLLECTOR
+• Publish PROTOCOL_FEE_COLLECTOR     • Register in your dashboard
+• Run the ORBIT Dashboard            • Build subscriber-facing apps with SDK
+• Receive 1.5% from ALL charges      • Receive their own service fee
+```
+
+**You never give service operators your RELAYER_MNEMONIC or KEEPER_MNEMONIC.**
+You only publish two values in your documentation:
+- `RELAYER_PUBKEY` — so they can embed it in their Factory contract
+- `PROTOCOL_FEE_COLLECTOR` address — so it gets baked into their Factory
+
+---
+
+## Published values (operators copy these)
+
+> Keep this section updated. Service operators use these values when running `deploy-standalone.ts`.
+
+| Value | Where to find it |
+|---|---|
+| `RELAYER_PUBKEY` | See below — generated from your `RELAYER_MNEMONIC` |
+| `PROTOCOL_FEE_COLLECTOR` | Your cold wallet address (set once, immutable per Factory) |
+| `REGISTRY_ADDRESS` | Printed by `deploy-registry.ts` |
+
+```bash
+# Print your RELAYER_PUBKEY (run on your server where RELAYER_MNEMONIC is set)
+npx ts-node scripts/_get-pubkey.ts
+```
+
+---
+
 ## What gets deployed and by whom
 
 | Contract | Deployed by | When |
 |---|---|---|
 | **FeeCollector** | ORBIT team (once) | Before Registry |
 | **Registry** | ORBIT team (once) | After FeeCollector |
-| **Factory** | Registry (automatically on registration) | Once per service |
+| **Factory** | Registry (automatically on registration) | Once per service operator |
 | **Subscription** | Factory (automatically on subscribe) | Once per user per plan |
 
 ---

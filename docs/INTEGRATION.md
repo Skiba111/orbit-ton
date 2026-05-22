@@ -1,19 +1,95 @@
 # ORBIT Integration Guide
 
-Add ORBIT subscription billing to your application. This guide covers:
-- Getting a Factory through the Registry (recommended)
-- Sending a subscribe transaction from the user's wallet
-- Receiving webhook events for confirmed charges
-- Checking subscription status on-chain
-- Securing your webhook endpoint
+> **You are a service operator.** This guide is for third-party developers
+> adding ORBIT subscription billing to their product. The ORBIT protocol
+> infrastructure (relayer, keeper, dashboard) is already running — you just
+> need to deploy your Factory and integrate the SDK.
 
 ---
 
-## Requirements
+## Your role as a service operator
 
-- Node.js 18+ on your backend
-- A running relayer (configured per [DEPLOYMENT.md](DEPLOYMENT.md))
-- A Factory contract (obtained via Registry — see step 0 below)
+```
+What you own:                         What ORBIT provides:
+──────────────────────────────────    ────────────────────────────────────
+Your Factory contract                 Relayer — signs charge messages
+Your wallet (= Factory owner)         Keeper — triggers charge timing
+Your FeeCollector contract            Dashboard — analytics & webhooks
+Your subscriber-facing app            SDK (@orbit-ton/react)
+                                      API (orbit_sk_ keys)
+```
+
+**ORBIT's relayer charges your subscribers and sends the TON to your wallet.
+ORBIT takes 1.5% of each charge automatically at the contract level.**
+
+---
+
+## Prerequisites
+
+- Node.js 18+
+- A wallet with ≥ 0.5 TON (testnet: get from @testgiver_ton_bot)
+- Two values from [ORBIT docs](DEPLOYMENT.md):
+  - `RELAYER_PUBKEY` — ORBIT's relayer public key
+  - `PROTOCOL_FEE_COLLECTOR` — ORBIT's fee wallet address
+
+---
+
+## Step 0. Deploy your Factory
+
+### Option A — via Registry (recommended, one command)
+
+The ORBIT Registry deploys a Factory for you with protocol fee settings enforced at the contract level.
+
+```bash
+# In your .env (use OPERATOR_ENV.example as template):
+# WALLET_MNEMONIC="your 24 words"
+# NETWORK=testnet
+# REGISTRY_ADDRESS=<copy from ORBIT docs>
+
+npx ts-node scripts/register-service.ts
+```
+
+Output:
+```
+✅ Factory deployed: EQAbc123...
+   Owner (your wallet): UQDfoo...bar
+   → Copy to your .env: FACTORY_ADDRESS=EQAbc123...
+```
+
+### Option B — standalone deploy (full control)
+
+Use this if you want custom fee settings or are not using the Registry.
+
+```bash
+# In your .env:
+# WALLET_MNEMONIC="your 24 words"
+# FEE_COLLECTOR_PUBKEY="your hex pubkey"
+# NETWORK=testnet
+
+npx ts-node scripts/deploy-standalone.ts
+```
+
+The script asks interactively:
+```
+Service owner address         : UQDfoo...bar   ← your wallet address
+Service fee bps (100 = 1%)    : 200            ← your commission (2%)
+Relayer pubkey hex (64 chars) : 52dfadb8...    ← COPY FROM ORBIT DOCS
+Protocol fee collector address: EQ...          ← COPY FROM ORBIT DOCS
+```
+
+> ⚠️ **The relayer pubkey and protocol fee collector are NOT yours.** They belong to the ORBIT protocol. Copy them from [DEPLOYMENT.md](DEPLOYMENT.md).
+
+### After deploy: register in ORBIT Dashboard
+
+1. Open the ORBIT Dashboard
+2. Connect the **same wallet** you used to deploy (the one in `WALLET_MNEMONIC`)
+3. Services → Claim Factory → paste your Factory address (`EQAbc123...`)
+4. The backend calls `get_owner()` on-chain and verifies your wallet matches
+5. Done — your service is registered, analytics and webhooks are active
+
+---
+
+## Old Step 0 content below (get via Registry)
 
 ---
 

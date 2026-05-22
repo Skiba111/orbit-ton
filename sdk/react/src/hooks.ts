@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback, useContext, createContext } from "react";
 import { TonClient, Address, toNano, beginCell }                       from "@ton/core";
-import { useTonConnectUI, useTonAddress }                               from "@tonconnect/ui-react";
-import { Subscription }                                                  from "../../../wrappers/Subscription";
+import { useTonConnectUI }                                               from "@tonconnect/ui-react";
+import { Subscription, Ops }                                             from "../../../wrappers/Subscription";
 import { Factory }                                                       from "../../../wrappers/Factory";
 import type { SubscriptionData, PlanData, OrbitConfig }                 from "./types";
 
@@ -158,6 +158,189 @@ export function useFactory() {
     useEffect(() => { fetchFactory(); }, [fetchFactory]);
 
     return { plans, totalRevenue, totalCharges, keeperPool, loading, error, refetch: fetchFactory };
+}
+
+// ── useCancel ─────────────────────────────────────────────────────────────────
+//
+// Sends OP_CANCEL (0x4F520010) to the subscriber's Subscription contract.
+// After confirmation the contract moves to CANCELLED state and refunds the
+// remaining deposit minus a small reserve.
+
+export function useCancel() {
+    const [tonConnectUI]        = useTonConnectUI();
+    const [loading, setLoading] = useState(false);
+    const [error, setError]     = useState<string | null>(null);
+
+    const cancel = useCallback(async (subscriptionAddress: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const body = beginCell()
+                .storeUint(Ops.CANCEL, 32)
+                .storeUint(0, 64)
+            .endCell();
+
+            await tonConnectUI.sendTransaction({
+                messages: [{
+                    address: subscriptionAddress,
+                    amount:  toNano("0.05").toString(),
+                    payload: body.toBoc().toString("base64"),
+                }],
+            });
+        } catch (e) {
+            setError((e as Error).message);
+            throw e;
+        } finally {
+            setLoading(false);
+        }
+    }, [tonConnectUI]);
+
+    return { cancel, loading, error };
+}
+
+// ── useTopUp ──────────────────────────────────────────────────────────────────
+//
+// Sends OP_TOP_UP (0x4F520011) to top up the subscriber's deposit.
+// The `topUpAmount` is in nanoton and will be added to the contract's deposit.
+
+export function useTopUp() {
+    const [tonConnectUI]        = useTonConnectUI();
+    const [loading, setLoading] = useState(false);
+    const [error, setError]     = useState<string | null>(null);
+
+    const topUp = useCallback(async (subscriptionAddress: string, topUpAmount: bigint) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const body = beginCell()
+                .storeUint(Ops.TOP_UP, 32)
+                .storeUint(0, 64)
+            .endCell();
+
+            await tonConnectUI.sendTransaction({
+                messages: [{
+                    address: subscriptionAddress,
+                    // topUpAmount goes into deposit; +0.05 TON for gas
+                    amount:  (topUpAmount + toNano("0.05")).toString(),
+                    payload: body.toBoc().toString("base64"),
+                }],
+            });
+        } catch (e) {
+            setError((e as Error).message);
+            throw e;
+        } finally {
+            setLoading(false);
+        }
+    }, [tonConnectUI]);
+
+    return { topUp, loading, error };
+}
+
+// ── usePause / useResume ──────────────────────────────────────────────────────
+//
+// Subscriber-initiated pause (OP_PAUSE_SUB) and resume (OP_RESUME_SUB).
+// A paused subscription stops auto-charges but keeps the deposit locked.
+
+export function usePause() {
+    const [tonConnectUI]        = useTonConnectUI();
+    const [loading, setLoading] = useState(false);
+    const [error, setError]     = useState<string | null>(null);
+
+    const pause = useCallback(async (subscriptionAddress: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const body = beginCell()
+                .storeUint(Ops.PAUSE_SUB, 32)
+                .storeUint(0, 64)
+            .endCell();
+            await tonConnectUI.sendTransaction({
+                messages: [{
+                    address: subscriptionAddress,
+                    amount:  toNano("0.05").toString(),
+                    payload: body.toBoc().toString("base64"),
+                }],
+            });
+        } catch (e) {
+            setError((e as Error).message);
+            throw e;
+        } finally {
+            setLoading(false);
+        }
+    }, [tonConnectUI]);
+
+    return { pause, loading, error };
+}
+
+export function useResume() {
+    const [tonConnectUI]        = useTonConnectUI();
+    const [loading, setLoading] = useState(false);
+    const [error, setError]     = useState<string | null>(null);
+
+    const resume = useCallback(async (subscriptionAddress: string) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const body = beginCell()
+                .storeUint(Ops.RESUME_SUB, 32)
+                .storeUint(0, 64)
+            .endCell();
+            await tonConnectUI.sendTransaction({
+                messages: [{
+                    address: subscriptionAddress,
+                    amount:  toNano("0.05").toString(),
+                    payload: body.toBoc().toString("base64"),
+                }],
+            });
+        } catch (e) {
+            setError((e as Error).message);
+            throw e;
+        } finally {
+            setLoading(false);
+        }
+    }, [tonConnectUI]);
+
+    return { resume, loading, error };
+}
+
+// ── useChangePlan ─────────────────────────────────────────────────────────────
+//
+// Sends OP_CHANGE_PLAN to the Factory. The Factory looks up the subscriber's
+// existing Subscription address and forwards OP_APPLY_PLAN internally —
+// the subscriber does NOT need to know their subscription address.
+
+export function useChangePlan() {
+    const { config, client }    = useOrbit();
+    const [tonConnectUI]        = useTonConnectUI();
+    const [loading, setLoading] = useState(false);
+    const [error, setError]     = useState<string | null>(null);
+
+    const changePlan = useCallback(async (newPlanId: number) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const body = beginCell()
+                .storeUint(0x4F520007, 32)  // OP_CHANGE_PLAN
+                .storeUint(0, 64)
+                .storeUint(newPlanId, 32)
+            .endCell();
+
+            await tonConnectUI.sendTransaction({
+                messages: [{
+                    address: config.factoryAddress,
+                    amount:  toNano("0.1").toString(), // gas budget for forward message
+                    payload: body.toBoc().toString("base64"),
+                }],
+            });
+        } catch (e) {
+            setError((e as Error).message);
+            throw e;
+        } finally {
+            setLoading(false);
+        }
+    }, [config, tonConnectUI]);
+
+    return { changePlan, loading, error };
 }
 
 // ── Cell builder ──────────────────────────────────────────────────────────────

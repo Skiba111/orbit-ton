@@ -297,18 +297,20 @@ async function main() {
 
     // ── Step 2: Factory ───────────────────────────────────────────────────────
 
+    // Protocol fee collector is hardcoded — cannot be overridden by operators.
+    const PROTOCOL_FEE_COLLECTOR = "EQDXmTHoJvjahldT3_tpeGcZ0juiADEfhTBiKcQuFPnjz6S0";
+
     console.log("\n📝 Factory configuration (press Enter after each value):");
     const serviceAddrStr  = await ask("  Service owner address         : ");
     const feeBpsStr       = await ask("  Service fee bps (100 = 1%)    : ");
     const relayerHex      = await ask("  Relayer pubkey hex (64 chars) : ");
-    const protocolStr     = await ask("  Protocol fee collector address: ");
 
     const factoryCfg: FactoryConfig = {
         relayerPubkey:        BigInt("0x" + relayerHex),
         serviceAddr:          Address.parse(serviceAddrStr),
         feeCollector:         feeCollector.address,
         feeBps:               parseInt(feeBpsStr, 10),
-        protocolFeeCollector: Address.parse(protocolStr),
+        protocolFeeCollector: Address.parse(PROTOCOL_FEE_COLLECTOR),
         subCode,
         plans: [
             { price: toNano("1"), period: 2592000, trialPeriod: 604800, nameHash: 0n },

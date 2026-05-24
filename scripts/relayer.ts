@@ -37,8 +37,9 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
-import * as fs   from "fs";
-import * as path from "path";
+import * as fs     from "fs";
+import * as path   from "path";
+import { createHmac } from "crypto";
 import { TonClient } from "@ton/ton";
 import { Address, beginCell, Cell } from "@ton/core";
 import { mnemonicToPrivateKey, sign }           from "@ton/crypto";
@@ -111,7 +112,13 @@ function loadDB(): SubscriptionDB {
 
 function saveDB(db: SubscriptionDB): void {
     fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), "utf8");
+    // Atomic write: flush to a temp file first, then rename.
+    // rename() is an atomic OS-level operation on the same filesystem —
+    // the reader always sees either the old or the new complete file, never
+    // a half-written one (which would produce corrupt JSON on restart).
+    const tmp = DB_PATH + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(db, null, 2), "utf8");
+    fs.renameSync(tmp, DB_PATH);
 }
 
 // ── Write-ahead log ───────────────────────────────────────────────────────────
@@ -146,7 +153,12 @@ function loadWal(): Wal {
 
 function saveWal(wal: Wal): void {
     fs.mkdirSync(path.dirname(WAL_PATH), { recursive: true });
-    fs.writeFileSync(WAL_PATH, JSON.stringify(wal, null, 2), "utf8");
+    // Atomic write via temp-file + rename — same rationale as saveDB().
+    // Critical here: a crash during WAL save must never silently lose the
+    // pending entry (which would skip the confirmatory seqno check on restart).
+    const tmp = WAL_PATH + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(wal, null, 2), "utf8");
+    fs.renameSync(tmp, WAL_PATH);
 }
 
 function walLogIntent(wal: Wal, address: string, seqno: number): void {
@@ -333,12 +345,16 @@ async function fireWebhook(payload: {
 }): Promise<void> {
     if (!WEBHOOK_URL) return;
     try {
+        const body_str = JSON.stringify(payload);
         const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (WEBHOOK_SECRET) headers["X-Orbit-Secret"] = WEBHOOK_SECRET;
+        if (WEBHOOK_SECRET) {
+            const sig = createHmac("sha256", WEBHOOK_SECRET).update(body_str).digest("hex");
+            headers["X-Orbit-Signature"] = `sha256=${sig}`;
+        }
         await fetch(WEBHOOK_URL, {
             method:  "POST",
             headers,
-            body:    JSON.stringify(payload),
+            body:    body_str,  // same string used for HMAC — must not re-serialize
         });
     } catch (err) {
         console.warn(`[relayer] Webhook delivery failed: ${(err as Error).message}`);
@@ -375,7 +391,7 @@ async function tryCharge(
                 markSuccess(db, addrStr);
                 console.log(`[relayer] Charged ${addrStr} (seqno ${seqno} → ${newSeqno})`);
                 await fireWebhook({
-                    event:      "charge_confirmed",
+                    event:      "charge.success",
                     address:    addrStr,
                     seqno_from: seqno,
                     seqno_to:   newSeqno,
@@ -484,9 +500,12 @@ async function pollCycle(secretKey: Buffer): Promise<void> {
         if (isBackedOff(db, addrStr)) continue;
 
         try {
-            const sub    = client.open(Subscription.createFromAddress(addr));
-            const status = await sub.getStatus();
-            const nextBt = await sub.getNextBillingTime();
+            const sub = client.open(Subscription.createFromAddress(addr));
+            // Fetch status and billing time in parallel to halve RPC latency
+            const [status, nextBt] = await Promise.all([
+                sub.getStatus(),
+                sub.getNextBillingTime(),
+            ]);
 
             if (status === Status.CANCELLED || status === Status.PAUSED) continue;
             if (nextBt - CHARGE_LEAD_S > now) continue;

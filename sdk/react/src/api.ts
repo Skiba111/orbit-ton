@@ -26,52 +26,113 @@ export interface ServiceRecord {
     description:      string | null;
     factoryAddress:   string;
     isActive:         boolean;
-    claimedAt:        string;
+    registeredAt:     string;
+    updatedAt:        string;
 }
 
+/** Matches the Prisma Plan model returned by GET /services/:id/plans */
 export interface PlanRecord {
-    id:           string;
-    planId:       number;
-    name:         string | null;
-    price:        string;   // nanoton as string
-    period:       number;   // seconds
-    trialPeriod:  number;
-    isActive:     boolean;
+    id:             string;
+    serviceId:      string;
+    onchainPlanId:  number;   // plan_id in the smart contract (0-indexed)
+    name:           string;
+    description:    string | null;
+    priceNano:      string;   // BigInt serialised as decimal string
+    periodSeconds:  number;
+    trialSeconds:   number;
+    maxPeriods:     number | null;
+    paymentType:    "TON" | "JETTON";
+    jettonMaster:   string | null;
+    isActive:       boolean;
+    createdAt:      string;
 }
 
+/** Matches the Prisma Subscription model returned by the subscriptions endpoints */
 export interface SubscriptionRecord {
     id:                   string;
-    subscriberAddress:    string;
-    subscriptionAddress:  string;
-    status:               string;
-    planId:               number;
-    deposit:              string;
-    nextBillingTime:      string | null;
-    periodsCharged:       number;
+    serviceId:            string;
+    planId:               string;
+    subscriberWallet:     string;   // non-bounceable TON address
+    subscriptionAddress:  string;   // on-chain Subscription contract address
+    status:               "TRIAL" | "ACTIVE" | "GRACE" | "PAUSED" | "CANCELLED";
+    seqno:                number;   // number of successful charges
+    depositNano:          string;   // BigInt as decimal string
+    nextBillingTime:      string;   // ISO timestamp
+    trialEndsAt:          string | null;
+    graceSince:           string | null;
+    cancelledAt:          string | null;
     createdAt:            string;
+    updatedAt:            string;
+    plan?:                Pick<PlanRecord, "id" | "onchainPlanId" | "name" | "priceNano" | "periodSeconds" | "paymentType">;
 }
 
+/** Paginated subscriptions response — cursor-based */
+export interface PaginatedSubscriptions {
+    data:        SubscriptionRecord[];
+    nextCursor:  string | null;
+    total:       number;
+}
+
+/** Single charge event (ChargeEvent Prisma model) */
 export interface ChargeRecord {
-    id:          string;
-    txHash:      string | null;
-    amount:      string;
-    success:     boolean;
-    chargedAt:   string;
+    id:               string;
+    serviceId:        string;
+    subscriptionId:   string;
+    seqnoFrom:        number;
+    seqnoTo:          number;
+    grossNano:        string;      // BigInt as decimal string
+    netNano:          string;
+    protocolFeeNano:  string;
+    txHash:           string;
+    timestamp:        string;      // ISO timestamp of the on-chain tx
+    createdAt:        string;
+    subscription?: {
+        subscriberWallet:    string;
+        subscriptionAddress: string;
+    };
 }
 
+/** Paginated charges response from GET /services/:id/charges */
+export interface PaginatedCharges {
+    items: ChargeRecord[];
+    meta: {
+        total:      number;
+        page:       number;
+        limit:      number;
+        totalPages: number;
+    };
+}
+
+/** Real shape returned by GET /services/:id/analytics/overview */
 export interface AnalyticsOverview {
-    activeSubscriptions:   number;
-    totalRevenue:          string;
-    mrr:                   string;
-    churnRate:             number;
-    chargesToday:          number;
-    successRate:           number;
+    subscriptions: {
+        active:    number;
+        trial:     number;
+        grace:     number;
+        paused:    number;
+        cancelled: number;
+        total:     number;
+    };
+    charges: {
+        total: number;
+    };
+    mrr: {
+        mrrNano: string;   // BigInt as decimal string
+        mrrTon:  string;   // formatted to 4 decimal places
+    };
+    churn: {
+        churnRate:   string;   // e.g. "2.50%"
+        cancelled:   number;
+        totalAtStart: number;
+    };
+    period: number;            // echoes back the requested ?days value
 }
 
+/** Single data point from GET /services/:id/analytics/charges */
 export interface AnalyticsChartPoint {
-    date:     string;
-    revenue:  string;
-    charges:  number;
+    date:     string;   // YYYY-MM-DD
+    grossTon: number;   // total revenue on that day in TON (float)
+    count:    number;   // number of successful charges
 }
 
 export interface WebhookEndpoint {
@@ -81,6 +142,7 @@ export interface WebhookEndpoint {
     isActive:    boolean;
     secretHint:  string;
     createdAt:   string;
+    updatedAt:   string;
 }
 
 export interface ApiKeyRecord {
@@ -145,7 +207,8 @@ class ServicesApi {
         return this.req("GET", `/services/${serviceId}`);
     }
 
-    publicInfo(serviceId: string): Promise<{ name: string; plans: PlanRecord[] }> {
+    /** Public endpoint — no auth required. Returns service name + active plans. */
+    publicInfo(serviceId: string): Promise<{ id: string; name: string; plans: PlanRecord[] }> {
         return this.req("GET", `/services/${serviceId}/public`);
     }
 }
@@ -157,16 +220,19 @@ class PlansApi {
         return this.req("GET", `/services/${serviceId}/plans`);
     }
 
+    /**
+     * Sync a plan from the on-chain Factory into the database.
+     * `onchainPlanId` must match the index in the deployed Factory contract.
+     */
     create(serviceId: string, plan: {
-        name?:         string;
-        price:         string;
-        period:        number;
-        trialPeriod?:  number;
+        onchainPlanId: number;
+        name:          string;
+        description?:  string;
     }): Promise<PlanRecord> {
         return this.req("POST", `/services/${serviceId}/plans`, plan);
     }
 
-    deactivate(serviceId: string, planId: string): Promise<PlanRecord> {
+    deactivate(serviceId: string, planId: string): Promise<{ id: string }> {
         return this.req("DELETE", `/services/${serviceId}/plans/${planId}`);
     }
 }
@@ -174,7 +240,16 @@ class PlansApi {
 class SubscriptionsApi {
     constructor(private readonly req: <T>(m: string, p: string, b?: unknown) => Promise<T>) {}
 
-    list(serviceId: string, params?: { status?: string; limit?: number; offset?: number }): Promise<SubscriptionRecord[]> {
+    /**
+     * List subscriptions for a service with cursor-based pagination.
+     * @param params.cursor  - last subscription `id` from the previous page's `nextCursor`
+     * @param params.status  - optional filter: "TRIAL" | "ACTIVE" | "GRACE" | "PAUSED" | "CANCELLED"
+     */
+    list(serviceId: string, params?: {
+        limit?:  number;
+        cursor?: string;
+        status?: "TRIAL" | "ACTIVE" | "GRACE" | "PAUSED" | "CANCELLED";
+    }): Promise<PaginatedSubscriptions> {
         const qs = params ? "?" + new URLSearchParams(params as Record<string, string>).toString() : "";
         return this.req("GET", `/services/${serviceId}/subscriptions${qs}`);
     }
@@ -185,31 +260,41 @@ class SubscriptionsApi {
 }
 
 class ChargesApi {
-    constructor(private readonly req: <T>(m: string, p: string, b?: unknown) => Promise<T>) {}
+    // SDK-C2 fix: baseUrl and apiKey are passed explicitly because exportCsv
+    // must use raw fetch (returns Blob, not JSON) and cannot go through apiFetch.
+    constructor(
+        private readonly req:     <T>(m: string, p: string, b?: unknown) => Promise<T>,
+        private readonly baseUrl: string,
+        private readonly apiKey:  string,
+    ) {}
 
-    list(serviceId: string, params?: { limit?: number; offset?: number }): Promise<ChargeRecord[]> {
+    list(serviceId: string, params?: { page?: number; limit?: number }): Promise<PaginatedCharges> {
         const qs = params ? "?" + new URLSearchParams(params as Record<string, string>).toString() : "";
         return this.req("GET", `/services/${serviceId}/charges${qs}`);
     }
 
+    /** Download charge history as a CSV blob. */
     exportCsv(serviceId: string): Promise<Blob> {
-        // Raw fetch — returns CSV blob
-        return fetch(`${(this as any)._baseUrl}/services/${serviceId}/charges/export`, {
-            headers: { "X-API-Key": (this as any)._apiKey },
-        }).then(r => r.blob());
+        return fetch(`${this.baseUrl}/services/${serviceId}/charges/export`, {
+            headers: { "X-API-Key": this.apiKey },
+        }).then(r => {
+            if (!r.ok) throw new OrbitApiError(r.status, r.statusText);
+            return r.blob();
+        });
     }
 }
 
 class AnalyticsApi {
     constructor(private readonly req: <T>(m: string, p: string, b?: unknown) => Promise<T>) {}
 
-    overview(serviceId: string, params?: { period?: 7 | 30 | 90 }): Promise<AnalyticsOverview> {
-        const qs = params?.period ? `?period=${params.period}` : "";
+    // SDK-C3 fix: parameter renamed from `period` to `days` to match backend query param
+    overview(serviceId: string, params?: { days?: 7 | 30 | 90 }): Promise<AnalyticsOverview> {
+        const qs = params?.days ? `?days=${params.days}` : "";
         return this.req("GET", `/services/${serviceId}/analytics/overview${qs}`);
     }
 
-    chart(serviceId: string, params?: { period?: 7 | 30 | 90 }): Promise<AnalyticsChartPoint[]> {
-        const qs = params?.period ? `?period=${params.period}` : "";
+    chart(serviceId: string, params?: { days?: number }): Promise<AnalyticsChartPoint[]> {
+        const qs = params?.days ? `?days=${params.days}` : "";
         return this.req("GET", `/services/${serviceId}/analytics/charges${qs}`);
     }
 }
@@ -221,7 +306,14 @@ class WebhooksApi {
         return this.req("GET", `/services/${serviceId}/webhooks`);
     }
 
-    /** Returns the signing secret ONCE — store it immediately. */
+    /**
+     * Register a webhook endpoint.
+     * Returns the signing secret ONCE — store it immediately.
+     *
+     * Supported events:
+     *   charge.success | charge.failed | subscription.activated |
+     *   subscription.cancelled | subscription.grace | subscription.recovered
+     */
     create(serviceId: string, endpoint: {
         url:    string;
         events: string[];
@@ -255,11 +347,19 @@ class ApiKeysApi {
 
 /**
  * Verify an incoming webhook signature from ORBIT.
- * Call this in your webhook handler before trusting the payload.
+ * Call this in your webhook handler BEFORE trusting the payload.
  *
- * @param body     Raw request body as a string (before JSON.parse)
- * @param signature Value of the X-Orbit-Signature header
- * @param secret   Your endpoint's signing secret
+ * @param body      Raw request body as a string (before JSON.parse)
+ * @param signature Value of the `X-Orbit-Signature` header (format: "sha256=<hex>")
+ * @param secret    Your endpoint's signing secret
+ *
+ * @example
+ * const isValid = await verifyWebhookSignature(
+ *   rawBody,
+ *   req.headers["x-orbit-signature"],
+ *   process.env.ORBIT_WEBHOOK_SECRET,
+ * );
+ * if (!isValid) return res.status(401).end();
  */
 export async function verifyWebhookSignature(
     body:      string,
@@ -267,8 +367,8 @@ export async function verifyWebhookSignature(
     secret:    string,
 ): Promise<boolean> {
     // Works in browsers (Web Crypto) and Node.js 18+ (globalThis.crypto)
-    const enc     = new TextEncoder();
-    const key     = await crypto.subtle.importKey(
+    const enc    = new TextEncoder();
+    const key    = await crypto.subtle.importKey(
         "raw",
         enc.encode(secret),
         { name: "HMAC", hash: "SHA-256" },
@@ -276,10 +376,13 @@ export async function verifyWebhookSignature(
         ["sign"],
     );
     const sigBuf  = await crypto.subtle.sign("HMAC", key, enc.encode(body));
-    const computed = Array.from(new Uint8Array(sigBuf))
+    const hexHash = Array.from(new Uint8Array(sigBuf))
         .map(b => b.toString(16).padStart(2, "0"))
         .join("");
-    return computed === signature;
+
+    // SDK-C1 fix: header is "sha256=<hex>", not bare hex
+    const expected = `sha256=${hexHash}`;
+    return expected === signature;
 }
 
 // ── Main client ───────────────────────────────────────────────────────────────
@@ -300,7 +403,8 @@ export class OrbitApiClient {
         this.services      = new ServicesApi(req);
         this.plans         = new PlansApi(req);
         this.subscriptions = new SubscriptionsApi(req);
-        this.charges       = new ChargesApi(req);
+        // SDK-C2: pass baseUrl + apiKey so exportCsv() has access for raw fetch
+        this.charges       = new ChargesApi(req, config.baseUrl, config.apiKey);
         this.analytics     = new AnalyticsApi(req);
         this.webhooks      = new WebhooksApi(req);
         this.apiKeys       = new ApiKeysApi(req);

@@ -60,8 +60,6 @@ Login with a TON Connect wallet proof. Returns JWT access + refresh tokens.
 **Response:**
 ```json
 {
-  "accessToken":  "eyJ...",
-  "refreshToken": "eyJ...",
   "operator": {
     "id":            "clx123...",
     "walletAddress": "UQD...",
@@ -70,27 +68,29 @@ Login with a TON Connect wallet proof. Returns JWT access + refresh tokens.
 }
 ```
 
-> The `accessToken` expires in 7 days (configurable via `JWT_EXPIRES_IN`).  
-> The `refreshToken` expires in 30 days (configurable via `JWT_REFRESH_EXPIRES_IN`).
+> **Tokens are set as `httpOnly` cookies, not returned in the response body.** This prevents XSS exfiltration. The browser (or HTTP client) stores `orbit_access` (15 min) and `orbit_refresh` (30 days) cookies automatically. All subsequent requests carry them automatically — no manual `Authorization` header needed for browser clients.  
+>
+> For server-to-server integrations, use an **API key** (`X-API-Key`) instead of JWT.
 
 ---
 
 ### `POST /auth/refresh`
 
-Rotate refresh token. Old token is invalidated.
+Rotate refresh token. Old token is invalidated; new tokens are set as `httpOnly` cookies.
 
-**Request:**
+**Request (browser clients):** no body required — the `orbit_refresh` cookie is sent automatically.
+
+**Request (server-to-server fallback):**
 ```json
 { "refreshToken": "eyJ..." }
 ```
 
 **Response:**
 ```json
-{
-  "accessToken":  "eyJ...",
-  "refreshToken": "eyJ..."
-}
+{ "ok": true }
 ```
+
+> New `orbit_access` and `orbit_refresh` cookies are set. Rate limit: **20 req / min / IP**.
 
 ---
 
@@ -126,7 +126,7 @@ List all services registered by the current operator.
     "description":    "Monthly subscription",
     "factoryAddress": "EQAbc123...",
     "isActive":       true,
-    "claimedAt":      "2026-01-01T00:00:00Z"
+    "registeredAt":   "2026-01-01T00:00:00Z"
   }
 ]
 ```
@@ -136,9 +136,9 @@ List all services registered by the current operator.
 ### `POST /services/claim` 🔐
 
 Register a Factory contract as your service.  
-The backend calls `get_owner()` on-chain to verify you own this contract.
+The backend calls `get_service_addr()` on-chain to verify you own this contract.
 
-**⚠️ The wallet you authenticated with MUST match `get_owner()` on the Factory.**
+**⚠️ The wallet you authenticated with MUST match `get_service_addr()` on the Factory.**
 
 **Request:**
 ```json
@@ -182,7 +182,16 @@ Public service info — no auth required. Used by subscriber-facing apps.
   "id":   "clx123...",
   "name": "My SaaS Premium",
   "plans": [
-    { "planId": 0, "price": "1000000000", "period": 2592000, "trialPeriod": 604800, "isActive": true }
+    {
+      "onchainPlanId": 0,
+      "priceNano":     "1000000000",
+      "periodSeconds": 2592000,
+      "trialSeconds":  604800,
+      "maxPeriods":    null,
+      "paymentType":   "TON",
+      "jettonMaster":  null,
+      "isActive":      true
+    }
   ]
 }
 ```
@@ -199,22 +208,28 @@ List all plans for a service.
 
 ### `POST /services/:serviceId/plans` 🔐
 
-Sync a plan from the on-chain Factory into the database.
+Sync a plan from the on-chain Factory into the database. The backend reads `price`, `period`, and `trialPeriod` directly from the contract via `get_plan_data()` — you only need to supply the on-chain plan index and a display name.
 
 **Request:**
 ```json
 {
-  "planId":      0,
-  "name":        "Basic Monthly",
-  "price":       "1000000000",
-  "period":      2592000,
-  "trialPeriod": 604800
+  "onchainPlanId": 0,
+  "name":          "Basic Monthly",
+  "description":   "Access to all premium features"
 }
 ```
 
-> `planId` must match the index in the deployed Factory contract.  
-> `price` is in nanoton (1 TON = 1,000,000,000 nanoton).  
-> `period` is in seconds (30 days = 2,592,000).
+| Field | Required | Description |
+|---|---|---|
+| `onchainPlanId` | ✅ | Zero-based plan index in the deployed Factory contract |
+| `name` | ✅ | Display name shown in the dashboard |
+| `description` | — | Optional human-readable description |
+
+> `price`, `periodSeconds`, and `trialSeconds` are read from the contract automatically and cannot be overridden here.
+
+**Errors:**
+- `400` — plan index not found on-chain, or plan is already deactivated
+- `409` — plan already synced (duplicate `onchainPlanId` for this service)
 
 ---
 
@@ -228,11 +243,29 @@ Deactivate a plan.
 
 ### `GET /services/:serviceId/subscriptions` 🔐
 
-List subscriptions. Supports filtering:
+List subscriptions. Supports cursor-based pagination:
 
 ```
-GET /services/:serviceId/subscriptions?status=ACTIVE&limit=50&offset=0
+GET /services/:serviceId/subscriptions?limit=50&cursor=<last_subscription_id>
 ```
+
+**Query parameters:**
+
+| Parameter | Default | Max | Description |
+|---|---|---|---|
+| `limit` | `50` | `200` | Number of results per page |
+| `cursor` | — | — | Last subscription `id` from the previous page's `nextCursor` |
+
+**Response:**
+```json
+{
+  "data": [ /* subscription objects */ ],
+  "nextCursor": "clx789...",
+  "total": 342
+}
+```
+
+> `nextCursor` is `null` when you have reached the last page.
 
 **Status values:** `TRIAL` `ACTIVE` `PAUSED` `GRACE` `CANCELLED`
 
@@ -240,21 +273,36 @@ GET /services/:serviceId/subscriptions?status=ACTIVE&limit=50&offset=0
 
 ### `GET /services/:serviceId/subscriptions/:id` 🔐
 
-Get a single subscription record.
+Get a single subscription record (includes last 20 charge events).
 
 ```json
 {
   "id":                   "clx456...",
-  "subscriberAddress":    "UQDsub...",
+  "serviceId":            "clx123...",
+  "planId":               "clxplan...",
+  "subscriberWallet":     "UQDsub...",
   "subscriptionAddress":  "EQAsubcontract...",
   "status":               "ACTIVE",
-  "planId":               0,
-  "deposit":              "3000000000",
+  "seqno":                3,
+  "depositNano":          "3000000000",
   "nextBillingTime":      "2026-06-01T00:00:00Z",
-  "periodsCharged":       1,
-  "createdAt":            "2026-01-01T00:00:00Z"
+  "trialEndsAt":          null,
+  "graceSince":           null,
+  "cancelledAt":          null,
+  "createdAt":            "2026-01-01T00:00:00Z",
+  "updatedAt":            "2026-05-01T00:00:00Z",
+  "plan": { ... },
+  "chargeEvents": [ ... ]
 }
 ```
+
+| Field | Description |
+|---|---|
+| `subscriberWallet` | Subscriber's wallet address (non-bounceable form) |
+| `subscriptionAddress` | On-chain Subscription contract address |
+| `seqno` | Number of successful charges so far |
+| `depositNano` | Current deposit balance in nanoton (decimal string) |
+| `nextBillingTime` | ISO timestamp of next scheduled charge |
 
 ---
 
@@ -262,19 +310,50 @@ Get a single subscription record.
 
 ### `GET /services/:serviceId/charges` 🔐
 
-List charge history.
+List charge history. Supports page-based pagination.
 
-```json
-[
-  {
-    "id":        "clx789...",
-    "txHash":    "abc123...",
-    "amount":    "1000000000",
-    "success":   true,
-    "chargedAt": "2026-02-01T00:00:00Z"
-  }
-]
 ```
+GET /services/:serviceId/charges?page=1&limit=50
+```
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id":              "clx789...",
+      "serviceId":       "clx123...",
+      "subscriptionId":  "clx456...",
+      "seqnoFrom":       2,
+      "seqnoTo":         3,
+      "grossNano":       "1000000000",
+      "netNano":         "985000000",
+      "protocolFeeNano": "15000000",
+      "txHash":          "abc123def456...",
+      "timestamp":       "2026-02-01T00:00:00Z",
+      "createdAt":       "2026-02-01T00:00:01Z",
+      "subscription": {
+        "subscriberWallet":    "UQDsub...",
+        "subscriptionAddress": "EQAsub..."
+      }
+    }
+  ],
+  "meta": {
+    "total":      1840,
+    "page":       1,
+    "limit":      50,
+    "totalPages": 37
+  }
+}
+```
+
+| Field | Description |
+|---|---|
+| `grossNano` | Full plan price charged (decimal string, nanoton) |
+| `netNano` | `gross − protocol fee (1.5%)`. Note: service fee (`fee_bps`) is also deducted on-chain and not reflected here |
+| `protocolFeeNano` | 1.5% ORBIT protocol fee deducted from gross |
+| `seqnoFrom` / `seqnoTo` | Subscription seqno before and after this charge |
+| `txHash` | On-chain transaction hash for independent verification |
 
 ---
 
@@ -289,35 +368,65 @@ Download charges as CSV.
 ### `GET /services/:serviceId/analytics/overview` 🔐
 
 ```
-GET /services/:serviceId/analytics/overview?period=30
+GET /services/:serviceId/analytics/overview?days=30
 ```
 
-`period`: `7` | `30` | `90` (days, default 30)
+`days`: `7` | `30` | `90` (default 30)
 
 **Response:**
 ```json
 {
-  "activeSubscriptions": 142,
-  "totalRevenue":        "142000000000",
-  "mrr":                 "47300000000",
-  "churnRate":           2.8,
-  "chargesToday":        12,
-  "successRate":         97.5
+  "subscriptions": {
+    "active":    142,
+    "trial":     23,
+    "grace":     5,
+    "paused":    3,
+    "cancelled": 11,
+    "total":     173
+  },
+  "charges": { "total": 1840 },
+  "mrr": {
+    "mrrNano": "386500000000",
+    "mrrTon":  "386.5000"
+  },
+  "churn": {
+    "churnRate":   "2.50%",
+    "cancelled":   3,
+    "totalAtStart": 120
+  },
+  "period": 30
 }
 ```
+
+> `churn` is present on all responses. `churnRate` is a string like `"2.50%"`.  
+> `period` echoes back the requested `days` value.  
+> `subscriptions.total` = active + trial + grace + paused (excludes cancelled).  
+> Note: `chargesToday` and `successRate` are not returned by this endpoint.
 
 ---
 
 ### `GET /services/:serviceId/analytics/charges` 🔐
 
-Daily chart data.
+Daily chart data (one entry per day, sorted ascending).
+
+```
+GET /services/:serviceId/analytics/charges?days=30
+```
+
+`days`: 1–365 (default 30)
 
 ```json
 [
-  { "date": "2026-05-01", "revenue": "5000000000", "charges": 5 },
-  { "date": "2026-05-02", "revenue": "3000000000", "charges": 3 }
+  { "date": "2026-05-01", "grossTon": 5.0,  "count": 5 },
+  { "date": "2026-05-02", "grossTon": 3.12, "count": 3 }
 ]
 ```
+
+| Field | Description |
+|---|---|
+| `date` | ISO date string `YYYY-MM-DD` |
+| `grossTon` | Total revenue on that day in TON (float) |
+| `count` | Number of successful charges |
 
 ---
 
@@ -364,7 +473,7 @@ Register a webhook endpoint.
 | `subscription.activated` | New subscriber |
 | `subscription.cancelled` | Subscriber cancelled |
 | `subscription.grace` | Grace period started (deposit too low) |
-| `subscription.expired` | Grace period ended, subscription cancelled |
+| `subscription.recovered` | Grace period ended, subscription recovered after top-up |
 
 **Webhook payload verification:**
 

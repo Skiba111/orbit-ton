@@ -187,8 +187,8 @@ const orbit = new OrbitApiClient({
 const services = await orbit.services.list();
 
 // Analytics overview (last 30 days)
-const stats = await orbit.analytics.overview(serviceId, { period: 30 });
-console.log(stats.mrr, stats.churnRate);
+const stats = await orbit.analytics.overview(serviceId, { days: 30 });
+console.log(stats.mrr.mrrTon, stats.churn?.churnRate);
 
 // Active subscriptions
 const subs = await orbit.subscriptions.list(serviceId, { status: "ACTIVE" });
@@ -236,7 +236,7 @@ app.post("/webhooks/orbit", express.raw({ type: "application/json" }), async (re
 | `subscription.activated` | New subscriber |
 | `subscription.cancelled` | Subscriber cancelled |
 | `subscription.grace` | Deposit too low, grace period started |
-| `subscription.expired` | Grace period expired |
+| `subscription.recovered` | Grace period ended, subscription restored after top-up |
 
 ---
 

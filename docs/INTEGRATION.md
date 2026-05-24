@@ -84,36 +84,8 @@ Protocol fee collector address: EQ...          ← COPY FROM ORBIT DOCS
 1. Open the ORBIT Dashboard
 2. Connect the **same wallet** you used to deploy (the one in `WALLET_MNEMONIC`)
 3. Services → Claim Factory → paste your Factory address (`EQAbc123...`)
-4. The backend calls `get_owner()` on-chain and verifies your wallet matches
+4. The backend calls `get_service_addr()` on-chain and verifies your wallet matches
 5. Done — your service is registered, analytics and webhooks are active
-
----
-
-## Old Step 0 content below (get via Registry)
-
----
-
-## 0. Get a Factory via Registry (recommended)
-
-Instead of deploying a Factory manually, use the ORBIT Registry — it deploys a Factory for you with fee settings enforced at the contract level.
-
-```bash
-# Add to .env:
-# REGISTRY_ADDRESS=EQAYj1s3g71yta1XaJUeCTEjMRtTBEzHL12-qBIQ4kSNSA_5   ← mainnet
-# WALLET_MNEMONIC="word1 word2 ... word24"
-# NETWORK=mainnet
-
-ts-node scripts/register-service.ts
-```
-
-The script:
-1. Sends `OP_REGISTRY_REGISTER` (0.3 TON) to the Registry
-2. Registry deploys a Factory with your wallet as `service_addr`
-3. Prints your Factory address — copy it into `.env` as `FACTORY_ADDRESS`
-
-After that you can add plans to your Factory via `OP_ADD_PLAN`.
-
-> **What is fixed:** `fee_bps` and `fee_collector` are set by ORBIT and baked into your Factory at deploy time. You cannot change them. You control only your own plans.
 
 ---
 
@@ -206,11 +178,71 @@ const body = beginCell()
 
 ## 2. Webhook — receiving charge events
 
+ORBIT provides **two independent webhook channels**. Use backend webhooks for production.
+
+| Channel | Configured via | Events | Retry |
+|---------|---------------|--------|-------|
+| **Backend webhooks** *(recommended)* | Dashboard / `POST /api/v1/services/:id/webhooks` | All 6 lifecycle events | Yes — up to 5 times with exponential backoff |
+| **Relayer direct** | `WEBHOOK_URL` env var in the relayer | `charge.success` only | None — fire and forget |
+
+**Backend webhooks** are managed through the ORBIT Dashboard: register your HTTPS endpoint, choose which events to receive, and store the generated secret. The ORBIT backend retries failed deliveries automatically.
+
+**Relayer direct** is a lightweight alternative for simple scripts or debugging — configure `WEBHOOK_URL` and `WEBHOOK_SECRET` in the relayer's `.env`. No retry logic.
+
+---
+
+### Backend webhook events
+
+Register your endpoint via the Dashboard or API:
+
+```bash
+curl -X POST https://api.orbit.example/api/v1/services/<serviceId>/webhooks \
+  -H "X-API-Key: orbit_sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://yourapp.com/orbit/webhook", "events": ["charge.success", "subscription.activated"]}'
+```
+
+Events available:
+
+| Event | Payload fields | When |
+|---|---|---|
+| `charge.success` | `subscriptionAddress`, `subscriberWallet`, `seqnoFrom`, `seqnoTo`, `grossTon`, `netTon`, `txHash` | Charge collected |
+| `charge.failed` | `subscriptionAddress`, `reason` | Charge failed (keeper trigger error or insufficient deposit) |
+| `subscription.activated` | `subscriptionAddress`, `subscriberWallet`, `planId`, `status` | New subscriber created |
+| `subscription.cancelled` | `subscriptionAddress`, `previousStatus` | Subscription cancelled |
+| `subscription.grace` | `subscriptionAddress`, `previousStatus` | Grace period started |
+| `subscription.recovered` | `subscriptionAddress`, `previousStatus` | Deposit topped up, subscription resumed |
+
+Verify every delivery with the signing secret you received at endpoint creation:
+
+```typescript
+import { verifyWebhookSignature } from "@orbit-ton/react";
+
+app.post("/orbit/webhook", async (req, res) => {
+  const isValid = await verifyWebhookSignature(
+    req.body,                              // raw body string — before JSON.parse
+    req.headers["x-orbit-signature"],      // "sha256=<hex>"
+    process.env.ORBIT_WEBHOOK_SECRET,      // the secret from Dashboard
+  );
+  if (!isValid) return res.status(401).end();
+
+  const event = JSON.parse(req.body);
+  if (event.event === "charge.success") {
+    await grantAccess(event.subscriptionAddress, event.seqnoTo);
+  }
+  res.status(200).end("OK");
+});
+```
+
+---
+
+### Relayer direct webhook (legacy / debugging)
+
 After each confirmed charge, the relayer sends a POST to your `WEBHOOK_URL`:
 
 ```json
 {
-  "event":      "charge_confirmed",
+  "event":      "charge.success",
   "address":    "EQD_your_subscription_contract_address_here",
   "seqno_from": 0,
   "seqno_to":   1,
@@ -239,28 +271,42 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### Webhook handler (Node.js)
 
+Every delivery includes an `X-Orbit-Signature: sha256=<hex>` header.
+**Always verify the HMAC before trusting the payload.**
+
 ```typescript
-import * as http from "http";
+import * as http   from "http";
+import { createHmac, timingSafeEqual } from "crypto";
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "";
+
+function verifySignature(rawBody: string, sigHeader: string): boolean {
+    if (!WEBHOOK_SECRET) return true;  // skip verification if secret not configured
+    const expected = "sha256=" + createHmac("sha256", WEBHOOK_SECRET)
+        .update(rawBody)
+        .digest("hex");
+    // timingSafeEqual prevents timing-based secret leakage
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(sigHeader));
+}
 
 const server = http.createServer((req, res) => {
     if (req.method !== "POST" || req.url !== "/orbit/webhook") {
         res.writeHead(404); res.end(); return;
     }
 
-    // 1. Verify the secret
-    if (WEBHOOK_SECRET && req.headers["X-Orbit-Secret"] !== WEBHOOK_SECRET) {
-        res.writeHead(401); res.end("Unauthorized"); return;
-    }
-
-    // 2. Read the body
-    let body = "";
-    req.on("data", chunk => { body += chunk; });
+    let rawBody = "";
+    req.on("data", chunk => { rawBody += chunk; });
     req.on("end", async () => {
+        // 1. Verify HMAC signature
+        const sig = req.headers["x-orbit-signature"] as string ?? "";
+        if (!verifySignature(rawBody, sig)) {
+            res.writeHead(401); res.end("Unauthorized"); return;
+        }
+
+        // 2. Parse and handle
         try {
-            const event = JSON.parse(body);
-            if (event.event === "charge_confirmed") {
+            const event = JSON.parse(rawBody);
+            if (event.event === "charge.success") {
                 await onChargeConfirmed(event.address, event.seqno_to);
             }
             res.writeHead(200); res.end("OK");
@@ -494,16 +540,17 @@ for (let planId = 0; planId < planCount; planId++) {
 
 ---
 
-## 7. React SDK (in development)
+## 7. React SDK
 
-Source is in `sdk/react/`. Not yet published to npm. Watch releases.
+Available on npm:
 
-Once published:
 ```bash
-npm install @orbit-ton/react
+npm install @orbit-ton/react @ton/core @ton/ton @tonconnect/ui-react
 ```
 
-Available components: `OrbitProvider`, `useSubscription`, `useSubscribe`, `useFactory`, `SubscribeButton`, `SubscriptionStatus`, `TopUpDeposit`, `KeeperPoolStatus`.
+Available hooks and components: `OrbitProvider`, `useSubscription`, `useSubscribe`, `useFactory`, `useCancel`, `useTopUp`, `usePause`, `useResume`, `useChangePlan`, `SubscribeButton`, `SubscriptionStatus`, `TopUpDeposit`, `KeeperPoolStatus`.
+
+Full documentation: [`sdk/react/README.md`](../sdk/react/README.md)
 
 ---
 

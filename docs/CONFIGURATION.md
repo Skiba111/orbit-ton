@@ -115,7 +115,7 @@ Used by `scripts/register-service.ts` (called by service operators, not ORBIT).
 | `DB_PATH` | `data/subscriptions.json` | Local subscription index |
 | `WAL_PATH` | `data/relayer-wal.json` | Write-ahead log (charge intent journal) |
 | `WEBHOOK_URL` | (empty) | POST endpoint called after each confirmed charge |
-| `WEBHOOK_SECRET` | (empty) | Shared secret — sent as `X-Orbit-Secret` header |
+| `WEBHOOK_SECRET` | (empty) | Shared HMAC-SHA256 signing key. Every delivery includes `X-Orbit-Signature: sha256=<hex>`. Verify with `timingSafeEqual`. |
 | `INITIAL_SUBSCRIPTIONS` | (empty) | Comma-separated subscription addresses to seed on first run |
 | `TONCENTER_API_KEY` | (empty) | TonCenter API key (recommended — raises rate limits) |
 
@@ -133,19 +133,33 @@ These are compile-time constants in `scripts/relayer.ts` — not configurable vi
 
 After abandonment the WAL entry is cleared and the main scan loop will re-attempt the charge on the next poll cycle.
 
+## Two webhook delivery channels
+
+ORBIT provides two independent webhook systems. They serve different purposes and can be used together or separately.
+
+| Channel | Event names | Retry | Auth | Configured via |
+|---------|-------------|-------|------|----------------|
+| **Relayer direct** | `charge.success` (seqno-based) | None — fire and forget | `X-Orbit-Signature: sha256=<hmac>` | `WEBHOOK_URL` + `WEBHOOK_SECRET` env vars in relayer |
+| **Backend webhooks** | `charge.success`, `charge.failed`, `subscription.activated`, `subscription.cancelled`, `subscription.grace`, `subscription.recovered` | Yes — up to 5 retries with exponential backoff (30s → 2m → 8m → 32m → 2h) | Same HMAC-SHA256 scheme | `POST /api/v1/services/:id/webhooks` in Dashboard or via API |
+
+**Recommendation:** Use **backend webhooks** for production integrations — they have retry logic, delivery logs, and cover all lifecycle events. Use the **relayer direct** webhook only for lightweight scripts or debugging.
+
 ## Webhook payload
 
 When `WEBHOOK_URL` is set, the relayer posts the following JSON body after each confirmed charge:
 
 ```json
 {
-  "event":      "charge_confirmed",
+  "event":      "charge.success",
   "address":    "EQD...",
   "seqno_from": 4,
   "seqno_to":   5,
   "timestamp":  1718000000
 }
 ```
+
+The `X-Orbit-Signature: sha256=<hmac>` header is included when `WEBHOOK_SECRET` is set.
+Verify it with `timingSafeEqual` before trusting the payload (see [INTEGRATION.md](INTEGRATION.md)).
 
 Use this to update access control in your backend: mark the subscription as active and provision the subscriber's service tier.
 

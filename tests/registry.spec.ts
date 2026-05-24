@@ -202,9 +202,9 @@ describe("Registry", () => {
             expect(relayerKey).toBe(FAKE_PUBKEY);
         });
 
-        it("deployed Factory reports version = 2", async () => {
+        it("deployed Factory reports version = 3", async () => {
             const version = await factory.getVersion();
-            expect(version).toBe(2);
+            expect(version).toBe(3);
         });
 
         it("factory starts with 0 plans (owner adds plans separately)", async () => {

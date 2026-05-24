@@ -262,10 +262,16 @@ fun onInternalMessage(my_balance: int, msg_value: int, in_msg_full: cell, in_msg
 
         var (price, period, trial_period) = require_active_plan(plans, plan_id);
 
-        // Enforce minimum deposit: at least one billing cycle + reserve + gas.
+        // Enforce minimum deposit: at least one billing cycle + reserve + factory
+        // deploy gas + per-charge gas budget.  Including CHARGE_GAS_BUDGET (H1)
+        // prevents deploying a subscription that has enough for storage but not
+        // enough to execute its very first charge cycle.
         // For Jetton subscriptions, the TON value only covers gas/rent — no price check.
         if (payment_type == PAYMENT_TON) {
-            var min_value: int = safe_add(safe_add(price, STORAGE_RESERVE), FACTORY_DEPLOY_GAS);
+            var min_value: int = safe_add(
+                safe_add(safe_add(price, STORAGE_RESERVE), FACTORY_DEPLOY_GAS),
+                CHARGE_GAS_BUDGET
+            );
             assert(msg_value >= min_value, ERROR_INSUFFICIENT_FUNDS);
         } else {
             assert(msg_value >= safe_add(STORAGE_RESERVE, FACTORY_DEPLOY_GAS), ERROR_INSUFFICIENT_FUNDS);
@@ -557,7 +563,14 @@ get fun get_protocol_fee_bps(): int {
 }
 
 get fun get_version(): int {
-    return 2; // bumped: protocol_fee_collector added to storage
+    return 3; // bumped: added get_service_addr getter
+}
+
+// Returns the service owner address (set at deploy time, never changes).
+// Used by the ORBIT Dashboard backend to verify Factory ownership before registration.
+get fun get_service_addr(): slice {
+    var (_, _, _, _, _, _, _, _, _, _, _, service_addr, _, _) = load_factory_storage();
+    return service_addr;
 }
 
 // Returns the on-chain subscription address for a given subscriber and plan.

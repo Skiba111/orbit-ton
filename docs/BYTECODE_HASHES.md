@@ -23,8 +23,8 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 
 | Field | Value |
 |-------|-------|
-| **code_hash** (cell hash) | `da48c1e2f7402f58f0aba75120853b4453607b6a9e96d5fcdd261aeb584ad9c5` |
-| **boc_sha256** (SHA-256 of serialised BOC) | `5f88798772cf653323159c4b17a2a5c7776d640caef0ce57bc2c5fd1e93df9d1` |
+| **code_hash** (cell hash) | `b249da243ac55984c28fcce32e37e87841836a0b2bb89aaa26a897c4e00bfde8` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `df8458c9acef1c40e5bdaea029daa0be28471751baf210d7c7ff45f38e55dc05` |
 | BOC size | 4322 bytes |
 | `get_version()` | `2` |
 
@@ -32,10 +32,10 @@ Compare the output to the values below.  Mismatch = non-official bytecode.
 
 | Field | Value |
 |-------|-------|
-| **code_hash** (cell hash) | `01461f4daf86b96c4e9a8c3242ac9491a4ce8b748d4a17a07c2de4fbbbcb6458` |
-| **boc_sha256** (SHA-256 of serialised BOC) | `3c99f86cb59d89a772c106cd98f094639face4caf3155191809a2b4c0b9c6eac` |
-| BOC size | 2371 bytes |
-| `get_version()` | `2` |
+| **code_hash** (cell hash) | `9f4b9a942e2a97d651f33c5917d55ffdc0e490b097ee4336c08bfb75fb9eb0c2` |
+| **boc_sha256** (SHA-256 of serialised BOC) | `b3cf43dd30a6e83653b5fe888dccf9067480c6e8f5cdb5d60fe87916791bf478` |
+| BOC size | 2401 bytes |
+| `get_version()` | `3` |
 
 ### Registry contract (`contracts/registry.tolk`)
 
@@ -113,4 +113,4 @@ These are the hashes of contracts currently live on TON mainnet (Registry, FeeCo
 
 ---
 
-*Last updated: 2026-05-18 — ORBIT v0.1.4*
+*Last updated: 2026-05-23 — ORBIT v0.1.4 (factory get_version=3, all audit fixes applied)*

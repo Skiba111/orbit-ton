@@ -10,7 +10,8 @@
  *
  * Environment variables:
  *   WEBHOOK_PORT    — port to listen on (default: 3001)
- *   WEBHOOK_SECRET  — shared secret; relayer must send X-Orbit-Secret header
+ *   WEBHOOK_SECRET  — shared HMAC-SHA256 signing secret; relayer must send
+ *                     X-Orbit-Signature: sha256=<hex(hmac(secret, body))>
  *   LOG_FILE        — path to append charge log (default: data/charges.log)
  */
 
@@ -20,6 +21,7 @@ dotenv.config();
 import * as http from "http";
 import * as fs   from "fs";
 import * as path from "path";
+import { createHmac, timingSafeEqual } from "crypto";
 
 const PORT    = parseInt(process.env.WEBHOOK_PORT   ?? "3001", 10);
 const SECRET  = process.env.WEBHOOK_SECRET          ?? "";
@@ -78,19 +80,35 @@ const server = http.createServer(async (req, res) => {
 
     // Webhook endpoint
     if (req.method === "POST" && req.url === "/orbit/webhook") {
-        // 1. Verify shared secret
-        if (SECRET && req.headers["x-orbit-secret"] !== SECRET) {
-            log(`REJECTED webhook from ${req.socket.remoteAddress} — wrong secret`);
-            res.writeHead(401);
-            res.end("Unauthorized");
+        // 1. Read raw body (needed BEFORE signature verification so we sign the
+        //    exact bytes the sender hashed — JSON.stringify can reorder keys).
+        let rawBody: string;
+        try {
+            rawBody = await readBody(req);
+        } catch {
+            res.writeHead(400);
+            res.end("Bad Request");
             return;
         }
 
-        // 2. Parse body
+        // 2. Verify HMAC-SHA256 signature (L7).  Header format: "sha256=<hex>".
+        if (SECRET) {
+            const provided = String(req.headers["x-orbit-signature"] ?? "");
+            const expected = "sha256=" + createHmac("sha256", SECRET).update(rawBody).digest("hex");
+            const pBuf = Buffer.from(provided);
+            const eBuf = Buffer.from(expected);
+            if (pBuf.length !== eBuf.length || !timingSafeEqual(pBuf, eBuf)) {
+                log(`REJECTED webhook from ${req.socket.remoteAddress} — bad signature`);
+                res.writeHead(401);
+                res.end("Unauthorized");
+                return;
+            }
+        }
+
+        // 3. Parse JSON
         let event: ChargeEvent;
         try {
-            const body = await readBody(req);
-            event = JSON.parse(body) as ChargeEvent;
+            event = JSON.parse(rawBody) as ChargeEvent;
         } catch {
             res.writeHead(400);
             res.end("Bad Request");
@@ -99,7 +117,7 @@ const server = http.createServer(async (req, res) => {
 
         // 3. Dispatch
         try {
-            if (event.event === "charge_confirmed") {
+            if (event.event === "charge.success") {
                 await onChargeConfirmed(event);
             } else {
                 log(`UNKNOWN event type: ${event.event}`);

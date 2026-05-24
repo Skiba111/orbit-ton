@@ -98,31 +98,19 @@ The relayer handles key signing, WAL crash recovery, and webhook delivery automa
 
 ---
 
-## Full deploy (for ORBIT operators)
+## Verifying bytecode hashes
 
-To deploy your own Registry + FeeCollector:
+Before running on mainnet, confirm that your deployed contracts match the published hashes:
 
 ```bash
-npx ts-node scripts/deploy-registry.ts
+npx ts-node scripts/_compute-hashes.ts
 ```
 
-Required env vars:
-- `WALLET_MNEMONIC` — 24-word seed phrase of the deployer wallet
-- `FEE_COLLECTOR_PUBKEY` — hex Ed25519 pubkey of the cold fee-collector key
-- `RELAYER_PUBKEY` — hex Ed25519 pubkey of the relayer key
-- `NETWORK` — `testnet` or `mainnet`
-- `WALLET_VERSION` — `v4` or `v5` (default: `v5`)
+Compare the output to [docs/BYTECODE_HASHES.md](BYTECODE_HASHES.md). Any mismatch means a non-official binary is deployed.
 
 ---
 
-## Security checklist before mainnet (for ORBIT operators deploying their own Registry)
-
-- [ ] Pass the correct `FeeCollector` address to `deploy-registry.ts` — this is the `protocolFeeCollector` that gets baked into every Factory and Subscription at deploy time
-- [ ] Use a multisig wallet as `owner_addr` for Registry
-- [ ] Verify deployed bytecode hashes match `docs/BYTECODE_HASHES.md` — run `ts-node scripts/_compute-hashes.ts`
-- [ ] Run testnet E2E for at least 48 hours with the real relayer before switching to mainnet
-
-> **Note:** `PROTOCOL_FEE_COLLECTOR_HASH` in `utils/protocol-config.tolk` is a reference-only constant — it is not called at runtime and does not need to be edited. The actual fee routing uses the address you pass to the deploy script.
+> **Deploying a Registry?** The Registry and FeeCollector are ORBIT platform infrastructure — they are deployed once by the ORBIT team and shared across all service operators. Service operators do not deploy a Registry. If you are evaluating ORBIT on a private testnet and need your own Registry, see `scripts/deploy-registry.ts` and the full checklist in [docs/DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 

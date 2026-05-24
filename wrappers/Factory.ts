@@ -53,7 +53,7 @@ function buildPlanCell(plan: PlanConfig): Cell {
 //   Ref0: plans dict
 //   Ref1: subscriber_info dict (empty at deploy)
 //   Ref2: subscription_code
-//   Ref3: service_addr + fee_collector
+//   Ref3: service_addr + fee_collector + protocol_fee_collector
 export function buildFactoryData(cfg: FactoryConfig): Cell {
     const plans = Dictionary.empty(Dictionary.Keys.Uint(32), Dictionary.Values.Cell());
     cfg.plans.forEach((plan, idx) => plans.set(idx, buildPlanCell(plan)));
@@ -296,7 +296,7 @@ export class Factory implements Contract {
     }
 
     async getProtocolFeeCollector(provider: ContractProvider): Promise<Address> {
-        const result = await provider.get("get_protocol_fee_collector", []);
+        const result = await provider.get("get_stored_protocol_fee_collector", []);
         return result.stack.readAddress();
     }
 

@@ -150,7 +150,7 @@ async function testWebhook(): Promise<boolean> {
     if (!WEBHOOK_URL) { console.log("⚠️  WEBHOOK_URL not set — skipping"); return true; }
 
     const payload = {
-        event:      "charge_confirmed",
+        event:      "charge.success",
         address:    "EQtest_e2e_check",
         seqno_from: 0,
         seqno_to:   1,

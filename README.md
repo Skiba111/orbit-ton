@@ -40,7 +40,7 @@
 │                                                                     │
 │  Service operator                                                   │
 │       │                                                             │
-│       │  OP_REGISTRY_REGISTER (0.3 TON)                            │
+│       │  OP_REGISTRY_REGISTER (min 0.2 TON, 0.3 TON recommended)   │
 │       ▼                                                             │
 │  ┌──────────┐   deploys   ┌─────────────────────────────────────┐  │
 │  │ Registry │ ──────────► │ Factory          (per service)      │  │
@@ -196,7 +196,7 @@ await tonConnectUI.sendTransaction({
 ```typescript
 // POST to WEBHOOK_URL after each confirmed charge:
 // {
-//   "event":      "charge_confirmed",
+//   "event":      "charge.success",
 //   "address":    "EQD...",  ← subscriber's Subscription address
 //   "seqno_from": 2,
 //   "seqno_to":   3,
@@ -204,12 +204,14 @@ await tonConnectUI.sendTransaction({
 // }
 
 app.post("/orbit/webhook", (req, res) => {
-    if (req.headers["X-Orbit-Secret"] !== process.env.WEBHOOK_SECRET) {
+    if (req.headers["x-orbit-signature"] !== signExpected(req.rawBody, process.env.WEBHOOK_SECRET)) {
         return res.status(401).end();
     }
-    const { address, seqno_to } = req.body;
-    // look up user by address, grant access for another billing period
-    grantAccess(address, seqno_to);
+    const { event, address, seqno_to } = req.body;
+    if (event === "charge.success") {
+        // look up user by address, grant access for another billing period
+        grantAccess(address, seqno_to);
+    }
     res.status(200).end("OK");
 });
 ```
@@ -261,7 +263,7 @@ orbit-ton/
 │   ├── _compute-hashes.ts      ← Recompute and print bytecode hashes for verification
 │   └── patch-ton-core.ts       ← domainSign polyfill (@ton/core 0.56.x compat)
 │
-├── sdk/react/               ← @orbit-ton/react hooks and components (in dev)
+├── sdk/react/               ← @orbit-ton/react — published hooks, components and REST client
 │
 └── docs/
     ├── QUICKSTART.md        ← 10-minute onboarding

@@ -49,7 +49,10 @@ fun send_payment_ton(
 // ── Refund to subscriber ──────────────────────────────────────────────────────
 
 fun send_refund(subscriber_addr: slice, deposit: int, storage_reserve: int) {
-    var refund_amount: int = safe_sub(deposit, storage_reserve);
+    // Guard first to avoid safe_sub throwing on underflow when the subscription
+    // never accumulated enough deposit to cover its storage reserve.
+    if (deposit <= storage_reserve) { return; } // nothing to refund
+    var refund_amount: int = deposit - storage_reserve; // safe after guard
     if (refund_amount < MIN_REFUND) { return; } // don't send dust
 
     reserveToncoinsOnBalance(storage_reserve, 0); // keep minimum for rent

@@ -12,10 +12,18 @@
 //   → … → 3600 s cap.  Separate retry counters per subscription address.
 //
 // Discovery strategy:
-//   Indexes outgoing messages from the Factory contract.  Any message that
-//   deploys a new account (has StateInit) is a subscription creation.
-//   The destination address of that message is stored in a local JSON
+//   Indexes outgoing messages from every known Factory contract.  Any message
+//   that deploys a new account (has StateInit) is a subscription creation.
+//   Per-factory scan state (lastLt, initialScanDone) is kept in a local JSON
 //   database (data/subscriptions.json) so restarts don't re-scan everything.
+//
+//   Factory list source (in priority order):
+//     1. ORBIT_API_URL + ORBIT_API_SECRET  — fetched from the miniapp backend
+//        (GET /internal/relayer/factories, X-Relayer-Secret header).
+//        This is the recommended production mode: the relayer discovers all
+//        factories automatically as operators create new services.
+//     2. FACTORY_ADDRESS env var           — single-factory fallback for
+//        environments where the backend is not reachable.
 //
 // Signing:
 //   Each external message is signed with RELAYER_MNEMONIC → Ed25519 key.
@@ -27,12 +35,16 @@
 //
 // Environment variables:
 //   TONCENTER_API_KEY       — TonCenter v2 API key
-//   FACTORY_ADDRESS         — factory contract address (required)
 //   RELAYER_MNEMONIC        — space-separated mnemonic (required)
+//   ORBIT_API_URL           — base URL of the miniapp backend, e.g. https://api.myorbit.app
+//   ORBIT_API_SECRET        — matches RELAYER_SECRET on the backend
+//   FACTORY_ADDRESS         — single-factory fallback (used when ORBIT_API_URL is absent)
 //   POLL_INTERVAL_MS        — default 60000
 //   NETWORK                 — "mainnet" | "testnet" (default "testnet")
 //   DB_PATH                 — path to subscription database (default "data/subscriptions.json")
 //   WAL_PATH                — path to write-ahead log (default "data/relayer-wal.json")
+//   WEBHOOK_URL             — optional POST endpoint for charge.success events
+//   WEBHOOK_SECRET          — optional HMAC secret for webhook signature
 
 import * as dotenv from "dotenv";
 dotenv.config();
@@ -47,15 +59,21 @@ import { Subscription, Status }                  from "../wrappers/Subscription"
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const FACTORY_ADDRESS  = process.env.FACTORY_ADDRESS  ?? "";
-const RELAYER_MNEMONIC = process.env.RELAYER_MNEMONIC ?? "";
-const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS ?? "60000", 10);
-const CHARGE_LEAD_S    = 120;
-const NETWORK          = process.env.NETWORK ?? "testnet";
+const RELAYER_MNEMONIC  = process.env.RELAYER_MNEMONIC  ?? "";
+const POLL_INTERVAL_MS  = parseInt(process.env.POLL_INTERVAL_MS ?? "60000", 10);
+const CHARGE_LEAD_S     = 120;
+const NETWORK           = process.env.NETWORK ?? "testnet";
 const DB_PATH    = process.env.DB_PATH    ?? path.join(__dirname, "../data/subscriptions.json");
 const WAL_PATH   = process.env.WAL_PATH   ?? path.join(__dirname, "../data/relayer-wal.json");
 const WEBHOOK_URL    = process.env.WEBHOOK_URL    ?? "";
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "";
+
+// Multi-factory mode: fetch from backend
+const ORBIT_API_URL    = process.env.ORBIT_API_URL    ?? "";
+const ORBIT_API_SECRET = process.env.ORBIT_API_SECRET ?? "";
+
+// Single-factory fallback (used when ORBIT_API_URL is not set)
+const FACTORY_ADDRESS_FALLBACK = process.env.FACTORY_ADDRESS ?? "";
 
 // Comma-separated list of subscription addresses to seed on first run.
 // Use this when deploying against a factory that already has subscription history
@@ -84,6 +102,47 @@ const client = new TonClient({
     apiKey: process.env.TONCENTER_API_KEY,
 });
 
+// ── Factory discovery ─────────────────────────────────────────────────────────
+//
+// Fetches all active factory addresses from the miniapp backend.
+// Falls back to the single FACTORY_ADDRESS env var if ORBIT_API_URL is not set
+// or if the backend is temporarily unreachable.
+
+interface FactoryInfo {
+    factoryAddress: string;
+    serviceId:      string;
+}
+
+async function fetchFactories(): Promise<FactoryInfo[]> {
+    if (ORBIT_API_URL) {
+        try {
+            const resp = await fetch(`${ORBIT_API_URL}/internal/relayer/factories`, {
+                headers: { "x-relayer-secret": ORBIT_API_SECRET },
+            });
+            if (!resp.ok) {
+                console.warn(`[relayer] Backend /internal/relayer/factories returned ${resp.status} — falling back to FACTORY_ADDRESS`);
+            } else {
+                const data = await resp.json() as FactoryInfo[];
+                if (data.length === 0) {
+                    console.warn("[relayer] Backend returned 0 factories — check that at least one active service has a factoryAddress");
+                } else {
+                    console.log(`[relayer] Factories from backend (${data.length}): ${data.map(f => f.factoryAddress).join(", ")}`);
+                }
+                return data;
+            }
+        } catch (err) {
+            console.warn(`[relayer] Could not reach backend: ${(err as Error).message} — falling back to FACTORY_ADDRESS`);
+        }
+    }
+
+    // Fallback: single factory from env
+    if (FACTORY_ADDRESS_FALLBACK) {
+        return [{ factoryAddress: FACTORY_ADDRESS_FALLBACK, serviceId: "env" }];
+    }
+
+    return [];
+}
+
 // ── Local subscription database ───────────────────────────────────────────────
 
 interface RetryState {
@@ -91,22 +150,50 @@ interface RetryState {
     nextRetryAt: number; // unix timestamp
 }
 
-interface SubscriptionDB {
+interface FactoryScanState {
     lastLt:          string;
+    initialScanDone: boolean;
+}
+
+interface SubscriptionDB {
+    // Per-factory scan cursors.  Key is the factory address (non-bounceable).
+    factories:       Record<string, FactoryScanState>;
     subscriptions:   string[];
     retryState:      Record<string, RetryState>;
-    initialScanDone: boolean; // true after first full history scan completes
+
+    // Legacy fields — kept for backwards compatibility with existing DBs.
+    lastLt?:          string;
+    initialScanDone?: boolean;
 }
 
 function loadDB(): SubscriptionDB {
     try {
         const raw = fs.readFileSync(DB_PATH, "utf8");
         const db  = JSON.parse(raw) as SubscriptionDB;
-        if (!db.retryState)      db.retryState = {};
-        if (!db.initialScanDone) db.initialScanDone = false;
+        if (!db.retryState)  db.retryState  = {};
+        if (!db.factories)   db.factories   = {};
+        if (!db.subscriptions) db.subscriptions = [];
+
+        // Migrate legacy single-factory DB:
+        // If we find the old top-level lastLt / initialScanDone fields AND the
+        // old FACTORY_ADDRESS_FALLBACK is known, move them into the factories map.
+        if (
+            (db.lastLt !== undefined || db.initialScanDone !== undefined) &&
+            FACTORY_ADDRESS_FALLBACK &&
+            !db.factories[FACTORY_ADDRESS_FALLBACK]
+        ) {
+            db.factories[FACTORY_ADDRESS_FALLBACK] = {
+                lastLt:          db.lastLt ?? "0",
+                initialScanDone: db.initialScanDone ?? false,
+            };
+            console.log(`[relayer] Migrated legacy DB: factory ${FACTORY_ADDRESS_FALLBACK} (lastLt=${db.lastLt}, initialScanDone=${db.initialScanDone})`);
+            delete db.lastLt;
+            delete db.initialScanDone;
+        }
+
         return db;
     } catch {
-        return { lastLt: "0", subscriptions: [], retryState: {}, initialScanDone: false };
+        return { factories: {}, subscriptions: [], retryState: {} };
     }
 }
 
@@ -189,10 +276,14 @@ interface TonCenterTransaction {
 
 const baseUrl = endpoint.replace("/jsonRPC", "");
 
-async function fetchTxPage(lt: string, toLt: string = "0"): Promise<TonCenterTransaction[]> {
+async function fetchTxPage(
+    factoryAddress: string,
+    lt: string,
+    toLt: string = "0",
+): Promise<TonCenterTransaction[]> {
     const apiKey = process.env.TONCENTER_API_KEY ? `&api_key=${process.env.TONCENTER_API_KEY}` : "";
     const url = `${baseUrl}/getTransactions`
-        + `?address=${FACTORY_ADDRESS}&limit=50&lt=${lt}&to_lt=${toLt}&archival=true${apiKey}`;
+        + `?address=${factoryAddress}&limit=50&lt=${lt}&to_lt=${toLt}&archival=true${apiKey}`;
     const resp = await fetch(url);
     const json = await resp.json() as { ok: boolean; result: TonCenterTransaction[] };
     if (!json.ok) return [];
@@ -223,12 +314,13 @@ function oldestLt(txns: TonCenterTransaction[]): bigint {
     );
 }
 
-async function indexNewSubscriptions(db: SubscriptionDB): Promise<void> {
-    if (!FACTORY_ADDRESS) return;
-
+async function indexNewSubscriptions(
+    factoryAddress: string,
+    db: SubscriptionDB,
+): Promise<void> {
     const known = new Set(db.subscriptions);
 
-    // Seed manually-provided addresses before any network scan.
+    // Seed manually-provided addresses before any network scan (only once).
     for (const addr of INITIAL_SUBSCRIPTIONS) {
         if (!known.has(addr)) {
             console.log(`[relayer] Seeded subscription from env: ${addr}`);
@@ -237,19 +329,23 @@ async function indexNewSubscriptions(db: SubscriptionDB): Promise<void> {
         }
     }
 
-    if (!db.initialScanDone) {
+    // Get or initialise per-factory scan state
+    if (!db.factories[factoryAddress]) {
+        db.factories[factoryAddress] = { lastLt: "0", initialScanDone: false };
+    }
+    const state = db.factories[factoryAddress];
+
+    if (!state.initialScanDone) {
         // First run: paginate backwards through the full factory tx history so we
         // don't miss subscriptions deployed before the relayer first started.
-        // TonCenter returns transactions older than `lt` (newest-first), so we
-        // walk backwards by using the oldest lt from each page as the next anchor.
-        console.log("[relayer] Initial scan: paginating full factory history…");
+        console.log(`[relayer] Initial scan for factory ${factoryAddress} — paginating full history…`);
         let pageLt = "0";
         let pages  = 0;
 
         while (true) {
             let txns: TonCenterTransaction[];
             try {
-                txns = await fetchTxPage(pageLt);
+                txns = await fetchTxPage(factoryAddress, pageLt);
             } catch (err) {
                 console.error("[relayer] Fetch error during initial scan:", (err as Error).message);
                 break; // leave initialScanDone=false so we retry next cycle
@@ -263,27 +359,27 @@ async function indexNewSubscriptions(db: SubscriptionDB): Promise<void> {
                 (max, tx) => { const lt = BigInt(tx.transaction_id.lt); return lt > max ? lt : max; },
                 0n,
             );
-            if (newestOnPage > BigInt(db.lastLt)) db.lastLt = newestOnPage.toString();
+            if (newestOnPage > BigInt(state.lastLt)) state.lastLt = newestOnPage.toString();
 
             if (txns.length < 50) break; // last page
             pageLt = oldestLt(txns).toString();
         }
 
-        db.initialScanDone = true;
-        console.log(`[relayer] Initial scan complete (${pages} pages, ${db.subscriptions.length} subscriptions)`);
+        state.initialScanDone = true;
+        console.log(`[relayer] Initial scan complete for ${factoryAddress} (${pages} pages, ${db.subscriptions.length} total subscriptions)`);
     } else {
         // Incremental: fetch only transactions newer than lastLt.
         let txns: TonCenterTransaction[];
         try {
-            txns = await fetchTxPage("0", db.lastLt);
+            txns = await fetchTxPage(factoryAddress, "0", state.lastLt);
         } catch (err) {
             console.error("[relayer] Failed to fetch transactions:", (err as Error).message);
             return;
         }
         collectSubscriptions(txns, known, db);
         for (const tx of txns) {
-            if (BigInt(tx.transaction_id.lt) > BigInt(db.lastLt)) {
-                db.lastLt = tx.transaction_id.lt;
+            if (BigInt(tx.transaction_id.lt) > BigInt(state.lastLt)) {
+                state.lastLt = tx.transaction_id.lt;
             }
         }
     }
@@ -422,10 +518,6 @@ async function replayWal(wal: Wal, secretKey: Buffer, db: SubscriptionDB): Promi
         const sub  = client.open(Subscription.createFromAddress(addr));
 
         // ── Abandon check ─────────────────────────────────────────────────────
-        // If the WAL entry has been retried too many times or is too old, it is
-        // likely from a TonCenter outage that already resolved.  Check on-chain
-        // seqno once more; if not confirmed, abandon and let the main scan loop
-        // re-charge on the next poll cycle.
         const age      = now - (entry.attemptedAt ?? now);
         const tooOld   = age > WAL_MAX_AGE_S;
         const tooMany  = (entry.attempts ?? 0) >= WAL_MAX_ATTEMPTS;
@@ -450,11 +542,9 @@ async function replayWal(wal: Wal, secretKey: Buffer, db: SubscriptionDB): Promi
         try {
             const liveSeqno = await sub.getSeqno();
             if (liveSeqno > entry.seqno) {
-                // Already confirmed on-chain — TonCenter 500 was a false negative
                 walClearEntry(wal, entry.address);
                 console.log(`[relayer] WAL: ${entry.address} already confirmed (seqno=${liveSeqno})`);
             } else {
-                // Not yet confirmed — retry
                 console.log(`[relayer] WAL: retrying ${entry.address} (attempt ${(entry.attempts ?? 0) + 1}, seqno=${entry.seqno})`);
                 await tryCharge(entry.address, secretKey, wal, db);
             }
@@ -485,11 +575,21 @@ async function pollCycle(secretKey: Buffer): Promise<void> {
     // 1. Replay any crashed WAL entries first
     await replayWal(wal, secretKey, db);
 
-    // 2. Discover new subscriptions
-    await indexNewSubscriptions(db);
+    // 2. Discover factories and index new subscriptions from each
+    const factories = await fetchFactories();
+
+    if (factories.length === 0) {
+        console.warn("[relayer] No factories found — nothing to do this cycle");
+        saveDB(db);
+        return;
+    }
+
+    for (const { factoryAddress } of factories) {
+        await indexNewSubscriptions(factoryAddress, db);
+    }
     saveDB(db);
 
-    console.log(`[relayer] Scanning ${db.subscriptions.length} subscriptions…`);
+    console.log(`[relayer] Scanning ${db.subscriptions.length} subscriptions across ${factories.length} factory(s)…`);
 
     // 3. Check each subscription
     for (const addrStr of db.subscriptions) {
@@ -525,18 +625,22 @@ async function pollCycle(secretKey: Buffer): Promise<void> {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 async function main() {
-    if (!FACTORY_ADDRESS) {
-        console.error("[relayer] FACTORY_ADDRESS is not set"); process.exit(1);
-    }
     if (!RELAYER_MNEMONIC) {
         console.error("[relayer] RELAYER_MNEMONIC is not set"); process.exit(1);
+    }
+    if (!ORBIT_API_URL && !FACTORY_ADDRESS_FALLBACK) {
+        console.error("[relayer] Set ORBIT_API_URL (recommended) or FACTORY_ADDRESS (fallback)"); process.exit(1);
     }
 
     const keyPair   = await mnemonicToPrivateKey(RELAYER_MNEMONIC.split(" "));
     const secretKey = Buffer.from(keyPair.secretKey);
 
     console.log(`[relayer] ORBIT Charge Relayer (${NETWORK})`);
-    console.log(`[relayer] Factory  : ${FACTORY_ADDRESS}`);
+    if (ORBIT_API_URL) {
+        console.log(`[relayer] Mode     : multi-factory (backend API at ${ORBIT_API_URL})`);
+    } else {
+        console.log(`[relayer] Mode     : single-factory (FACTORY_ADDRESS=${FACTORY_ADDRESS_FALLBACK})`);
+    }
     console.log(`[relayer] Pubkey   : ${Buffer.from(keyPair.publicKey).toString("hex")}`);
     console.log(`[relayer] Interval : ${POLL_INTERVAL_MS} ms`);
     console.log(`[relayer] DB       : ${DB_PATH}`);

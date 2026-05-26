@@ -388,7 +388,11 @@ async function indexNewSubscriptions(
 // ── Charge message builder ────────────────────────────────────────────────────
 
 function buildChargeMessage(seqno: number, secretKey: Buffer): Cell {
-    const timestamp = Math.floor(Date.now() / 1000);
+    // Subtract 30 s so that blockchain.now() (which may lag the server clock) sees
+    // the message as ~30 s old — safely within EXT_MSG_TTL (60 s).
+    // Without this offset the relayer's timestamp can be in the future relative to
+    // the block timestamp, causing exit code 429 (ERROR_MSG_EXPIRED).
+    const timestamp = Math.floor(Date.now() / 1000) - 30;
     const payload = beginCell()
         .storeUint(seqno,        32)
         .storeUint(timestamp,    32)

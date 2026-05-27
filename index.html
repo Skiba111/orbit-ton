@@ -3,35 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ORBIT — Recurring Billing on TON</title>
-  <meta name="description" content="Smart-contract protocol for trustless recurring subscription billing on the TON blockchain. Deploy once, charge automatically, every period." />
-  <meta property="og:title" content="ORBIT — Recurring Billing on TON" />
-  <meta property="og:description" content="Smart-contract protocol for trustless recurring subscription billing on the TON blockchain." />
+  <title>ORBIT — Subscription Billing on TON</title>
+  <meta name="description" content="Charge subscribers automatically on TON. Dashboard, API, webhooks, Telegram Mini App. 1.5% protocol fee. No banks, no middlemen." />
+  <meta property="og:title" content="ORBIT — Subscription Billing on TON" />
+  <meta property="og:description" content="Automated recurring billing on the TON blockchain. Deploy your service in minutes." />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://skiba111.github.io/orbit-ton/" />
 
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%233B82F6'/><stop offset='100%25' stop-color='%238B5CF6'/></linearGradient></defs><path d='M 62.5,29.0 A 26,26 0 1,1 48.9,17.6' stroke='white' stroke-width='5' stroke-linecap='round' fill='none'/><circle cx='56.7' cy='22.1' r='8.5' fill='url(%23g)'/></svg>" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%233D8EFF'/><stop offset='100%25' stop-color='%238B5CF6'/></linearGradient></defs><path d='M 62.5,29.0 A 26,26 0 1,1 48.9,17.6' stroke='white' stroke-width='5' stroke-linecap='round' fill='none'/><circle cx='56.7' cy='22.1' r='8.5' fill='url(%23g)'/></svg>" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <style>
-    /* ── Reset & Base ──────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --bg:           #08080F;
-      --bg-nav:       rgba(8,8,15,0.85);
+      --bg-2:         #0D0D18;
+      --bg-nav:       rgba(8,8,15,0.88);
       --bg-card:      rgba(255,255,255,0.025);
       --bg-card-h:    rgba(255,255,255,0.042);
       --border:       rgba(255,255,255,0.07);
-      --border-h:     rgba(59,130,246,0.35);
+      --border-h:     rgba(61,142,255,0.35);
       --text:         #F1F5F9;
       --text-2:       #94A3B8;
       --text-3:       #4B5563;
-      --blue:         #3B82F6;
-      --blue-dim:     rgba(59,130,246,0.12);
-      --blue-glow:    rgba(59,130,246,0.18);
+      --blue:         #3D8EFF;
+      --blue-dim:     rgba(61,142,255,0.12);
+      --blue-glow:    rgba(61,142,255,0.18);
+      --green:        #0EBA82;
+      --green-dim:    rgba(14,186,130,0.12);
       --radius:       12px;
       --radius-sm:    8px;
       --font:         'Inter', -apple-system, sans-serif;
@@ -49,1231 +52,900 @@
       overflow-x: hidden;
     }
 
-    /* ── Background ────────────────────────────────────────────────── */
     body::before {
       content: '';
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background:
-        radial-gradient(ellipse 90% 55% at 50% -5%, rgba(59,130,246,0.10) 0%, transparent 65%),
-        radial-gradient(ellipse 40% 40% at 80% 80%, rgba(99,102,241,0.04) 0%, transparent 60%);
-      pointer-events: none;
-      z-index: 0;
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(61,142,255,0.11) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 40% at 85% 75%, rgba(139,92,246,0.05) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
     }
 
     body::after {
       content: '';
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background-image:
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+        linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
       background-size: 60px 60px;
-      pointer-events: none;
-      z-index: 0;
+      pointer-events: none; z-index: 0;
     }
 
-    /* ── Nav ───────────────────────────────────────────────────────── */
+    section, footer, nav { position: relative; z-index: 1; }
+
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 32px; }
+
+    /* ── NAV ── */
     nav {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 100;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
       background: var(--bg-nav);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
     }
-
     .nav-inner {
-      max-width: 1160px;
-      margin: 0 auto;
-      padding: 0 32px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      max-width: 1160px; margin: 0 auto; padding: 0 32px;
+      height: 60px; display: flex; align-items: center; justify-content: space-between;
     }
-
     .nav-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: var(--text);
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--text);
     }
-
-    .nav-logo svg { width: 36px; height: 36px; }
-
-    .nav-logo-text {
-      font-size: 17px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    /* nav tabs — numbered pill style */
+    .nav-logo-text { font-size: 17px; font-weight: 700; letter-spacing: 0.14em; }
+    .nav-links { display: flex; align-items: center; gap: 4px; }
     .nav-link {
-      position: relative;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-2);
-      text-decoration: none;
-      padding: 6px 16px 6px 30px;
-      border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500; color: var(--text-2);
+      text-decoration: none; padding: 6px 14px; border-radius: var(--radius-sm);
       border: 1px solid transparent;
       transition: color .2s, background .2s, border-color .2s;
-      letter-spacing: 0.01em;
     }
-
-    .nav-link::before {
-      content: attr(data-n);
-      position: absolute;
-      left: 11px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: var(--text-3);
-      line-height: 1;
-      transition: color .2s;
-    }
-
-    .nav-link:hover {
-      color: var(--text);
-      background: rgba(255,255,255,0.05);
-      border-color: var(--border);
-    }
-
-    .nav-link:hover::before { color: var(--blue); }
-
+    .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); border-color: var(--border); }
     .nav-btn {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-      text-decoration: none;
-      padding: 7px 18px;
+      font-size: 13px; font-weight: 600; color: #fff;
+      text-decoration: none; padding: 7px 18px;
       border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      transition: border-color .2s, background .2s;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      letter-spacing: 0.02em;
+      background: var(--blue); border: 1px solid var(--blue);
+      transition: opacity .2s; display: flex; align-items: center; gap: 7px;
     }
+    .nav-btn:hover { opacity: .88; }
 
-    .nav-btn:hover { border-color: var(--border-h); background: var(--blue-dim); }
+    /* ── HERO ── */
+    .hero { padding: 140px 0 80px; text-align: center; }
 
-    /* ── Sections wrapper ──────────────────────────────────────────── */
-    section, footer { position: relative; z-index: 1; }
-
-    .container {
-      max-width: 1160px;
-      margin: 0 auto;
-      padding: 0 32px;
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 500; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--blue);
+      background: var(--blue-dim); border: 1px solid rgba(61,142,255,0.2);
+      padding: 5px 14px; border-radius: 100px; margin-bottom: 28px;
     }
-
-    /* ── Hero ──────────────────────────────────────────────────────── */
-    .hero {
-      padding: 160px 0 110px;
-      text-align: center;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: 0.6; transform: scale(0.85); }
-    }
-
-    .hero-logo {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 36px;
-    }
-
-    .hero-logo svg { width: 92px; height: 92px; }
+    .hero-eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
 
     .hero h1 {
-      font-size: clamp(44px, 6vw, 76px);
-      font-weight: 400;
-      line-height: 1.12;
-      letter-spacing: -0.035em;
-      color: var(--text);
-      margin-bottom: 24px;
-      max-width: 780px;
-      margin-left: auto;
-      margin-right: auto;
+      font-size: clamp(42px, 5.5vw, 72px);
+      font-weight: 400; line-height: 1.1; letter-spacing: -0.035em;
+      color: var(--text); margin-bottom: 22px;
+      max-width: 820px; margin-left: auto; margin-right: auto;
     }
-
     .hero h1 em {
       font-style: normal;
       background: linear-gradient(135deg, #60A5FA 0%, #818CF8 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-
     .hero-sub {
-      font-size: 17px;
-      color: var(--text-2);
-      max-width: 560px;
-      margin: 0 auto 40px;
-      line-height: 1.7;
-      font-weight: 400;
+      font-size: 17px; color: var(--text-2);
+      max-width: 580px; margin: 0 auto 40px; line-height: 1.7;
     }
 
-    /* ── Hero actions ──────────────────────────────────────────────── */
     .hero-actions {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 32px;
-      margin-bottom: 80px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; justify-content: center;
+      gap: 14px; margin-bottom: 72px; flex-wrap: wrap;
     }
 
     .btn-primary {
-      position: relative;
-      overflow: hidden;
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      color: #fff;
-      background: transparent;
-      padding: 13px 32px;
-      border-radius: var(--radius-sm);
-      text-decoration: none;
-      border: 1px solid rgba(255,255,255,0.22);
-      letter-spacing: 0.01em;
-      transition: border-color .35s;
-      z-index: 0;
+      display: inline-flex; align-items: center; gap: 9px;
+      font-size: 15px; font-weight: 600; color: #fff;
+      background: var(--blue); padding: 13px 28px;
+      border-radius: var(--radius-sm); text-decoration: none;
+      border: 1px solid var(--blue);
+      transition: opacity .2s, transform .15s;
+      position: relative; overflow: hidden;
     }
+    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-primary .btn-arrow { transition: transform .25s; }
+    .btn-primary:hover .btn-arrow { transform: translateX(4px); }
 
-    .btn-primary::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: var(--blue);
-      transform: scaleX(0);
-      transform-origin: left center;
-      transition: transform .35s cubic-bezier(0.4,0,0.2,1);
-      z-index: -1;
-    }
-
-    .btn-primary:hover::before { transform: scaleX(1); }
-    .btn-primary:hover { border-color: var(--blue); }
-
-    .btn-primary .btn-arrow {
-      transition: transform .35s cubic-bezier(0.4,0,0.2,1);
-      flex-shrink: 0;
-    }
-    .btn-primary:hover .btn-arrow { transform: translateX(5px); }
-
-    .btn-text-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 9px;
-      font-size: 14px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.35);
-      text-decoration: none;
-      padding: 13px 26px;
-      border-radius: var(--radius-sm);
-      border: 1px solid rgba(255,255,255,0.07);
-      letter-spacing: 0.03em;
-      position: relative;
-      overflow: hidden;
-      transition: color .35s, border-color .35s;
-    }
-
-    /* subtle shimmer sweep on hover */
-    .btn-text-link::before {
-      content: '';
-      position: absolute;
-      inset: 0;
+    .btn-tg {
+      display: inline-flex; align-items: center; gap: 9px;
+      font-size: 15px; font-weight: 600; color: var(--text);
+      padding: 13px 28px; border-radius: var(--radius-sm);
+      text-decoration: none; border: 1px solid var(--border);
       background: rgba(255,255,255,0.04);
-      transform: translateX(-105%);
-      transition: transform .45s cubic-bezier(0.4,0,0.2,1);
+      transition: border-color .2s, background .2s, transform .15s;
     }
-
-    .btn-text-link:hover {
-      color: rgba(255,255,255,0.75);
-      border-color: rgba(255,255,255,0.14);
-    }
-
-    .btn-text-link:hover::before { transform: translateX(0); }
-
-    .btn-text-link .gh-icon {
-      transition: transform .5s cubic-bezier(0.34,1.56,0.64,1);
-      flex-shrink: 0;
-    }
-
-    .btn-text-link:hover .gh-icon { transform: rotate(18deg) scale(1.18); }
+    .btn-tg:hover { border-color: var(--border-h); background: var(--blue-dim); transform: translateY(-1px); }
 
     .btn-ghost {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text);
-      background: transparent;
-      padding: 11px 22px;
-      border-radius: var(--radius-sm);
-      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 14px; font-weight: 500; color: var(--text);
+      background: transparent; padding: 11px 22px;
+      border-radius: var(--radius-sm); text-decoration: none;
       border: 1px solid var(--border);
       transition: border-color .2s, background .2s, transform .15s;
     }
+    .btn-ghost:hover { border-color: var(--border-h); background: var(--blue-dim); transform: translateY(-1px); }
 
-    .btn-ghost:hover {
-      border-color: var(--border-h);
-      background: var(--blue-dim);
-      transform: translateY(-1px);
+    /* ── DEVICE MOCKUP ── */
+    .hero-devices {
+      position: relative; display: flex; align-items: flex-end;
+      justify-content: center; gap: 0; max-width: 1000px; margin: 0 auto;
     }
 
-    /* ── Hero metrics ──────────────────────────────────────────────── */
-    .hero-rule {
-      width: 48px;
-      height: 1px;
-      background: rgba(255,255,255,0.08);
-      margin: 0 auto 64px;
+    /* browser frame */
+    .browser-frame {
+      width: 720px; flex-shrink: 0;
+      background: #0D0D18;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px; overflow: hidden;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
     }
-
-    .hero-metrics {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 0;
-    }
-
-    .hero-metric {
-      text-align: center;
-      padding: 0 56px;
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity .75s cubic-bezier(0.4,0,0.2,1),
-                  transform .75s cubic-bezier(0.4,0,0.2,1);
-    }
-
-    .hero-metric.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .hero-metric-num {
-      display: flex;
-      align-items: baseline;
-      justify-content: center;
-      line-height: 1;
-      margin-bottom: 12px;
-    }
-
-    .hero-metric-val {
-      font-size: 68px;
-      font-weight: 800;
-      letter-spacing: -0.05em;
-      color: var(--text);
-      font-variant-numeric: tabular-nums;
-      filter: blur(8px);
-      transition: filter .9s cubic-bezier(0.4,0,0.2,1);
-    }
-
-    .hero-metric.visible .hero-metric-val {
-      filter: blur(0);
-    }
-
-    .hero-metric-sfx {
-      font-size: 36px;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      color: var(--blue);
-      margin-left: 2px;
-    }
-
-    .hero-metric-label {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--text-3);
-    }
-
-    .hero-metric-vline {
-      width: 1px;
-      height: 56px;
-      background: rgba(255,255,255,0.06);
+    .browser-bar {
+      height: 38px; background: #111120;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 8px; padding: 0 14px;
       flex-shrink: 0;
     }
+    .b-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .b-dot-r { background: #FF5F57; }
+    .b-dot-y { background: #FFBD2E; }
+    .b-dot-g { background: #28C840; }
+    .browser-url {
+      flex: 1; max-width: 280px; margin: 0 auto;
+      height: 22px; background: rgba(255,255,255,0.05);
+      border-radius: 5px; display: flex; align-items: center;
+      justify-content: center; gap: 6px;
+      font-size: 11px; color: var(--text-3); font-family: var(--mono);
+    }
+    .browser-url-lock { color: var(--green); font-size: 9px; }
 
-    /* ── Section headings ──────────────────────────────────────────── */
+    /* dashboard inside browser */
+    .dash-inner {
+      display: flex; height: 420px; overflow: hidden;
+    }
+    .dash-sidebar {
+      width: 200px; flex-shrink: 0;
+      background: #0A0A14;
+      border-right: 1px solid rgba(255,255,255,0.05);
+      padding: 20px 0;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .dash-logo {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 18px 18px;
+      font-size: 14px; font-weight: 700; letter-spacing: 0.1em; color: var(--text);
+      border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 10px;
+    }
+    .dash-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 18px; font-size: 12.5px; color: var(--text-3);
+      border-radius: 0; cursor: default;
+      transition: background .15s;
+    }
+    .dash-nav-item.active {
+      background: rgba(61,142,255,0.1);
+      color: var(--text); border-right: 2px solid var(--blue);
+    }
+    .dash-nav-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; opacity: 0.5; flex-shrink: 0;
+    }
+    .dash-nav-item.active .dash-nav-dot { background: var(--blue); opacity: 1; }
+
+    .dash-main { flex: 1; padding: 22px 24px; overflow: hidden; background: #0B0B14; }
+    .dash-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .dash-page-title { font-size: 15px; font-weight: 600; color: var(--text); }
+    .dash-connect-btn {
+      font-size: 11px; font-weight: 600; color: var(--blue);
+      background: var(--blue-dim); border: 1px solid rgba(61,142,255,0.2);
+      padding: 5px 12px; border-radius: 6px;
+    }
+
+    .dash-metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 16px; }
+    .dash-metric-card {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px; padding: 14px 16px;
+    }
+    .dash-metric-label { font-size: 10px; color: var(--text-3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+    .dash-metric-val { font-size: 20px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+    .dash-metric-val span { font-size: 11px; font-weight: 500; }
+    .dash-metric-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10px; margin-top: 4px; padding: 2px 6px; border-radius: 4px;
+    }
+    .badge-green { background: var(--green-dim); color: var(--green); }
+    .badge-blue  { background: var(--blue-dim);  color: var(--blue);  }
+
+    .dash-table { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; }
+    .dash-table-head {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .dash-table-row {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 11.5px; align-items: center;
+    }
+    .dash-table-row:last-child { border-bottom: none; }
+    .sub-addr { font-family: var(--mono); color: var(--text-2); font-size: 10.5px; }
+    .sub-plan { color: var(--text); }
+    .sub-dots { display: flex; gap: 3px; align-items: center; }
+    .sub-dot  { width: 7px; height: 7px; border-radius: 50%; }
+    .dot-full { background: var(--green); }
+    .dot-empty { background: rgba(255,255,255,0.1); }
+    .sub-status {
+      font-size: 10px; font-weight: 500; padding: 2px 7px;
+      border-radius: 4px; display: inline-block; width: fit-content;
+    }
+    .status-active   { background: var(--green-dim); color: var(--green); }
+    .status-grace    { background: rgba(245,166,35,0.12); color: #F5A623; }
+    .status-trial    { background: var(--blue-dim); color: var(--blue); }
+
+    /* phone frame */
+    .phone-frame {
+      width: 220px; flex-shrink: 0;
+      background: #0D0D18;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 36px; overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+      margin-left: -30px; margin-bottom: 16px;
+      position: relative; z-index: 2;
+    }
+    .phone-notch {
+      height: 44px; background: #111120;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px;
+    }
+    .phone-notch-pill {
+      width: 80px; height: 22px; background: #1A1A28;
+      border-radius: 11px; display: flex; align-items: center;
+      justify-content: center; gap: 6px;
+    }
+    .phone-cam { width: 8px; height: 8px; border-radius: 50%; background: #1E1E2E; }
+    .phone-content { background: #0B0B14; padding: 0; }
+
+    /* phone dash — simplified */
+    .ph-header {
+      padding: 14px 16px 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .ph-logo { font-size: 13px; font-weight: 700; letter-spacing: 0.1em; color: var(--text); }
+    .ph-wallet {
+      font-size: 10px; color: var(--text-3); background: rgba(255,255,255,0.05);
+      padding: 4px 8px; border-radius: 5px;
+    }
+    .ph-plans { padding: 12px 16px; }
+    .ph-section-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+    .ph-plan-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
+    }
+    .ph-plan-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+    .ph-plan-price { font-size: 11px; color: var(--text-2); margin-bottom: 8px; }
+    .ph-plan-cta {
+      width: 100%; text-align: center;
+      background: var(--blue); color: #fff;
+      font-size: 11px; font-weight: 600; padding: 7px;
+      border-radius: 7px; display: block;
+    }
+    .ph-plan-card.featured { border-color: rgba(61,142,255,0.3); background: rgba(61,142,255,0.06); }
+    .ph-tg-bar {
+      height: 52px; background: #111120;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: space-around; padding: 0 16px;
+    }
+    .ph-tg-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; }
+    .ph-tg-line { width: 18px; height: 2px; background: rgba(255,255,255,0.15); border-radius: 1px; }
+    .ph-tg-line.active { background: var(--blue); }
+
+    /* ── DIVIDER ── */
+    .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 0 32px; }
+
+    /* ── SECTION COMMON ── */
     .section-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.34em;
-      text-transform: uppercase;
-      color: var(--blue);
-      margin-bottom: 20px;
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 11px; font-weight: 500; letter-spacing: 0.3em;
+      text-transform: uppercase; color: var(--blue); margin-bottom: 18px;
     }
-
     .section-label::before {
-      content: '';
-      display: inline-block;
-      width: 22px;
-      height: 1px;
-      background: var(--blue);
-      opacity: 0.7;
-      flex-shrink: 0;
+      content: ''; display: inline-block;
+      width: 20px; height: 1px; background: var(--blue); opacity: 0.7; flex-shrink: 0;
     }
-
     .section-title {
-      font-size: clamp(28px, 3.5vw, 42px);
-      font-weight: 500;
-      letter-spacing: -0.03em;
-      color: var(--text);
-      line-height: 1.18;
-      margin-bottom: 14px;
+      font-size: clamp(28px, 3.5vw, 42px); font-weight: 500;
+      letter-spacing: -0.03em; color: var(--text); line-height: 1.15; margin-bottom: 14px;
     }
+    .section-sub { font-size: 16px; color: var(--text-2); max-width: 520px; line-height: 1.65; }
 
-    .section-sub {
-      font-size: 16px;
-      color: var(--text-2);
-      max-width: 520px;
-      line-height: 1.65;
+    /* ── FOR WHO ── */
+    .forwho { padding: 96px 0; }
+    .forwho-grid {
+      display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-top: 48px;
     }
-
-    /* ── Divider ───────────────────────────────────────────────────── */
-    .divider {
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--border), transparent);
-      margin: 0 32px;
+    .who-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px 24px;
+      transition: border-color .2s, background .2s;
     }
+    .who-card:hover { border-color: var(--border-h); background: var(--bg-card-h); }
+    .who-emoji { font-size: 28px; margin-bottom: 14px; line-height: 1; }
+    .who-card h3 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .who-card p  { font-size: 13px; color: var(--text-2); line-height: 1.6; }
 
-    /* ── How it works ──────────────────────────────────────────────── */
-    .how {
-      padding: 100px 0;
-    }
-
-    .how-header { text-align: left; margin-bottom: 64px; }
-    .how-header .section-sub { margin: 0; }
-
+    /* ── HOW IT WORKS ── */
+    .how { padding: 96px 0; }
     .steps {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr auto 1fr;
-      align-items: start;
-      gap: 0;
+      display: grid; grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: start; gap: 0; margin-top: 56px;
     }
-
-    .step {
-      text-align: center;
-      padding: 0 16px;
-    }
-
+    .step { text-align: center; padding: 0 16px; }
     .step-num {
-      width: 42px; height: 42px;
-      border-radius: 50%;
-      background: var(--blue-dim);
-      border: 1px solid rgba(59,130,246,0.25);
-      color: var(--blue);
-      font-size: 13px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 20px;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--blue-dim); border: 1px solid rgba(61,142,255,0.25);
+      color: var(--blue); font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
     }
+    .step h3 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .step p   { font-size: 14px; color: var(--text-2); line-height: 1.6; }
+    .step-arrow { color: var(--text-3); padding-top: 14px; font-size: 20px; }
 
-    .step-icon {
-      width: 48px; height: 48px;
-      margin: 0 auto 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .step h3 {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 8px;
-      letter-spacing: -0.01em;
-    }
-
-    .step p {
-      font-size: 14px;
-      color: var(--text-2);
-      line-height: 1.6;
-    }
-
-    .step-arrow {
-      color: var(--text-3);
-      padding-top: 14px;
-      font-size: 20px;
-    }
-
-    /* ── Features ──────────────────────────────────────────────────── */
-    .features { padding: 100px 0; }
-
-    .features-header { margin-bottom: 48px; }
-
+    /* ── FEATURES ── */
+    .features { padding: 96px 0; }
     .features-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 1px; border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; margin-top: 48px;
     }
-
     .feat {
-      padding: 28px 26px;
-      background: var(--bg-card);
+      padding: 28px 24px; background: var(--bg-card);
       transition: background .2s;
       border-right: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
     }
-
     .feat:hover { background: var(--bg-card-h); }
-
-    /* remove right border from last in each row, bottom from last row */
-    .feat:nth-child(4n)   { border-right: none; }
-    .feat:nth-child(n+5)  { border-bottom: none; }
-
+    .feat:nth-child(4n)  { border-right: none; }
+    .feat:nth-child(n+5) { border-bottom: none; }
     .feat-icon {
-      width: 36px; height: 36px;
-      border-radius: var(--radius-sm);
-      background: var(--blue-dim);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
+      width: 36px; height: 36px; border-radius: var(--radius-sm);
+      background: var(--blue-dim); display: flex; align-items: center;
+      justify-content: center; margin-bottom: 14px;
     }
-
     .feat-icon svg { width: 18px; height: 18px; }
+    .feat h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .feat p  { font-size: 13px; color: var(--text-2); line-height: 1.6; }
 
-    .feat h3 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 6px;
-      letter-spacing: -0.01em;
+    /* ── PAYMENT PAGE SECTION ── */
+    .paypage { padding: 96px 0; }
+    .paypage-inner {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;
     }
-
-    .feat p {
-      font-size: 13px;
-      color: var(--text-2);
-      line-height: 1.6;
+    /* payment page mockup */
+    .pay-mockup {
+      background: #0D0D18; border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
     }
-
-    /* ── Architecture ──────────────────────────────────────────────── */
-    .arch { padding: 100px 0; }
-
-    .arch-inner {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 80px;
-      align-items: center;
+    .pay-mock-top {
+      padding: 28px 28px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      text-align: center;
     }
-
-    .arch-diagram {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 36px 32px;
-      font-family: var(--mono);
+    .pay-mock-service {
+      font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px;
     }
-
-    .arch-node {
-      padding: 12px 18px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      transition: border-color .2s;
+    .pay-mock-desc { font-size: 13px; color: var(--text-2); }
+    .pay-mock-plans { padding: 20px 24px; display: flex; flex-direction: column; gap: 10px; }
+    .pay-mock-plan {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px; padding: 14px 16px;
+      cursor: default; transition: border-color .15s;
     }
-
-    .arch-node:hover { border-color: var(--border-h); }
-
-    .arch-node-name {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text);
+    .pay-mock-plan.selected { border-color: var(--blue); background: var(--blue-dim); }
+    .pay-mock-plan-name { font-size: 14px; font-weight: 600; color: var(--text); }
+    .pay-mock-plan-period { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+    .pay-mock-plan-price { font-size: 18px; font-weight: 700; color: var(--text); }
+    .pay-mock-plan-price span { font-size: 12px; color: var(--text-2); font-weight: 400; }
+    .pay-mock-cta {
+      margin: 0 24px 24px;
+      background: var(--blue); color: #fff;
+      font-size: 14px; font-weight: 600;
+      padding: 14px; border-radius: 10px; text-align: center;
     }
-
-    .arch-node-role {
-      font-size: 11px;
-      color: var(--text-3);
+    .pay-mock-badge {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-size: 11px; color: var(--text-3); padding-bottom: 16px;
     }
+    .pay-mock-badge svg { width: 12px; height: 12px; color: var(--green); }
 
-    .arch-conn {
-      display: flex;
-      align-items: center;
-      padding: 2px 0 2px 28px;
-    }
-
-    .arch-conn-line {
-      width: 1px;
-      height: 22px;
-      background: var(--border);
-      margin-right: 14px;
-      flex-shrink: 0;
-    }
-
-    .arch-conn-label {
-      font-size: 11px;
-      color: var(--text-3);
-    }
-
-    .arch-badge {
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 100px;
-      font-weight: 500;
-      letter-spacing: 0.04em;
-    }
-
-    .badge-blue  { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
-    .badge-green { background: rgba(16,185,129,.08); color: #34D399; border: 1px solid rgba(16,185,129,.2); }
-    .badge-muted { background: rgba(255,255,255,.04); color: var(--text-3); border: 1px solid var(--border); }
-
-    /* ── Fee model ─────────────────────────────────────────────────── */
-    .fees { padding: 100px 0; }
-
-    .fees-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-top: 48px;
-    }
-
+    /* ── FEES ── */
+    .fees { padding: 96px 0; }
+    .fees-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 48px; }
     .fee-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 32px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 32px;
       transition: border-color .2s;
     }
-
     .fee-card:hover { border-color: var(--border-h); }
-
-    .fee-pct {
-      font-size: 48px;
-      font-weight: 300;
-      letter-spacing: -0.04em;
-      line-height: 1;
-      margin-bottom: 8px;
-    }
-
+    .fee-pct { font-size: 48px; font-weight: 300; letter-spacing: -0.04em; line-height: 1; margin-bottom: 8px; }
     .fee-pct-blue { color: var(--blue); }
     .fee-pct-gray { color: var(--text-2); }
-
-    .fee-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 8px;
-      letter-spacing: 0.01em;
-    }
-
-    .fee-desc { font-size: 13px; color: var(--text-2); line-height: 1.6; }
-
+    .fee-label  { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .fee-desc   { font-size: 13px; color: var(--text-2); line-height: 1.6; }
     .fee-example {
-      margin-top: 48px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
+      margin-top: 48px; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
     }
-
     .fee-example-header {
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-2);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      padding: 14px 24px; border-bottom: 1px solid var(--border);
+      font-size: 12px; font-weight: 500; color: var(--text-2);
+      letter-spacing: 0.04em; text-transform: uppercase;
     }
-
     .fee-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 24px;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 13px 24px; border-bottom: 1px solid var(--border); font-size: 14px;
     }
-
     .fee-row:last-child { border-bottom: none; }
-
     .fee-row-label { color: var(--text-2); }
     .fee-row-value { color: var(--text); font-weight: 500; font-family: var(--mono); font-size: 13px; }
-    .fee-row-value.green { color: #34D399; }
+    .fee-row-value.green { color: var(--green); }
     .fee-row-value.red   { color: #F87171; }
     .fee-row.total { background: rgba(255,255,255,0.02); }
     .fee-row.total .fee-row-label { color: var(--text); font-weight: 600; }
     .fee-row.total .fee-row-value { font-size: 15px; }
 
-    /* ── Security ──────────────────────────────────────────────────── */
-    .security { padding: 100px 0; }
-
-    .security-inner {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 80px;
-      align-items: start;
+    /* ── ARCHITECTURE ── */
+    .arch { padding: 96px 0; }
+    .arch-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+    .arch-diagram {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 32px 28px; font-family: var(--mono);
     }
-
-    .security-props {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
+    .arch-node {
+      padding: 12px 16px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); margin-bottom: 4px;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: border-color .2s;
     }
-
-    .prop {
-      display: flex;
-      gap: 14px;
-      padding: 14px 0;
-      border-bottom: 1px solid var(--border);
-      transition: padding-left .2s;
+    .arch-node:hover { border-color: var(--border-h); }
+    .arch-node-name { font-size: 13px; font-weight: 500; color: var(--text); }
+    .arch-node-role { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+    .arch-conn { display: flex; align-items: center; padding: 0 0 0 24px; margin: 2px 0; }
+    .arch-conn-line { width: 1px; height: 20px; background: var(--border); margin-right: 12px; flex-shrink: 0; }
+    .arch-conn-label { font-size: 11px; color: var(--text-3); }
+    .arch-badge {
+      font-size: 10px; padding: 2px 8px; border-radius: 100px;
+      font-weight: 500; letter-spacing: 0.04em; white-space: nowrap;
     }
+    .badge-blue-sm  { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(61,142,255,0.2); }
+    .badge-green-sm { background: var(--green-dim); color: var(--green); border: 1px solid rgba(14,186,130,0.2); }
+    .badge-muted    { background: rgba(255,255,255,.04); color: var(--text-3); border: 1px solid var(--border); }
 
-    .prop:last-child { border-bottom: none; }
-    .prop:hover { padding-left: 4px; }
-
-    .prop-check {
-      width: 18px; height: 18px;
-      border-radius: 50%;
-      background: rgba(52,211,153,.12);
-      border: 1px solid rgba(52,211,153,.25);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      margin-top: 2px;
+    /* ── CTA BAND ── */
+    .cta-band { padding: 96px 0; }
+    .cta-inner {
+      background: linear-gradient(135deg, rgba(61,142,255,0.08) 0%, rgba(139,92,246,0.06) 100%);
+      border: 1px solid rgba(61,142,255,0.2);
+      border-radius: 20px; padding: 64px 48px; text-align: center;
     }
-
-    .prop-check svg { width: 10px; height: 10px; color: #34D399; }
-
-    .prop-title {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text);
-      margin-bottom: 2px;
+    .cta-title {
+      font-size: clamp(30px, 4vw, 48px); font-weight: 400;
+      letter-spacing: -0.03em; color: var(--text); line-height: 1.15; margin-bottom: 16px;
     }
+    .cta-sub { font-size: 16px; color: var(--text-2); margin-bottom: 36px; max-width: 480px; margin-left: auto; margin-right: auto; }
+    .cta-actions { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
 
-    .prop-desc { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
-
-    .security-callout {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 40px;
-      text-align: center;
-      position: sticky;
-      top: 80px;
-    }
-
-    .security-num {
-      font-size: 80px;
-      font-weight: 300;
-      letter-spacing: -0.05em;
-      line-height: 1;
-      color: var(--blue);
-      margin-bottom: 8px;
-    }
-
-    .security-callout p {
-      font-size: 14px;
-      color: var(--text-2);
-      margin-bottom: 24px;
-      line-height: 1.6;
-    }
-
-    /* ── Get started ───────────────────────────────────────────────── */
-    .getstarted { padding: 100px 0; }
-
-    .getstarted-inner {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 80px;
-      align-items: start;
-    }
-
-    .terminal {
-      background: #0D0D14;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      font-family: var(--mono);
-    }
-
-    .terminal-bar {
-      background: rgba(255,255,255,0.04);
-      padding: 11px 16px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .dot-r { width: 10px; height: 10px; border-radius: 50%; background: #FF5F57; }
-    .dot-y { width: 10px; height: 10px; border-radius: 50%; background: #FFBD2E; }
-    .dot-g { width: 10px; height: 10px; border-radius: 50%; background: #28C840; }
-
-    .terminal-body { padding: 22px 24px; }
-
-    .term-line {
-      font-size: 13px;
-      line-height: 1.9;
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-    }
-
-    .term-prompt { color: var(--blue); flex-shrink: 0; user-select: none; }
-    .term-cmd    { color: #E2E8F0; }
-    .term-out    { color: var(--text-3); font-size: 12px; padding-left: 20px; }
-    .term-comment { color: #3D4A5C; }
-
-    .gs-links {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-top: 36px;
-    }
-
-    .gs-link {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      text-decoration: none;
-      transition: border-color .2s, background .2s;
-      group: true;
-    }
-
-    .gs-link:hover { border-color: var(--border-h); background: var(--bg-card-h); }
-
-    .gs-link-left { display: flex; align-items: center; gap: 14px; }
-
-    .gs-link-icon {
-      width: 34px; height: 34px;
-      border-radius: var(--radius-sm);
-      background: var(--blue-dim);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .gs-link-icon svg { width: 16px; height: 16px; color: var(--blue); }
-
-    .gs-link-title {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text);
-      display: block;
-      margin-bottom: 1px;
-    }
-
-    .gs-link-sub { font-size: 12px; color: var(--text-2); }
-
-    .gs-link-arrow { color: var(--text-3); font-size: 16px; transition: color .2s, transform .2s; }
-    .gs-link:hover .gs-link-arrow { color: var(--blue); transform: translateX(3px); }
-
-    /* ── Footer ────────────────────────────────────────────────────── */
-    footer {
-      padding: 48px 0 40px;
-      border-top: 1px solid var(--border);
-    }
-
+    /* ── FOOTER ── */
+    footer { padding: 48px 0 36px; border-top: 1px solid var(--border); }
     .footer-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 20px;
     }
-
     .footer-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: var(--text-2);
-      font-size: 13px;
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--text-2); font-size: 13px;
     }
-
-    .footer-logo svg { width: 20px; height: 20px; }
-
-    .footer-links {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-    }
-
+    .footer-links { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
     .footer-link {
-      font-size: 13px;
-      color: var(--text-3);
-      text-decoration: none;
+      font-size: 13px; color: var(--text-3); text-decoration: none;
       transition: color .2s;
     }
-
     .footer-link:hover { color: var(--text-2); }
+    .footer-right { font-size: 12px; color: var(--text-3); text-align: right; }
 
-    .footer-right {
-      font-size: 12px;
-      color: var(--text-3);
-      text-align: right;
+    /* ── RESPONSIVE ── */
+    @media (max-width: 1000px) {
+      .browser-frame { width: 600px; }
+      .phone-frame   { width: 190px; }
     }
-
-    /* ── Responsive ────────────────────────────────────────────────── */
-    @media (max-width: 900px) {
-      .steps { grid-template-columns: 1fr; }
-      .step-arrow { transform: rotate(90deg); margin: 0 auto; }
+    @media (max-width: 860px) {
+      .browser-frame { display: none; }
+      .phone-frame   { margin-left: 0; width: 260px; }
+      .hero-devices  { justify-content: center; }
+      .forwho-grid   { grid-template-columns: 1fr 1fr; }
+      .steps         { grid-template-columns: 1fr; }
+      .step-arrow    { transform: rotate(90deg); margin: 0 auto; }
       .features-grid { grid-template-columns: 1fr 1fr; }
       .feat:nth-child(4n)  { border-right: 1px solid var(--border); }
       .feat:nth-child(2n)  { border-right: none; }
       .feat:nth-child(n+7) { border-bottom: none; }
       .feat:nth-child(-n+6){ border-bottom: 1px solid var(--border); }
-      .arch-inner, .fees-grid, .security-inner, .getstarted-inner { grid-template-columns: 1fr; gap: 40px; }
-      .security-callout { position: static; }
+      .paypage-inner { grid-template-columns: 1fr; gap: 40px; }
+      .arch-inner    { grid-template-columns: 1fr; gap: 40px; }
+      .fees-grid     { grid-template-columns: 1fr; }
       .nav-links .nav-link { display: none; }
     }
-
     @media (max-width: 600px) {
-      /* layout */
       .container   { padding: 0 20px; }
       .nav-inner   { padding: 0 20px; }
-      .hero        { padding: 100px 0 64px; text-align: center; }
-      section      { padding: 72px 0; }
-
-      /* nav — hide GitHub label, keep icon */
-      .nav-btn span { display: none; }
-      .nav-btn      { padding: 8px 12px; }
-
-      /* hero typography */
-      .hero h1      { font-size: clamp(34px, 9vw, 52px); }
-      .hero-sub     { font-size: 15px; }
-
-      /* hero buttons — stack vertically */
-      .hero-actions {
-        flex-direction: column;
-        align-items: center;
-        gap: 16px;
-      }
-      .btn-primary, .btn-text-link { width: 100%; max-width: 320px; justify-content: center; }
-
-      /* hero metrics — stack vertically, hide vlines */
-      .hero-metrics {
-        flex-direction: column;
-        align-items: center;
-        gap: 0;
-      }
-      .hero-metric-vline {
-        width: 48px;
-        height: 1px;
-        background: rgba(255,255,255,0.06);
-      }
-      .hero-metric      { padding: 24px 0; width: 100%; text-align: center; }
-      .hero-metric-val  { font-size: 56px; }
-      .hero-metric-sfx  { font-size: 30px; }
-      .hero-metric-label { font-size: 11px; letter-spacing: 0.18em; }
-      .hero-rule        { margin-bottom: 40px; }
-
-      /* arch diagram fee mini-cards — stack vertically */
-      .arch-diagram > div[style*="display:flex"] { flex-direction: column !important; }
-
-      /* features */
+      .hero        { padding: 100px 0 56px; }
+      .hero h1     { font-size: clamp(34px, 9vw, 52px); }
+      .hero-sub    { font-size: 15px; }
+      .hero-actions { flex-direction: column; align-items: center; gap: 12px; }
+      .btn-primary, .btn-tg { width: 100%; max-width: 320px; justify-content: center; }
+      .forwho-grid { grid-template-columns: 1fr; }
       .features-grid { grid-template-columns: 1fr; }
       .feat { border-right: none !important; border-bottom: 1px solid var(--border) !important; }
       .feat:last-child { border-bottom: none !important; }
-
-      /* fees */
-      .fees-grid { grid-template-columns: 1fr; }
-
-      /* stats */
-      .hero-stats       { flex-direction: column; }
-      .stat             { border-right: none; border-bottom: 1px solid var(--border); }
-      .stat:last-child  { border-bottom: none; }
-
-      /* code blocks — no horizontal overflow */
-      pre, .terminal-body { overflow-x: auto; font-size: 12px; }
-
-      /* tabs — scrollable row */
-      .how-tabs {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        flex-wrap: nowrap;
-        justify-content: flex-start;
-        padding-bottom: 4px;
-      }
-      .how-tabs::-webkit-scrollbar { display: none; }
-
-      /* section headings */
-      .section-title    { font-size: clamp(26px, 7vw, 40px); }
-      .how-header h2    { font-size: clamp(26px, 7vw, 40px); }
-
-      /* get started CTA buttons */
-      .getstarted-actions { flex-direction: column; gap: 12px; }
-      .getstarted-actions .btn-ghost,
-      .getstarted-actions .btn-primary { width: 100%; justify-content: center; }
-
-      /* footer */
-      .footer-inner  { flex-direction: column; align-items: flex-start; gap: 20px; }
-      .footer-right  { text-align: left; }
+      .cta-inner { padding: 40px 24px; }
+      .cta-actions { flex-direction: column; align-items: center; }
+      .cta-actions .btn-primary,
+      .cta-actions .btn-ghost { width: 100%; max-width: 320px; justify-content: center; }
+      .footer-inner { flex-direction: column; align-items: flex-start; gap: 20px; }
+      .footer-right { text-align: left; }
+      .nav-btn span { display: none; }
+      .nav-btn { padding: 7px 12px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ── Nav ─────────────────────────────────────────────────────────── -->
+  <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
   <nav>
     <div class="nav-inner">
       <a href="#" class="nav-logo">
-        <!-- ORBIT logo SVG -->
-        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6"
-                stroke="white" stroke-width="4" stroke-linecap="round"/>
-          <circle cx="56.7" cy="22.1" r="7.5" fill="url(#navBlue)"/>
-          <defs>
-            <radialGradient id="navBlue" cx="35%" cy="30%" r="65%">
-              <stop offset="0%" stop-color="#93C5FD"/>
-              <stop offset="100%" stop-color="#2563EB"/>
-            </radialGradient>
-          </defs>
+        <svg viewBox="0 0 80 80" fill="none" width="34" height="34">
+          <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="white" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="56.7" cy="22.1" r="7.5" fill="url(#navG)"/>
+          <defs><radialGradient id="navG" cx="35%" cy="30%" r="65%">
+            <stop offset="0%" stop-color="#93C5FD"/>
+            <stop offset="100%" stop-color="#2563EB"/>
+          </radialGradient></defs>
         </svg>
         <span class="nav-logo-text">ORBIT</span>
       </a>
       <div class="nav-links">
-        <a href="docs/QUICKSTART.md"  class="nav-link" data-n="01">Quickstart</a>
-        <a href="docs/INTEGRATION.md" class="nav-link" data-n="02">Integration</a>
-        <a href="docs/SECURITY.md"    class="nav-link" data-n="03">Security</a>
-        <a href="https://github.com/Skiba111/orbit-ton" class="nav-btn" target="_blank" rel="noopener">
-          <!-- GitHub icon -->
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-          </svg>
-          GitHub
+        <a href="#features"  class="nav-link">Features</a>
+        <a href="#fees"      class="nav-link">Pricing</a>
+        <a href="#arch"      class="nav-link">Docs</a>
+        <a href="https://app.orbit-ton.com/" class="nav-btn" target="_blank" rel="noopener">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Open Dashboard</span>
         </a>
       </div>
     </div>
   </nav>
 
-  <!-- ── Hero ────────────────────────────────────────────────────────── -->
+  <!-- ── HERO ─────────────────────────────────────────────────────────────── -->
   <section class="hero">
     <div class="container">
 
-      <div class="hero-logo">
-        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6"
-                stroke="white" stroke-width="3.5" stroke-linecap="round"/>
-          <circle cx="56.7" cy="22.1" r="8" fill="url(#heroBlue)"/>
-          <defs>
-            <radialGradient id="heroBlue" cx="35%" cy="30%" r="65%">
-              <stop offset="0%" stop-color="#93C5FD"/>
-              <stop offset="100%" stop-color="#1D4ED8"/>
-            </radialGradient>
-          </defs>
-        </svg>
+      <div class="hero-eyebrow">
+        <span class="hero-eyebrow-dot"></span>
+        Live on TON Mainnet
       </div>
 
-      <h1>The subscription layer<br/>for <em>TON</em></h1>
+      <h1>Subscription billing<br/>for <em>Telegram &amp; Web3</em></h1>
 
       <p class="hero-sub">
-        Recurring billing built into the blockchain. Your subscriber deposits funds once — charges run automatically every period, with no further approvals, no trusted middlemen, no pull mechanism.
+        Charge subscribers automatically every period — no banks, no middlemen, no repeated approvals.
+        Manage everything from a dashboard or Telegram Mini App.
       </p>
 
       <div class="hero-actions">
-        <a href="docs/QUICKSTART.md" class="btn-primary">
-          <span>Get Started</span>
+        <a href="https://app.orbit-ton.com/" class="btn-primary" target="_blank" rel="noopener">
+          Open Dashboard
           <svg class="btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 8h10M9 4l4 4-4 4"/>
           </svg>
         </a>
-        <a href="https://github.com/Skiba111/orbit-ton" class="btn-text-link" target="_blank" rel="noopener">
-          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        <a href="https://t.me/orbit_subpay_bot" class="btn-tg" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.7">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.069l-2.04 9.613c-.153.677-.555.843-1.123.524l-3.1-2.285-1.496 1.44c-.165.165-.304.304-.624.304l.223-3.164 5.75-5.195c.25-.223-.054-.346-.388-.123L6.843 14.5l-3.048-.951c-.662-.207-.675-.662.138-.98l11.91-4.59c.55-.2 1.033.134.719.09z"/>
           </svg>
-          View on GitHub
+          Try in Telegram
         </a>
       </div>
 
-      <div class="hero-rule"></div>
+      <!-- ── Device mockups ── -->
+      <div class="hero-devices">
 
-      <div class="hero-metrics" id="heroMetrics">
-        <div class="hero-metric" id="m0">
-          <div class="hero-metric-num">
-            <span class="hero-metric-val" data-target="83">0</span>
+        <!-- Browser / Dashboard -->
+        <div class="browser-frame">
+          <div class="browser-bar">
+            <div class="b-dot b-dot-r"></div>
+            <div class="b-dot b-dot-y"></div>
+            <div class="b-dot b-dot-g"></div>
+            <div class="browser-url">
+              <span class="browser-url-lock">🔒</span>
+              app.orbit-ton.com
+            </div>
           </div>
-          <div class="hero-metric-label">Tests passing</div>
-        </div>
-        <div class="hero-metric-vline"></div>
-        <div class="hero-metric" id="m1">
-          <div class="hero-metric-num">
-            <span class="hero-metric-val" data-target="23">0</span>
+          <div class="dash-inner">
+            <!-- Sidebar -->
+            <div class="dash-sidebar">
+              <div class="dash-logo">
+                <svg viewBox="0 0 80 80" fill="none" width="18" height="18">
+                  <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="white" stroke-width="5" stroke-linecap="round"/>
+                  <circle cx="56.7" cy="22.1" r="7.5" fill="#3D8EFF"/>
+                </svg>
+                ORBIT
+              </div>
+              <div class="dash-nav-item active"><div class="dash-nav-dot"></div>Overview</div>
+              <div class="dash-nav-item"><div class="dash-nav-dot"></div>Subscriptions</div>
+              <div class="dash-nav-item"><div class="dash-nav-dot"></div>Plans</div>
+              <div class="dash-nav-item"><div class="dash-nav-dot"></div>Charges</div>
+              <div class="dash-nav-item"><div class="dash-nav-dot"></div>Webhooks</div>
+              <div class="dash-nav-item"><div class="dash-nav-dot"></div>API Keys</div>
+            </div>
+            <!-- Main -->
+            <div class="dash-main">
+              <div class="dash-topbar">
+                <div class="dash-page-title">Overview — My Service</div>
+                <div class="dash-connect-btn">UQ…4f3a</div>
+              </div>
+              <div class="dash-metrics">
+                <div class="dash-metric-card">
+                  <div class="dash-metric-label">MRR</div>
+                  <div class="dash-metric-val">47.2 <span>TON</span></div>
+                  <div class="dash-metric-badge badge-green">↑ 12%</div>
+                </div>
+                <div class="dash-metric-card">
+                  <div class="dash-metric-label">Active Subs</div>
+                  <div class="dash-metric-val">18</div>
+                  <div class="dash-metric-badge badge-blue">+3 this week</div>
+                </div>
+                <div class="dash-metric-card">
+                  <div class="dash-metric-label">Revenue</div>
+                  <div class="dash-metric-val">214 <span>TON</span></div>
+                  <div class="dash-metric-badge badge-green">↑ all time</div>
+                </div>
+              </div>
+              <div class="dash-table">
+                <div class="dash-table-head">
+                  <span>Subscriber</span><span>Plan</span><span>Deposit</span><span>Status</span>
+                </div>
+                <div class="dash-table-row">
+                  <span class="sub-addr">UQBz…3f1a</span>
+                  <span class="sub-plan">Pro · 5 TON/mo</span>
+                  <span class="sub-dots"><span class="sub-dot dot-full"></span><span class="sub-dot dot-full"></span><span class="sub-dot dot-full"></span></span>
+                  <span class="sub-status status-active">Active</span>
+                </div>
+                <div class="dash-table-row">
+                  <span class="sub-addr">UQAn…8c72</span>
+                  <span class="sub-plan">Basic · 2 TON/mo</span>
+                  <span class="sub-dots"><span class="sub-dot dot-full"></span><span class="sub-dot dot-full"></span><span class="sub-dot dot-empty"></span></span>
+                  <span class="sub-status status-trial">Trial</span>
+                </div>
+                <div class="dash-table-row">
+                  <span class="sub-addr">UQDs…1e90</span>
+                  <span class="sub-plan">Pro · 5 TON/mo</span>
+                  <span class="sub-dots"><span class="sub-dot dot-full"></span><span class="sub-dot dot-empty"></span><span class="sub-dot dot-empty"></span></span>
+                  <span class="sub-status status-grace">Grace</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="hero-metric-label">Security props</div>
         </div>
-        <div class="hero-metric-vline"></div>
-        <div class="hero-metric" id="m2">
-          <div class="hero-metric-num">
-            <span class="hero-metric-val" data-target="1.5" data-decimal="1">0</span><span class="hero-metric-sfx">%</span>
+
+        <!-- Phone / Telegram miniapp -->
+        <div class="phone-frame">
+          <div class="phone-notch">
+            <div class="phone-notch-pill">
+              <div class="phone-cam"></div>
+            </div>
           </div>
-          <div class="hero-metric-label">Protocol fee</div>
+          <div class="phone-content">
+            <div class="ph-header">
+              <div class="ph-logo">ORBIT</div>
+              <div class="ph-wallet">UQ…4f3a</div>
+            </div>
+            <div class="ph-plans">
+              <div class="ph-section-label">Choose a plan</div>
+              <div class="ph-plan-card featured">
+                <div class="ph-plan-name">Pro</div>
+                <div class="ph-plan-price">Monthly · 7 day trial</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                  <span style="font-size:18px;font-weight:700;color:#fff">5 TON</span>
+                  <span style="font-size:10px;color:#3D8EFF;background:rgba(61,142,255,0.1);padding:2px 7px;border-radius:4px">Popular</span>
+                </div>
+                <div class="ph-plan-cta">Subscribe →</div>
+              </div>
+              <div class="ph-plan-card">
+                <div class="ph-plan-name">Basic</div>
+                <div class="ph-plan-price">Monthly · Free trial</div>
+                <div style="font-size:16px;font-weight:700;color:#94A3B8;margin-bottom:8px">2 TON</div>
+                <div style="width:100%;text-align:center;background:rgba(255,255,255,0.06);color:#94A3B8;font-size:11px;font-weight:600;padding:7px;border-radius:7px">Subscribe</div>
+              </div>
+            </div>
+            <div class="ph-tg-bar">
+              <div class="ph-tg-icon"><div class="ph-tg-line active"></div><div class="ph-tg-line active" style="width:12px"></div><div class="ph-tg-line active"></div></div>
+              <div class="ph-tg-icon"><div class="ph-tg-line"></div><div class="ph-tg-line" style="width:12px"></div></div>
+              <div class="ph-tg-icon"><div class="ph-tg-line"></div><div class="ph-tg-line"></div></div>
+            </div>
+          </div>
         </div>
-      </div>
+
+      </div><!-- /.hero-devices -->
 
     </div>
   </section>
 
   <div class="divider"></div>
 
-  <!-- ── How it works ─────────────────────────────────────────────────── -->
+  <!-- ── FOR WHO ───────────────────────────────────────────────────────────── -->
+  <section class="forwho">
+    <div class="container">
+      <div class="section-label">Who it's for</div>
+      <h2 class="section-title">Built for any product<br/>on Telegram &amp; TON</h2>
+      <div class="forwho-grid">
+        <div class="who-card">
+          <div class="who-emoji">📢</div>
+          <h3>Telegram Channels</h3>
+          <p>Monetise your community with paid access. Subscribers pay in TON — bot grants access automatically on charge.</p>
+        </div>
+        <div class="who-card">
+          <div class="who-emoji">🛠</div>
+          <h3>SaaS &amp; Tools</h3>
+          <p>Add a subscription tier to any product. REST API + webhooks integrate into your existing backend in minutes.</p>
+        </div>
+        <div class="who-card">
+          <div class="who-emoji">🔐</div>
+          <h3>VPN &amp; Access</h3>
+          <p>Gate any digital service by on-chain subscription status. No payment processors, no chargebacks, no blocks.</p>
+        </div>
+        <div class="who-card">
+          <div class="who-emoji">🎮</div>
+          <h3>Games &amp; Content</h3>
+          <p>Season passes, premium content, in-game subscriptions — all on-chain. Works for any TON Mini App.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── HOW IT WORKS ──────────────────────────────────────────────────────── -->
   <section class="how">
     <div class="container">
-      <div class="how-header">
-        <div class="section-label">How it works</div>
-        <h2 class="section-title">Three steps.<br/>Then billing runs itself.</h2>
-        <p class="section-sub">No pull mechanism. No repeated approvals. No trusted hot wallet. Just a contract that holds funds and releases them on schedule.</p>
-      </div>
-
+      <div class="section-label">How it works</div>
+      <h2 class="section-title">Three steps.<br/>Billing runs itself after that.</h2>
       <div class="steps">
-
         <div class="step">
           <div class="step-num">01</div>
-          <h3>Service deploys a Factory</h3>
-          <p>One transaction to the Registry. A Factory contract is deployed with the 1.5% protocol fee compiled into every Subscription's bytecode, and your service fee locked at deploy time. Add your subscription plans — price, period, trial duration.</p>
+          <h3>Register &amp; configure</h3>
+          <p>Open the Dashboard, connect your TON wallet, register your service. Set subscription plans — price, billing period, free trial duration. One 0.3 TON transaction deploys your Factory on-chain.</p>
         </div>
-
         <div class="step-arrow">→</div>
-
         <div class="step">
           <div class="step-num">02</div>
-          <h3>Subscriber funds their contract</h3>
-          <p>User sends <code style="font-size:12px; color:var(--blue); font-family:var(--mono)">OP_SUBSCRIBE</code> to the Factory. A personal Subscription contract deploys and holds their deposit. No open-ended authorisations — they control their own contract.</p>
+          <h3>Share the payment link</h3>
+          <p>Send subscribers a direct link or Telegram bot button. They choose a plan, connect their wallet, deposit 3 billing periods up front — their own personal smart contract holds the funds.</p>
         </div>
-
         <div class="step-arrow">→</div>
-
         <div class="step">
           <div class="step-num">03</div>
-          <h3>Relayer charges on schedule</h3>
-          <p>Every billing period, the relayer or a permissionless keeper triggers the charge. The net amount goes directly to your wallet — protocol fee to ORBIT, service fee to your collector. Your webhook fires.</p>
+          <h3>Collect revenue automatically</h3>
+          <p>Every period, ORBIT charges the subscriber's contract and sends the net amount directly to your wallet. You get real-time webhooks, MRR tracking, and full subscriber analytics in the dashboard.</p>
         </div>
-
       </div>
     </div>
   </section>
 
   <div class="divider"></div>
 
-  <!-- ── Features ─────────────────────────────────────────────────────── -->
-  <section class="features">
+  <!-- ── FEATURES ─────────────────────────────────────────────────────────── -->
+  <section class="features" id="features">
     <div class="container">
-      <div class="features-header">
-        <div class="section-label">Features</div>
-        <h2 class="section-title">Everything billing needs.<br/>Nothing it doesn't.</h2>
-      </div>
-
+      <div class="section-label">Features</div>
+      <h2 class="section-title">Everything you need<br/>to run subscriptions.</h2>
       <div class="features-grid">
 
         <div class="feat">
           <div class="feat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </div>
+          <h3>Dashboard &amp; Mini App</h3>
+          <p>Full web dashboard at app.orbit-ton.com and a Telegram Mini App — manage services, plans, subscribers, and revenue from any device.</p>
+        </div>
+
+        <div class="feat">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8">
               <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
             </svg>
           </div>
-          <h3>TON &amp; Jetton billing</h3>
-          <p>Native TON or any TEP-74 token — USDT, USDC, and more. Protocol fee is always collected in TON regardless of payment type.</p>
+          <h3>TON &amp; USDT billing</h3>
+          <p>Accept native TON or any TEP-74 Jetton token — USDT, USDC, and more. Protocol fee is always collected in TON regardless of payment type.</p>
         </div>
 
         <div class="feat">
           <div class="feat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
           </div>
-          <h3>Deposit model</h3>
-          <p>Subscribers pre-fund a personal contract. No pull payments, no custodial wallets. The service can never extract more than the agreed amount.</p>
+          <h3>Analytics &amp; MRR</h3>
+          <p>Track monthly recurring revenue, subscriber growth, churn, and per-plan revenue. All data derived directly from on-chain charge events.</p>
         </div>
 
         <div class="feat">
           <div class="feat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8">
-              <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07"/>
-              <path d="M15.54 8.46a5 5 0 1 0-7.07 7.07"/>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8">
+              <path d="M18 20V10M12 20V4M6 20v-6"/>
             </svg>
           </div>
-          <h3>Keeper network</h3>
-          <p>Any address can trigger charges in keeper mode and earn up to 0.02 TON per charge (base reward guaranteed; bonus when keeper pool is funded). No infrastructure required on your end — the market provides the trigger layer.</p>
+          <h3>Webhooks &amp; REST API</h3>
+          <p>Get notified on every charge, subscription activation, and cancellation. Full REST API with API key scopes — integrate into any backend.</p>
         </div>
 
         <div class="feat">
           <div class="feat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8">
-              <path d="M3 12h18M3 6h18M3 18h18"/>
-            </svg>
-          </div>
-          <h3>Grace period + retry</h3>
-          <p>When deposit runs low, the subscription enters a 3-day grace window before cancelling — up to 5 charge retries with exponential backoff. Significantly reduces churn from transient failures.</p>
-        </div>
-
-        <div class="feat">
-          <div class="feat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8">
-              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
-            </svg>
-          </div>
-          <h3>Plan upgrade / downgrade</h3>
-          <p>Subscribers can request a plan change at any time. The Factory routes it securely — you cannot be switched to a cheaper plan you didn't authorise.</p>
-        </div>
-
-        <div class="feat">
-          <div class="feat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8">
               <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
             </svg>
           </div>
-          <h3>Trial periods</h3>
-          <p>Per-plan free trials, one-time per subscriber per Factory. Trial duration and billing period are set independently. No trial abuse — it's enforced at the contract level.</p>
+          <h3>Free trial periods</h3>
+          <p>Per-plan configurable trials. Trial duration and billing period set independently. One trial per subscriber per service — enforced at the smart contract level.</p>
         </div>
 
         <div class="feat">
           <div class="feat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8">
+              <path d="M3 12h18M3 6h18M3 18h18"/>
             </svg>
           </div>
-          <h3>Bounce recovery</h3>
-          <p>If a payment message bounces — e.g. frozen service contract — the deposit is restored and the billing clock rolled back. Subscribers are never silently drained.</p>
+          <h3>Grace period &amp; retry</h3>
+          <p>Low deposit triggers a 3-day grace window — up to 5 charge retries with exponential backoff. Significantly reduces involuntary churn.</p>
         </div>
 
         <div class="feat">
           <div class="feat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.8">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
           </div>
-          <h3>Registry integration</h3>
-          <p>One transaction — 0.3 TON — to the ORBIT Registry gets you a fully configured Factory with fee settings enforced at the bytecode level. No manual deploy required.</p>
+          <h3>Non-custodial</h3>
+          <p>Each subscriber's deposit lives in their own smart contract. You cannot extract more than the agreed amount. No custody risk on either side.</p>
+        </div>
+
+        <div class="feat">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8">
+              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            </svg>
+          </div>
+          <h3>Open protocol</h3>
+          <p>Fully open source, MIT-licensed core. Contracts are immutable after deployment — verifiable bytecode hashes published. No upgrade risk for subscribers.</p>
         </div>
 
       </div>
@@ -1282,20 +954,139 @@
 
   <div class="divider"></div>
 
-  <!-- ── Architecture ──────────────────────────────────────────────────── -->
-  <section class="arch">
+  <!-- ── SUBSCRIBER PAYMENT PAGE ───────────────────────────────────────────── -->
+  <section class="paypage">
+    <div class="container">
+      <div class="paypage-inner">
+
+        <div class="pay-mockup">
+          <div class="pay-mock-top">
+            <div class="pay-mock-service">My Telegram Channel</div>
+            <div class="pay-mock-desc">Premium access · Powered by ORBIT</div>
+          </div>
+          <div class="pay-mock-plans">
+            <div class="pay-mock-plan selected">
+              <div>
+                <div class="pay-mock-plan-name">Pro Plan</div>
+                <div class="pay-mock-plan-period">Monthly · 7-day free trial</div>
+              </div>
+              <div class="pay-mock-plan-price">5 <span>TON</span></div>
+            </div>
+            <div class="pay-mock-plan">
+              <div>
+                <div class="pay-mock-plan-name">Basic Plan</div>
+                <div class="pay-mock-plan-period">Monthly · Free trial</div>
+              </div>
+              <div class="pay-mock-plan-price" style="color:var(--text-2)">2 <span>TON</span></div>
+            </div>
+          </div>
+          <div class="pay-mock-cta">Connect wallet &amp; Subscribe →</div>
+          <div class="pay-mock-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            Secured by ORBIT smart contracts · TON Blockchain
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">Payment page</div>
+          <h2 class="section-title">A subscription page<br/>for your service.</h2>
+          <p class="section-sub" style="margin-bottom:20px">
+            Every service gets a hosted payment page — share the link in Telegram, on your website, or anywhere. Subscribers pick a plan, connect their TON wallet, and pay in one transaction.
+          </p>
+          <p class="section-sub" style="margin-bottom:32px">
+            No redirect. No payment processor. No card data. The page opens inside Telegram as a Mini App or as a standalone web app on desktop.
+          </p>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--green-dim);border:1px solid rgba(14,186,130,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="2,6 4.5,9 10,3"/></svg>
+              </div>
+              <span style="font-size:14px;color:var(--text-2)">Works on desktop, mobile &amp; Telegram Mini App</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--green-dim);border:1px solid rgba(14,186,130,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="2,6 4.5,9 10,3"/></svg>
+              </div>
+              <span style="font-size:14px;color:var(--text-2)">One-click subscribe via TON Connect</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--green-dim);border:1px solid rgba(14,186,130,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="2,6 4.5,9 10,3"/></svg>
+              </div>
+              <span style="font-size:14px;color:var(--text-2)">Subscribers can top up, cancel, or check status</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── FEES ─────────────────────────────────────────────────────────────── -->
+  <section class="fees" id="fees">
+    <div class="container">
+      <div class="section-label">Pricing</div>
+      <h2 class="section-title">One fee. Fixed in bytecode.<br/>No surprises.</h2>
+      <p class="section-sub">The protocol takes 1.5% on every charge. That's it. No monthly cost, no seat fees, no setup fee. You keep the rest — sent directly to your wallet on every billing cycle.</p>
+      <div class="fees-grid">
+        <div class="fee-card">
+          <div class="fee-pct fee-pct-blue">1.5%</div>
+          <div class="fee-label">Protocol fee — per charge</div>
+          <div class="fee-desc">Hardcoded as <code style="font-size:11px;color:var(--blue);font-family:var(--mono)">PROTOCOL_FEE_BPS = 150</code> in Subscription bytecode. No runtime configuration, no operator action can alter it. Collected in TON even for Jetton subscriptions.</div>
+        </div>
+        <div class="fee-card">
+          <div class="fee-pct fee-pct-gray">0%</div>
+          <div class="fee-label">Platform fee — free</div>
+          <div class="fee-desc">Dashboard, REST API, webhooks, and Telegram Mini App are free to use. No subscription to ORBIT, no plan tiers. You only pay the on-chain protocol fee when a subscriber is actually charged.</div>
+        </div>
+      </div>
+      <div class="fee-example">
+        <div class="fee-example-header">Example — 10 TON / month plan</div>
+        <div class="fee-row">
+          <span class="fee-row-label">Plan price (subscriber pays)</span>
+          <span class="fee-row-value">10.000 TON</span>
+        </div>
+        <div class="fee-row">
+          <span class="fee-row-label">Protocol fee (1.5%)</span>
+          <span class="fee-row-value red">− 0.150 TON</span>
+        </div>
+        <div class="fee-row total">
+          <span class="fee-row-label">You receive</span>
+          <span class="fee-row-value green">9.850 TON</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── ARCHITECTURE ──────────────────────────────────────────────────────── -->
+  <section class="arch" id="arch">
     <div class="container">
       <div class="arch-inner">
 
         <div>
           <div class="section-label">Architecture</div>
-          <h2 class="section-title">Three contracts.<br/>Fully isolated.</h2>
+          <h2 class="section-title">Four contracts.<br/>Fully isolated on-chain.</h2>
+          <p class="section-sub" style="margin-bottom:20px">
+            Registry deploys a Factory per service. Factory deploys a Subscription per subscriber. Each layer has one responsibility — funds are never commingled.
+          </p>
           <p class="section-sub" style="margin-bottom:28px">
-            Each layer has a single responsibility. Subscribers interact only with their own Subscription contract — it holds their deposit and enforces the billing rules independently of everything else.
+            Contracts are immutable after deployment. No upgrade key, no admin backdoor. Subscribers can verify the exact bytecode their contract runs against published hashes.
           </p>
-          <p class="section-sub">
-            Contracts are immutable after deployment. There is no upgrade mechanism — this is a security property. Subscribers can always verify the exact bytecode their contract runs against the published hashes.
-          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a href="https://github.com/Skiba111/orbit-ton" class="btn-ghost" target="_blank" rel="noopener" style="font-size:13px">
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              Source Code
+            </a>
+            <a href="https://github.com/Skiba111/orbit-ton/blob/main/docs/SECURITY.md" class="btn-ghost" target="_blank" rel="noopener" style="font-size:13px">
+              23 Security Properties ↗
+            </a>
+          </div>
         </div>
 
         <div class="arch-diagram">
@@ -1304,55 +1095,44 @@
               <div class="arch-node-name">Registry</div>
               <div class="arch-node-role">Deployed once by ORBIT</div>
             </div>
-            <span class="arch-badge badge-blue">one per platform</span>
+            <span class="arch-badge badge-blue-sm">one per platform</span>
           </div>
-
           <div class="arch-conn">
             <div class="arch-conn-line"></div>
-            <span class="arch-conn-label">deploys Factory on register (0.3 TON)</span>
+            <span class="arch-conn-label">deploys Factory on register (0.3 TON gas)</span>
           </div>
-
           <div class="arch-node">
             <div>
               <div class="arch-node-name">Factory</div>
-              <div class="arch-node-role">Holds plans · deploys subscriptions</div>
+              <div class="arch-node-role">Holds plans · routes payments</div>
             </div>
             <span class="arch-badge badge-muted">one per service</span>
           </div>
-
           <div class="arch-conn">
             <div class="arch-conn-line"></div>
             <span class="arch-conn-label">deploys Subscription on OP_SUBSCRIBE</span>
           </div>
-
           <div class="arch-node">
             <div>
               <div class="arch-node-name">Subscription</div>
-              <div class="arch-node-role">Holds deposit · executes billing</div>
+              <div class="arch-node-role">Holds subscriber deposit · executes billing</div>
             </div>
-            <span class="arch-badge badge-green">one per subscriber</span>
+            <span class="arch-badge badge-green-sm">one per subscriber</span>
           </div>
-
           <div class="arch-conn">
             <div class="arch-conn-line"></div>
-            <span class="arch-conn-label">on every charge cycle:</span>
+            <span class="arch-conn-label">on every charge: splits payment →</span>
           </div>
-
-          <div style="display:flex;gap:8px;padding:8px 0">
-            <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px">
-              <div style="color:var(--text-2);margin-bottom:3px">Net amount</div>
-              <div style="color:var(--text);font-size:11px">→ your wallet</div>
+          <div style="display:flex;gap:8px;padding:4px 0">
+            <div style="flex:1;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:7px;padding:9px 12px;font-size:11px">
+              <div style="color:var(--text-2);margin-bottom:2px">98.5%</div>
+              <div style="color:var(--text);font-size:10px">→ your wallet</div>
             </div>
-            <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px">
-              <div style="color:var(--text-2);margin-bottom:3px">Service fee</div>
-              <div style="color:var(--text);font-size:11px">→ your fee_collector</div>
-            </div>
-            <div style="flex:1;background:var(--bg-card);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:10px 14px;font-size:12px">
-              <div style="color:var(--blue);margin-bottom:3px">Protocol fee (1.5%)</div>
-              <div style="color:var(--text-2);font-size:11px">→ ORBIT FeeCollector</div>
+            <div style="flex:1;background:rgba(61,142,255,0.06);border:1px solid rgba(61,142,255,0.15);border-radius:7px;padding:9px 12px;font-size:11px">
+              <div style="color:var(--blue);margin-bottom:2px">1.5%</div>
+              <div style="color:var(--text-2);font-size:10px">→ ORBIT protocol</div>
             </div>
           </div>
-
         </div>
 
       </div>
@@ -1361,318 +1141,77 @@
 
   <div class="divider"></div>
 
-  <!-- ── Fee model ─────────────────────────────────────────────────────── -->
-  <section class="fees">
+  <!-- ── CTA BAND ──────────────────────────────────────────────────────────── -->
+  <section class="cta-band">
     <div class="container">
-      <div class="section-label">Fee model</div>
-      <h2 class="section-title">Two fees. Fixed rules.<br/>No surprises.</h2>
-      <p class="section-sub">Both fees are deducted from the gross plan amount before the service receives its net. The protocol fee is hardcoded in bytecode — enforced on every charge in every deployed contract. Any contract not matching the official ORBIT code hash is immediately identifiable on-chain.</p>
-
-      <div class="fees-grid">
-        <div class="fee-card">
-          <div class="fee-pct fee-pct-blue">1.5%</div>
-          <div class="fee-label">Protocol fee</div>
-          <div class="fee-desc">Hardcoded as <code style="font-size:11px;color:var(--blue);font-family:var(--mono)">PROTOCOL_FEE_BPS&nbsp;=&nbsp;150</code> in Subscription bytecode. Immutable in every deployed contract — no runtime call, no configuration, no operator action can alter it. Collected in TON even for Jetton subscriptions.</div>
-        </div>
-        <div class="fee-card">
-          <div class="fee-pct fee-pct-gray">0–10%</div>
-          <div class="fee-label">Service fee</div>
-          <div class="fee-desc">Set by the Factory deployer at registration time via <code style="font-size:11px;color:var(--text-2);font-family:var(--mono)">fee_bps</code> (0–1000). Immutable after Factory deploy — no bait-and-switch possible. Enforced at the billing engine level on every charge cycle.</div>
-        </div>
-      </div>
-
-      <div class="fee-example">
-        <div class="fee-example-header">Example — 10 TON / month plan · service fee 3%</div>
-        <div class="fee-row">
-          <span class="fee-row-label">Gross (plan price)</span>
-          <span class="fee-row-value">10.000 TON</span>
-        </div>
-        <div class="fee-row">
-          <span class="fee-row-label">Protocol fee (1.5%)</span>
-          <span class="fee-row-value red">− 0.150 TON</span>
-        </div>
-        <div class="fee-row">
-          <span class="fee-row-label">Service fee (3%)</span>
-          <span class="fee-row-value red">− 0.300 TON</span>
-        </div>
-        <div class="fee-row total">
-          <span class="fee-row-label">Service receives</span>
-          <span class="fee-row-value green">9.550 TON</span>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <div class="divider"></div>
-
-  <!-- ── Security ──────────────────────────────────────────────────────── -->
-  <section class="security">
-    <div class="container">
-      <div class="security-inner">
-
-        <div>
-          <div class="section-label">Security</div>
-          <h2 class="section-title">Designed to be<br/>adversarial-safe.</h2>
-          <p class="section-sub" style="margin-bottom:40px">Every known attack vector is documented and tested. 83 passing tests, 5 test suites, each covering a specific threat category.</p>
-          <div class="security-props">
-            <div class="prop">
-              <div class="prop-check">
-                <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2,5 4,7.5 8,3"/></svg>
-              </div>
-              <div>
-                <div class="prop-title">Double-charge guard</div>
-                <div class="prop-desc"><code style="font-size:11px;color:var(--blue);font-family:var(--mono)">charging_in_progress</code> flag blocks any new charge while a Jetton transfer is in flight. Only cleared on authenticated completion.</div>
-              </div>
-            </div>
-            <div class="prop">
-              <div class="prop-check">
-                <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2,5 4,7.5 8,3"/></svg>
-              </div>
-              <div>
-                <div class="prop-title">Replay protection</div>
-                <div class="prop-desc">Every state-changing operation increments <code style="font-size:11px;color:var(--blue);font-family:var(--mono)">seqno</code>. External messages include a 60-second timestamp window. Stale or replayed messages are rejected.</div>
-              </div>
-            </div>
-            <div class="prop">
-              <div class="prop-check">
-                <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2,5 4,7.5 8,3"/></svg>
-              </div>
-              <div>
-                <div class="prop-title">Storage reserve</div>
-                <div class="prop-desc"><code style="font-size:11px;color:var(--blue);font-family:var(--mono)">raw_reserve(0.05 TON)</code> called before every outgoing message. The contract always keeps enough TON for its own storage rent.</div>
-              </div>
-            </div>
-            <div class="prop">
-              <div class="prop-check">
-                <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2,5 4,7.5 8,3"/></svg>
-              </div>
-              <div>
-                <div class="prop-title">Fee immutability</div>
-                <div class="prop-desc"><code style="font-size:11px;color:var(--blue);font-family:var(--mono)">fee_bps</code> is locked at Factory deploy time. <code style="font-size:11px;color:var(--blue);font-family:var(--mono)">OP_UPDATE_FEE_BPS</code> was deliberately removed. Fee routing address is immutable per Subscription.</div>
-              </div>
-            </div>
-            <div class="prop">
-              <div class="prop-check">
-                <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2,5 4,7.5 8,3"/></svg>
-              </div>
-              <div>
-                <div class="prop-title">FeeCollector timelock</div>
-                <div class="prop-desc">24-hour two-phase withdrawal. If the owner key is compromised, there's a window to rotate the key and cancel before any funds move.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="security-callout">
-          <div class="security-num">23</div>
-          <p style="font-size:15px;font-weight:500;color:var(--text);margin-bottom:8px">documented security properties</p>
-          <p>Covering replay attacks, fee bypass, key compromise, gas drain, Jetton atomicity, keeper pool integrity, and more.</p>
-          <a href="docs/SECURITY.md" class="btn-ghost" style="width:100%;justify-content:center;margin-top:8px">
-            Read Security Model
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+      <div class="cta-inner">
+        <h2 class="cta-title">Start collecting subscriptions<br/>on TON today.</h2>
+        <p class="cta-sub">Open the dashboard, register your service, share the link. First subscriber in under 10 minutes.</p>
+        <div class="cta-actions">
+          <a href="https://app.orbit-ton.com/" class="btn-primary" target="_blank" rel="noopener" style="font-size:15px;padding:14px 32px">
+            Open Dashboard
+            <svg class="btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 8h10M9 4l4 4-4 4"/>
             </svg>
           </a>
-          <a href="docs/BYTECODE_HASHES.md" class="btn-ghost" style="width:100%;justify-content:center;margin-top:8px;font-size:12.5px">
-            Verify Bytecode Hashes ↗
+          <a href="https://t.me/orbit_subpay_bot" class="btn-ghost" target="_blank" rel="noopener" style="font-size:15px;padding:14px 28px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.7">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.069l-2.04 9.613c-.153.677-.555.843-1.123.524l-3.1-2.285-1.496 1.44c-.165.165-.304.304-.624.304l.223-3.164 5.75-5.195c.25-.223-.054-.346-.388-.123L6.843 14.5l-3.048-.951c-.662-.207-.675-.662.138-.98l11.91-4.59c.55-.2 1.033.134.719.09z"/>
+            </svg>
+            @orbit_subpay_bot
+          </a>
+          <a href="https://github.com/Skiba111/orbit-ton" class="btn-ghost" target="_blank" rel="noopener" style="font-size:14px;padding:14px 24px;color:var(--text-2)">
+            GitHub ↗
           </a>
         </div>
-
       </div>
     </div>
   </section>
 
-  <div class="divider"></div>
-
-  <!-- ── Get started ───────────────────────────────────────────────────── -->
-  <section class="getstarted">
-    <div class="container">
-      <div class="getstarted-inner">
-
-        <div>
-          <div class="section-label">Get started</div>
-          <h2 class="section-title">Up and running<br/>in minutes.</h2>
-          <p class="section-sub" style="margin-bottom:0">Clone, configure, register. Your Factory is live with a single 0.3 TON transaction to the mainnet Registry.</p>
-          <div class="gs-links">
-            <a href="docs/QUICKSTART.md" class="gs-link">
-              <div class="gs-link-left">
-                <div class="gs-link-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-                    <polyline points="13 2 13 9 20 9"/>
-                  </svg>
-                </div>
-                <div>
-                  <span class="gs-link-title">Quickstart</span>
-                  <span class="gs-link-sub">First subscription in 10 minutes</span>
-                </div>
-              </div>
-              <span class="gs-link-arrow">→</span>
-            </a>
-            <a href="docs/INTEGRATION.md" class="gs-link">
-              <div class="gs-link-left">
-                <div class="gs-link-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-                  </svg>
-                </div>
-                <div>
-                  <span class="gs-link-title">Integration Guide</span>
-                  <span class="gs-link-sub">Subscribe format, webhooks, subscriber actions</span>
-                </div>
-              </div>
-              <span class="gs-link-arrow">→</span>
-            </a>
-            <a href="docs/DEPLOYMENT.md" class="gs-link">
-              <div class="gs-link-left">
-                <div class="gs-link-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
-                  </svg>
-                </div>
-                <div>
-                  <span class="gs-link-title">Deployment Guide</span>
-                  <span class="gs-link-sub">Server setup, PM2, nginx, mainnet checklist</span>
-                </div>
-              </div>
-              <span class="gs-link-arrow">→</span>
-            </a>
-            <a href="docs/KEEPER.md" class="gs-link">
-              <div class="gs-link-left">
-                <div class="gs-link-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07"/><path d="M15.54 8.46a5 5 0 1 0-7.07 7.07"/>
-                  </svg>
-                </div>
-                <div>
-                  <span class="gs-link-title">Run a Keeper</span>
-                  <span class="gs-link-sub">Earn rewards triggering charges permissionlessly</span>
-                </div>
-              </div>
-              <span class="gs-link-arrow">→</span>
-            </a>
-          </div>
-        </div>
-
-        <div>
-          <div class="terminal">
-            <div class="terminal-bar">
-              <div class="dot-r"></div>
-              <div class="dot-y"></div>
-              <div class="dot-g"></div>
-            </div>
-            <div class="terminal-body">
-              <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd">git clone https://github.com/Skiba111/orbit-ton.git</span></div>
-              <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd">cd orbit-ton &amp;&amp; npm install</span></div>
-              <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd">cp .env.example .env</span></div>
-              <div class="term-line term-out"># set WALLET_MNEMONIC, REGISTRY_ADDRESS, and NETWORK=mainnet</div>
-              <br/>
-              <div class="term-line term-comment"># Register your service (0.3 TON)</div>
-              <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd">ts-node scripts/register-service.ts</span></div>
-              <br/>
-              <div class="term-line" style="color:#34D399">✅ Registered! Your Factory:</div>
-              <div class="term-line" style="color:#60A5FA;padding-left:20px;font-size:12px">EQD...your_factory_address...</div>
-              <br/>
-              <div class="term-line term-comment"># Start the relayer on your server</div>
-              <div class="term-line"><span class="term-prompt">$</span><span class="term-cmd">ts-node scripts/relayer.ts</span></div>
-              <div class="term-line" style="color:#34D399">→ [relayer] Charged EQD... (seqno 0 → 1)</div>
-            </div>
-          </div>
-
-          <div style="margin-top:16px;padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm)">
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:10px">Mainnet addresses</div>
-            <div style="display:flex;flex-direction:column;gap:6px;font-family:var(--mono)">
-              <div style="display:flex;justify-content:space-between;font-size:12px">
-                <span style="color:var(--text-3)">Registry</span>
-                <span style="color:var(--text-2);font-size:11px">EQAYj1s3g71y…kSNSA_5</span>
-              </div>
-              <div style="display:flex;justify-content:space-between;font-size:12px">
-                <span style="color:var(--text-3)">FeeCollector</span>
-                <span style="color:var(--text-2);font-size:11px">EQDXmTHoJvjj…z6S0</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <div class="divider"></div>
-
-  <!-- ── Footer ────────────────────────────────────────────────────────── -->
+  <!-- ── FOOTER ────────────────────────────────────────────────────────────── -->
   <footer>
     <div class="container">
       <div class="footer-inner">
-
         <a href="#" class="footer-logo">
-          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
-            <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-            <circle cx="56.7" cy="22.1" r="7.5" fill="#3B82F6"/>
+          <svg viewBox="0 0 80 80" fill="none" width="18" height="18">
+            <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>
+            <circle cx="56.7" cy="22.1" r="7" fill="#3D8EFF"/>
           </svg>
           <span style="letter-spacing:0.1em;font-weight:500">ORBIT</span>
         </a>
-
         <div class="footer-links">
-          <a href="docs/QUICKSTART.md"    class="footer-link">Quickstart</a>
-          <a href="docs/INTEGRATION.md"   class="footer-link">Integration</a>
-          <a href="docs/SECURITY.md"      class="footer-link">Security</a>
-          <a href="docs/WHITEPAPER.md"    class="footer-link">Whitepaper</a>
-          <a href="CHANGELOG.md"          class="footer-link">Changelog</a>
+          <a href="https://app.orbit-ton.com/"     class="footer-link">Dashboard</a>
+          <a href="https://t.me/orbit_subpay_bot"  class="footer-link">Telegram Bot</a>
+          <a href="https://github.com/Skiba111/orbit-ton/blob/main/docs/QUICKSTART.md" class="footer-link">Quickstart</a>
+          <a href="https://github.com/Skiba111/orbit-ton/blob/main/docs/INTEGRATION.md" class="footer-link">Integration</a>
+          <a href="https://github.com/Skiba111/orbit-ton/blob/main/docs/SECURITY.md"   class="footer-link">Security</a>
           <a href="https://github.com/Skiba111/orbit-ton" class="footer-link" target="_blank" rel="noopener">GitHub ↗</a>
         </div>
-
         <div class="footer-right">
+          <div style="margin-bottom:4px">Mainnet · Registry <code style="font-family:var(--mono);font-size:11px;color:var(--text-3)">EQAYj1s3…NSA_5</code></div>
           <div>BUSL-1.1 · converts to MIT on 2029-05-15</div>
         </div>
-
       </div>
     </div>
   </footer>
 
   <script>
+    // Staggered fade-in for hero metrics (removed in favour of device mockup)
+    // Smooth active nav highlighting on scroll
     (function () {
-      var metrics = document.getElementById('heroMetrics');
-      if (!metrics) return;
-
-      var items  = [
-        document.getElementById('m0'),
-        document.getElementById('m1'),
-        document.getElementById('m2'),
-      ];
-      var numEls = metrics.querySelectorAll('.hero-metric-val');
-
-      function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
-
-      function countUp(el, target, decimal, delay) {
-        setTimeout(function () {
-          var duration  = 1100;
-          var startTime = null;
-          function step(ts) {
-            if (!startTime) startTime = ts;
-            var progress = Math.min((ts - startTime) / duration, 1);
-            var value    = easeOutCubic(progress) * target;
-            el.textContent = decimal ? value.toFixed(decimal) : Math.floor(value);
-            if (progress < 1) { requestAnimationFrame(step); }
-            else { el.textContent = decimal ? target.toFixed(decimal) : target; }
+      var sections = document.querySelectorAll('section[id]');
+      var links    = document.querySelectorAll('.nav-link');
+      if (!sections.length || !links.length) return;
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            links.forEach(function (l) { l.style.color = ''; });
+            var active = document.querySelector('.nav-link[href="#' + e.target.id + '"]');
+            if (active) active.style.color = 'var(--text)';
           }
-          requestAnimationFrame(step);
-        }, delay);
-      }
-
-      // staggered fade-in then count up
-      items.forEach(function (el, i) {
-        setTimeout(function () {
-          el.classList.add('visible');
-        }, 200 + i * 160);
-      });
-
-      numEls.forEach(function (el, i) {
-        var target  = parseFloat(el.dataset.target);
-        var decimal = parseInt(el.dataset.decimal || '0');
-        countUp(el, target, decimal, 350 + i * 160);
-      });
+        });
+      }, { threshold: 0.4 });
+      sections.forEach(function (s) { io.observe(s); });
     })();
   </script>
 

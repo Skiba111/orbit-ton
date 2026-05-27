@@ -9,1354 +9,888 @@
   <meta property="og:description" content="Automated recurring billing on the TON blockchain. Deploy your service in minutes." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://skiba111.github.io/orbit-ton/" />
-
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%233D8EFF'/><stop offset='100%25' stop-color='%238B5CF6'/></linearGradient></defs><path d='M 62.5,29.0 A 26,26 0 1,1 48.9,17.6' stroke='white' stroke-width='5' stroke-linecap='round' fill='none'/><circle cx='56.7' cy='22.1' r='8.5' fill='url(%23g)'/></svg>" />
-
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:           #08080F;
-      --bg-2:         #0D0D18;
-      --bg-nav:       rgba(8,8,15,0.88);
-      --bg-card:      rgba(255,255,255,0.025);
-      --bg-card-h:    rgba(255,255,255,0.042);
-      --border:       rgba(255,255,255,0.07);
-      --border-h:     rgba(61,142,255,0.35);
-      --text:         #F1F5F9;
-      --text-2:       #94A3B8;
-      --text-3:       #4B5563;
-      --blue:         #3D8EFF;
-      --blue-dim:     rgba(61,142,255,0.12);
-      --blue-glow:    rgba(61,142,255,0.18);
-      --green:        #0EBA82;
-      --green-dim:    rgba(14,186,130,0.12);
-      --yellow:       #F5A623;
-      --purple:       #7C5CFC;
-      --red:          #EF4444;
-      --radius:       12px;
-      --radius-sm:    8px;
-      --font:         'Inter', -apple-system, sans-serif;
-      --mono:         'JetBrains Mono', 'Fira Code', monospace;
+      --bg:        #08080F;
+      --bg-2:      #0D0D18;
+      --bg-nav:    rgba(8,8,15,0.88);
+      --bg-card:   rgba(255,255,255,0.025);
+      --bg-card-h: rgba(255,255,255,0.042);
+      --border:    rgba(255,255,255,0.07);
+      --border-h:  rgba(61,142,255,0.35);
+      --text:      #F1F5F9;
+      --text-2:    #94A3B8;
+      --text-3:    #4B5563;
+      --blue:      #3D8EFF;
+      --blue-dim:  rgba(61,142,255,0.12);
+      --green:     #0EBA82;
+      --green-dim: rgba(14,186,130,0.12);
+      --yellow:    #F5A623;
+      --purple:    #7C5CFC;
+      --red:       #EF4444;
+      --radius:    12px;
+      --radius-sm: 8px;
+      --font:      'Inter', -apple-system, sans-serif;
+      --mono:      'JetBrains Mono', 'Fira Code', monospace;
     }
-
     html { scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    body::before { content:''; position:fixed; inset:0; background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(61,142,255,0.11) 0%, transparent 65%), radial-gradient(ellipse 40% 40% at 85% 75%, rgba(139,92,246,0.05) 0%, transparent 60%); pointer-events:none; z-index:0; }
+    body::after  { content:''; position:fixed; inset:0; background-image: linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px); background-size:60px 60px; pointer-events:none; z-index:0; }
+    section, footer, nav { position:relative; z-index:1; }
+    .container { max-width:1160px; margin:0 auto; padding:0 32px; }
 
-    body {
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
+    /* Scroll reveal */
+    .reveal { opacity:0; transform:translateY(32px); transition:opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1); }
+    .reveal.visible { opacity:1; transform:translateY(0); }
+    .reveal-delay-1 { transition-delay:.10s; }
+    .reveal-delay-2 { transition-delay:.20s; }
+    .reveal-delay-3 { transition-delay:.30s; }
+    .reveal-delay-4 { transition-delay:.40s; }
+
+    /* NAV */
+    nav { position:fixed; top:0; left:0; right:0; z-index:100; background:var(--bg-nav); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid var(--border); }
+    .nav-inner { max-width:1160px; margin:0 auto; padding:0 32px; height:60px; display:flex; align-items:center; justify-content:space-between; }
+    .nav-logo { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text); }
+    .nav-logo-text { font-size:17px; font-weight:700; letter-spacing:0.14em; }
+    .nav-links { display:flex; align-items:center; gap:4px; }
+    .nav-link { font-size:13px; font-weight:500; color:var(--text-2); text-decoration:none; padding:6px 14px; border-radius:var(--radius-sm); border:1px solid transparent; transition:color .2s, background .2s, border-color .2s; }
+    .nav-link:hover { color:var(--text); background:rgba(255,255,255,0.05); border-color:var(--border); }
+    .nav-btn { font-size:13px; font-weight:600; color:#fff; text-decoration:none; padding:7px 18px; border-radius:var(--radius-sm); background:var(--blue); border:1px solid var(--blue); transition:opacity .2s; display:flex; align-items:center; gap:7px; }
+    .nav-btn:hover { opacity:.88; }
+
+    /* HERO */
+    .hero { padding:130px 0 72px; text-align:center; }
+    .hero h1 { font-size:clamp(42px,5.5vw,70px); font-weight:400; line-height:1.1; letter-spacing:-0.035em; color:var(--text); margin-bottom:22px; max-width:820px; margin-left:auto; margin-right:auto; }
+    .hero h1 em { font-style:normal; background:linear-gradient(135deg,#60A5FA 0%,#818CF8 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .hero-sub { font-size:17px; color:var(--text-2); max-width:560px; margin:0 auto 40px; line-height:1.7; }
+    .hero-actions { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:72px; flex-wrap:wrap; }
+
+    .btn-primary { display:inline-flex; align-items:center; gap:9px; font-size:15px; font-weight:600; color:#fff; background:var(--blue); padding:13px 28px; border-radius:var(--radius-sm); text-decoration:none; border:1px solid var(--blue); transition:opacity .2s, transform .15s; position:relative; overflow:hidden; }
+    .btn-primary:hover { opacity:.9; transform:translateY(-1px); }
+    .btn-primary .btn-arrow { transition:transform .25s; }
+    .btn-primary:hover .btn-arrow { transform:translateX(4px); }
+    .btn-tg { display:inline-flex; align-items:center; gap:9px; font-size:15px; font-weight:600; color:var(--text); padding:13px 28px; border-radius:var(--radius-sm); text-decoration:none; border:1px solid var(--border); background:rgba(255,255,255,0.04); transition:border-color .2s, background .2s, transform .15s; }
+    .btn-tg:hover { border-color:var(--border-h); background:var(--blue-dim); transform:translateY(-1px); }
+    .btn-ghost { display:inline-flex; align-items:center; gap:7px; font-size:14px; font-weight:500; color:var(--text); background:transparent; padding:11px 22px; border-radius:var(--radius-sm); text-decoration:none; border:1px solid var(--border); transition:border-color .2s, background .2s, transform .15s; }
+    .btn-ghost:hover { border-color:var(--border-h); background:var(--blue-dim); transform:translateY(-1px); }
+
+    /* HERO DEVICES */
+    .hero-devices { position:relative; display:flex; align-items:flex-end; justify-content:center; gap:0; max-width:1060px; margin:0 auto; animation:devicesFadeIn .9s cubic-bezier(.22,1,.36,1) .3s both; }
+    @keyframes devicesFadeIn { from { opacity:0; transform:translateY(40px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+
+    /* ── BROWSER FRAME ── */
+    .browser-frame { width:790px; flex-shrink:0; background:#0B0D13; border:1px solid rgba(255,255,255,0.09); border-radius:14px; overflow:hidden; box-shadow:0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04); }
+    .browser-bar { height:38px; background:#10121A; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; gap:7px; padding:0 14px; flex-shrink:0; }
+    .b-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .b-dot-r { background:#FF5F57; } .b-dot-y { background:#FFBD2E; } .b-dot-g { background:#28C840; }
+    .browser-url { flex:1; max-width:280px; margin:0 auto; height:22px; background:rgba(255,255,255,0.05); border-radius:5px; display:flex; align-items:center; justify-content:center; gap:5px; font-size:11px; color:#4B5563; font-family:var(--mono); }
+    .browser-url-lock { color:#0EBA82; font-size:10px; }
+
+    /* ── DASHBOARD INNER ── */
+    .dash-inner { display:flex; height:510px; overflow:hidden; }
+
+    /* Sidebar */
+    .dash-sidebar { width:200px; flex-shrink:0; background:#0B0D14; border-right:1px solid rgba(255,255,255,0.06); padding:0; display:flex; flex-direction:column; }
+    .dash-sb-logo { display:flex; align-items:center; gap:10px; padding:16px 18px; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .dash-sb-logo-text { font-size:14px; font-weight:700; letter-spacing:0.1em; color:#fff; }
+    .dash-sb-nav-label { font-size:9.5px; font-weight:600; color:#4B5563; letter-spacing:0.15em; text-transform:uppercase; padding:16px 18px 8px; }
+    .dash-sb-item { display:flex; align-items:center; gap:10px; padding:9px 12px; margin:1px 8px; border-radius:8px; font-size:12.5px; color:#6B7A99; cursor:default; transition:background .15s; }
+    .dash-sb-item.active { background:rgba(61,142,255,0.18); color:#fff; }
+    .dash-sb-item svg { flex-shrink:0; opacity:.7; }
+    .dash-sb-item.active svg { opacity:1; }
+    .dash-sb-divider { height:1px; background:rgba(255,255,255,0.05); margin:8px 0; }
+    .dash-sb-bottom { margin-top:auto; padding-bottom:6px; }
+    .dash-sb-addr { display:flex; align-items:center; gap:8px; padding:9px 12px; margin:1px 8px; border-radius:8px; font-size:11px; color:#4B5563; font-family:var(--mono); cursor:default; }
+
+    /* Main area */
+    .dash-main { flex:1; background:#0D0F18; overflow:hidden; display:flex; flex-direction:column; }
+    .dash-header { padding:14px 20px 12px; border-bottom:1px solid rgba(255,255,255,0.05); flex-shrink:0; }
+    .dash-header-title { font-size:13.5px; font-weight:600; color:var(--text); }
+    .dash-content { padding:14px 16px; overflow:hidden; flex:1; display:flex; flex-direction:column; gap:10px; }
+
+    /* Metric cards grid */
+    .dash-metrics-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; flex-shrink:0; }
+    .dash-metric-card { background:#111320; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 14px; }
+    .dash-mc-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .dash-mc-icon { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .dash-mc-icon svg { width:13px; height:13px; }
+    .icon-blue   { background:rgba(61,142,255,0.18); }
+    .icon-green  { background:rgba(14,186,130,0.18); }
+    .icon-purple { background:rgba(124,92,252,0.18); }
+    .icon-red    { background:rgba(239,68,68,0.18); }
+    .dash-mc-label { font-size:10.5px; color:#6B7A99; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .dash-mc-value { font-size:18px; font-weight:700; color:#fff; letter-spacing:-0.02em; line-height:1.1; margin-bottom:5px; font-variant-numeric:tabular-nums; }
+    .dash-mc-value .unit { font-size:11px; font-weight:500; color:#6B7A99; margin-left:2px; }
+    .dash-mc-sub { font-size:9.5px; color:#4B5563; line-height:1.4; }
+    .dash-mc-badges { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+    .mc-badge { font-size:9px; font-weight:600; padding:2px 7px; border-radius:20px; }
+    .mc-badge-green  { background:rgba(14,186,130,0.15); color:#0EBA82; }
+    .mc-badge-red    { background:rgba(239,68,68,0.12);  color:#EF4444; }
+    .mc-badge-purple { background:rgba(124,92,252,0.14); color:#7C5CFC; }
+    .mc-badge-gray   { background:rgba(255,255,255,0.07); color:#6B7A99; }
+
+    /* Second row — churn */
+    .dash-metrics-row2 { display:grid; grid-template-columns:1fr 4fr; gap:8px; flex-shrink:0; }
+    .dash-churn-card { background:#111320; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 14px; }
+
+    /* Analytics chart */
+    .dash-chart-section { flex:1; background:#111320; border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:12px 14px; min-height:0; display:flex; flex-direction:column; }
+    .dash-chart-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-shrink:0; }
+    .dash-chart-title { font-size:11px; font-weight:600; color:var(--text); }
+    .dash-chart-controls { display:flex; align-items:center; gap:6px; }
+    .dash-legend { display:flex; align-items:center; gap:10px; }
+    .dash-legend-item { display:flex; align-items:center; gap:4px; font-size:9px; color:#6B7A99; }
+    .dash-legend-dot { width:7px; height:7px; border-radius:50%; }
+    .dash-period-btns { display:flex; gap:2px; }
+    .dash-period-btn { font-size:9.5px; padding:2px 7px; border-radius:4px; color:#6B7A99; cursor:default; }
+    .dash-period-btn.active { background:rgba(61,142,255,0.15); color:var(--blue); }
+    .dash-chart-svg-wrap { flex:1; position:relative; min-height:0; }
+    .dash-chart-svg-wrap svg { width:100%; height:100%; }
+
+    /* ── PHONE FRAME ── */
+    .phone-frame { width:215px; flex-shrink:0; background:#0D0D1C; border:1px solid rgba(255,255,255,0.1); border-radius:36px; overflow:hidden; box-shadow:0 40px 80px rgba(0,0,0,0.55); margin-left:-26px; margin-bottom:14px; position:relative; z-index:2; }
+    .phone-notch { height:42px; background:#0F0F1E; display:flex; align-items:center; justify-content:center; }
+    .phone-notch-pill { width:78px; height:22px; background:#191930; border-radius:11px; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .phone-cam { width:7px; height:7px; border-radius:50%; background:#1C1C30; }
+    .phone-content { background:#07090F; }
+    .ph-header { padding:12px 16px 10px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .ph-logo { font-size:13px; font-weight:700; letter-spacing:0.12em; color:#fff; }
+    .ph-wallet { font-size:10px; color:#6B7A99; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); padding:3px 8px; border-radius:12px; }
+    .ph-plans { padding:11px 14px 8px; }
+    .ph-section-label { font-size:9.5px; color:#4B5563; text-transform:uppercase; letter-spacing:0.12em; margin-bottom:9px; text-align:center; }
+    .ph-plan-card { background:#0C0F1A; border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:13px 14px; margin-bottom:8px; position:relative; overflow:hidden; }
+    .ph-plan-card.featured { background:#0D1526; border-color:rgba(61,142,255,0.28); }
+    .ph-plan-card.featured::before { content:''; position:absolute; top:-20px; right:-20px; width:80px; height:80px; background:radial-gradient(circle, rgba(61,142,255,0.2), transparent 70%); pointer-events:none; }
+    .ph-plan-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:3px; }
+    .ph-plan-name { font-size:13px; font-weight:700; color:#fff; }
+    .ph-plan-period { font-size:10px; color:#6B7A99; margin-bottom:10px; }
+    .ph-plan-price-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .ph-plan-price-big { font-size:20px; font-weight:800; color:#fff; letter-spacing:-0.03em; line-height:1; }
+    .ph-plan-price-big span { font-size:12px; font-weight:600; color:rgba(255,255,255,0.5); margin-left:2px; }
+    .ph-popular { font-size:9px; font-weight:700; color:var(--blue); letter-spacing:0.04em; background:rgba(61,142,255,0.12); border:1px solid rgba(61,142,255,0.2); padding:2px 7px; border-radius:4px; }
+    .ph-plan-cta-blue { width:100%; text-align:center; background:linear-gradient(135deg,#3D8EFF,#1F6AE0); color:#fff; font-size:11.5px; font-weight:600; padding:8px; border-radius:9px; display:block; box-shadow:0 4px 14px rgba(61,142,255,0.3); }
+    .ph-plan-cta-gray { width:100%; text-align:center; background:rgba(255,255,255,0.06); color:#6B7A99; font-size:11.5px; font-weight:600; padding:8px; border-radius:9px; display:block; }
+    .ph-tg-bar { height:50px; background:#0F0F1E; border-top:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-around; padding:0 20px; }
+    .ph-tg-icon { width:24px; height:24px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; }
+    .ph-tg-line { width:18px; height:2px; background:rgba(255,255,255,0.14); border-radius:1px; }
+    .ph-tg-line.active { background:var(--blue); }
+
+    /* DIVIDER */
+    .divider { height:1px; background:linear-gradient(90deg,transparent,var(--border),transparent); margin:0 32px; }
+
+    /* SECTIONS */
+    .section-label { display:inline-flex; align-items:center; gap:10px; font-size:11px; font-weight:500; letter-spacing:0.3em; text-transform:uppercase; color:var(--blue); margin-bottom:18px; }
+    .section-label::before { content:''; display:inline-block; width:20px; height:1px; background:var(--blue); opacity:.7; flex-shrink:0; }
+    .section-title { font-size:clamp(28px,3.5vw,42px); font-weight:500; letter-spacing:-0.03em; color:var(--text); line-height:1.15; margin-bottom:14px; }
+    .section-sub { font-size:16px; color:var(--text-2); max-width:520px; line-height:1.65; }
+
+    /* FOR WHO */
+    .forwho { padding:96px 0; }
+    .forwho-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:48px; }
+    .who-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:28px 24px; transition:border-color .2s, background .2s; }
+    .who-card:hover { border-color:var(--border-h); background:var(--bg-card-h); }
+    .who-emoji { font-size:28px; margin-bottom:14px; line-height:1; }
+    .who-card h3 { font-size:15px; font-weight:600; color:var(--text); margin-bottom:8px; }
+    .who-card p  { font-size:13px; color:var(--text-2); line-height:1.6; }
+
+    /* HOW IT WORKS */
+    .how { padding:96px 0; }
+    .steps { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; align-items:start; gap:0; margin-top:56px; }
+    .step { text-align:center; padding:0 16px; }
+    .step-num { width:44px; height:44px; border-radius:50%; background:var(--blue-dim); border:1px solid rgba(61,142,255,0.25); color:var(--blue); font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; }
+    .step h3 { font-size:16px; font-weight:600; color:var(--text); margin-bottom:8px; }
+    .step p   { font-size:14px; color:var(--text-2); line-height:1.6; }
+    .step-arrow { color:var(--text-3); padding-top:14px; font-size:20px; }
+
+    /* FEATURES */
+    .features { padding:96px 0; }
+    .features-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-top:48px; }
+    .feat { padding:28px 24px; background:var(--bg-card); transition:background .2s; border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+    .feat:hover { background:var(--bg-card-h); }
+    .feat:nth-child(4n) { border-right:none; }
+    .feat:nth-child(n+5) { border-bottom:none; }
+    .feat-icon { width:36px; height:36px; border-radius:var(--radius-sm); background:var(--blue-dim); display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
+    .feat-icon svg { width:18px; height:18px; }
+    .feat h3 { font-size:14px; font-weight:600; color:var(--text); margin-bottom:6px; }
+    .feat p  { font-size:13px; color:var(--text-2); line-height:1.6; }
+
+    /* PAYMENT PAGE */
+    .paypage { padding:96px 0; }
+    .paypage-inner { display:grid; grid-template-columns:1fr 1fr; gap:72px; align-items:center; }
+    .subscribe-mockup { background:#07090F; border:1px solid rgba(255,255,255,0.08); border-radius:20px; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.5); font-family:var(--font); }
+    .sub-mock-header { padding:14px 18px 11px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .sub-mock-logo { font-size:13px; font-weight:700; letter-spacing:0.12em; color:#fff; }
+    .sub-mock-wallet { font-size:10px; color:#6B7A99; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); padding:3px 8px; border-radius:12px; }
+    .sub-mock-body { padding:16px 18px 18px; }
+    .sub-mock-back { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); border-radius:10px; padding:7px 13px; font-size:11.5px; color:#6B7A99; margin-bottom:14px; }
+    .sub-mock-hero { position:relative; background:linear-gradient(135deg,#0d1526 0%,#111a35 50%,#0a1020 100%); border:1px solid rgba(61,142,255,0.20); border-radius:16px; padding:18px 18px 16px; margin-bottom:10px; overflow:hidden; }
+    .sub-mock-hero::before { content:''; position:absolute; top:-30px; right:-20px; width:120px; height:120px; background:radial-gradient(circle,rgba(61,142,255,0.2),transparent 70%); }
+    .sub-mock-hero::after  { content:''; position:absolute; bottom:-30px; left:-10px; width:90px; height:90px; background:radial-gradient(circle,rgba(124,92,252,0.12),transparent 70%); }
+    .sub-mock-service-dot { display:flex; align-items:center; gap:5px; margin-bottom:7px; }
+    .sub-mock-dot { width:5px; height:5px; border-radius:50%; background:var(--green); box-shadow:0 0 5px var(--green); }
+    .sub-mock-service-name { font-size:10.5px; color:#6B7A99; font-weight:500; }
+    .sub-mock-plan-name { font-size:16px; font-weight:800; letter-spacing:-0.02em; color:#fff; margin-bottom:12px; }
+    .sub-mock-price-row { display:flex; align-items:flex-start; gap:3px; margin-bottom:4px; }
+    .sub-mock-price-big { font-size:34px; font-weight:900; letter-spacing:-0.05em; color:#fff; line-height:1; }
+    .sub-mock-price-cur { font-size:14px; font-weight:700; color:rgba(255,255,255,0.45); margin-top:6px; }
+    .sub-mock-price-period { font-size:11px; color:rgba(255,255,255,0.4); font-weight:500; }
+    .sub-mock-trial { display:inline-flex; align-items:center; gap:5px; background:rgba(14,186,130,0.12); border:1px solid rgba(14,186,130,0.22); border-radius:8px; padding:5px 10px; font-size:10.5px; color:var(--green); font-weight:600; margin-top:10px; }
+    .sub-mock-info { background:#0C0F1A; border:1px solid rgba(255,255,255,0.06); border-radius:12px; overflow:hidden; margin-bottom:12px; }
+    .sub-mock-info-row { display:flex; justify-content:space-between; align-items:center; padding:9px 14px; font-size:11.5px; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .sub-mock-info-row:last-child { border-bottom:none; }
+    .sub-mock-info-label { color:#6B7A99; }
+    .sub-mock-info-value { font-weight:600; color:var(--text); }
+    .sub-mock-info-value.green { color:var(--green); }
+    .sub-mock-cta { background:linear-gradient(135deg,#3D8EFF 0%,#1F6AE0 100%); color:#fff; font-size:13px; font-weight:700; padding:13px; border-radius:13px; text-align:center; box-shadow:0 4px 18px rgba(61,142,255,0.32); }
+
+    /* FEES */
+    .fees { padding:96px 0; }
+    .fees-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:48px; }
+    .fee-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:32px; transition:border-color .2s; }
+    .fee-card:hover { border-color:var(--border-h); }
+    .fee-pct { font-size:48px; font-weight:300; letter-spacing:-0.04em; line-height:1; margin-bottom:8px; }
+    .fee-pct-blue { color:var(--blue); } .fee-pct-gray { color:var(--text-2); }
+    .fee-label { font-size:13px; font-weight:600; color:var(--text); margin-bottom:8px; }
+    .fee-desc  { font-size:13px; color:var(--text-2); line-height:1.6; }
+    .fee-example { margin-top:48px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+    .fee-example-header { padding:14px 24px; border-bottom:1px solid var(--border); font-size:12px; font-weight:500; color:var(--text-2); letter-spacing:0.04em; text-transform:uppercase; }
+    .fee-row { display:flex; justify-content:space-between; align-items:center; padding:13px 24px; border-bottom:1px solid var(--border); font-size:14px; }
+    .fee-row:last-child { border-bottom:none; }
+    .fee-row-label { color:var(--text-2); }
+    .fee-row-value { color:var(--text); font-weight:500; font-family:var(--mono); font-size:13px; }
+    .fee-row-value.green { color:var(--green); } .fee-row-value.red { color:#F87171; }
+    .fee-row.total { background:rgba(255,255,255,0.02); }
+    .fee-row.total .fee-row-label { color:var(--text); font-weight:600; }
+    .fee-row.total .fee-row-value { font-size:15px; }
+
+    /* ARCHITECTURE */
+    .arch { padding:96px 0; }
+    .arch-inner { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; }
+    .arch-diagram { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:32px 28px; font-family:var(--mono); }
+    .arch-node { padding:12px 16px; border-radius:var(--radius-sm); border:1px solid var(--border); margin-bottom:4px; display:flex; align-items:center; justify-content:space-between; transition:border-color .2s; }
+    .arch-node:hover { border-color:var(--border-h); }
+    .arch-node-name { font-size:13px; font-weight:500; color:var(--text); }
+    .arch-node-role { font-size:11px; color:var(--text-3); margin-top:1px; }
+    .arch-conn { display:flex; align-items:center; padding:0 0 0 24px; margin:2px 0; }
+    .arch-conn-line { width:1px; height:20px; background:var(--border); margin-right:12px; flex-shrink:0; }
+    .arch-conn-label { font-size:11px; color:var(--text-3); }
+    .arch-badge { font-size:10px; padding:2px 8px; border-radius:100px; font-weight:500; letter-spacing:0.04em; white-space:nowrap; }
+    .badge-blue-sm  { background:var(--blue-dim); color:var(--blue); border:1px solid rgba(61,142,255,0.2); }
+    .badge-green-sm { background:var(--green-dim); color:var(--green); border:1px solid rgba(14,186,130,0.2); }
+    .badge-muted    { background:rgba(255,255,255,.04); color:var(--text-3); border:1px solid var(--border); }
+
+    /* CTA */
+    .cta-band { padding:96px 0; }
+    .cta-inner { background:linear-gradient(135deg,rgba(61,142,255,0.08) 0%,rgba(139,92,246,0.06) 100%); border:1px solid rgba(61,142,255,0.2); border-radius:20px; padding:64px 48px; text-align:center; }
+    .cta-title { font-size:clamp(30px,4vw,48px); font-weight:400; letter-spacing:-0.03em; color:var(--text); line-height:1.15; margin-bottom:16px; }
+    .cta-sub { font-size:16px; color:var(--text-2); margin-bottom:36px; max-width:480px; margin-left:auto; margin-right:auto; }
+    .cta-actions { display:flex; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap; }
+
+    /* FOOTER */
+    footer { padding:48px 0 36px; border-top:1px solid var(--border); }
+    .footer-inner { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px; }
+    .footer-logo { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text-2); font-size:13px; }
+    .footer-links { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+    .footer-link { font-size:13px; color:var(--text-3); text-decoration:none; transition:color .2s; }
+    .footer-link:hover { color:var(--text-2); }
+    .footer-right { font-size:12px; color:var(--text-3); text-align:right; }
+
+    /* RESPONSIVE */
+    @media (max-width:1040px) { .browser-frame { width:620px; } .phone-frame { width:185px; } }
+    @media (max-width:880px) {
+      .browser-frame { display:none; }
+      .phone-frame { margin-left:0; width:260px; border-radius:42px; }
+      .hero-devices { justify-content:center; }
+      .forwho-grid { grid-template-columns:1fr 1fr; }
+      .steps { grid-template-columns:1fr; } .step-arrow { transform:rotate(90deg); margin:0 auto; }
+      .features-grid { grid-template-columns:1fr 1fr; }
+      .feat:nth-child(4n) { border-right:1px solid var(--border); }
+      .feat:nth-child(2n) { border-right:none; }
+      .feat:nth-child(n+7) { border-bottom:none; }
+      .feat:nth-child(-n+6) { border-bottom:1px solid var(--border); }
+      .paypage-inner { grid-template-columns:1fr; gap:40px; }
+      .arch-inner { grid-template-columns:1fr; gap:40px; }
+      .fees-grid { grid-template-columns:1fr; }
+      .nav-links .nav-link { display:none; }
+    }
+    @media (max-width:600px) {
+      .container { padding:0 20px; } .nav-inner { padding:0 20px; }
+      .hero { padding:100px 0 56px; }
+      .hero h1 { font-size:clamp(34px,9vw,52px); }
+      .hero-sub { font-size:15px; }
+      .hero-actions { flex-direction:column; align-items:center; gap:12px; }
+      .btn-primary, .btn-tg { width:100%; max-width:320px; justify-content:center; }
+      .forwho-grid { grid-template-columns:1fr; }
+      .features-grid { grid-template-columns:1fr; }
+      .feat { border-right:none !important; border-bottom:1px solid var(--border) !important; }
+      .feat:last-child { border-bottom:none !important; }
+      .cta-inner { padding:40px 24px; }
+      .cta-actions { flex-direction:column; align-items:center; }
+      .cta-actions .btn-primary, .cta-actions .btn-ghost { width:100%; max-width:320px; justify-content:center; }
+      .footer-inner { flex-direction:column; align-items:flex-start; gap:20px; }
+      .footer-right { text-align:left; }
+      .nav-btn span { display:none; } .nav-btn { padding:7px 12px; }
+      .forwho, .how, .features, .paypage, .fees, .arch { padding:64px 0; }
     }
 
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background:
-        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(61,142,255,0.11) 0%, transparent 65%),
-        radial-gradient(ellipse 40% 40% at 85% 75%, rgba(139,92,246,0.05) 0%, transparent 60%);
-      pointer-events: none; z-index: 0;
+    /* Chart animation */
+    @keyframes chartDraw {
+      from { stroke-dashoffset: 1200; }
+      to   { stroke-dashoffset: 0; }
     }
-    body::after {
-      content: '';
-      position: fixed; inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
-      background-size: 60px 60px;
-      pointer-events: none; z-index: 0;
+    .chart-path-anim {
+      stroke-dasharray: 1200;
+      stroke-dashoffset: 1200;
     }
-
-    section, footer, nav { position: relative; z-index: 1; }
-    .container { max-width: 1160px; margin: 0 auto; padding: 0 32px; }
-
-    /* ─── SCROLL REVEAL ─────────────────────────────────────────────────────── */
-    .reveal {
+    .chart-path-anim.animated {
+      animation: chartDraw 1.4s cubic-bezier(.4,0,.2,1) forwards;
+    }
+    .chart-fill-anim {
       opacity: 0;
-      transform: translateY(32px);
-      transition: opacity 0.65s cubic-bezier(.22,1,.36,1), transform 0.65s cubic-bezier(.22,1,.36,1);
+      transition: opacity 0.6s ease 0.4s;
     }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
-    .reveal-delay-1 { transition-delay: 0.10s; }
-    .reveal-delay-2 { transition-delay: 0.20s; }
-    .reveal-delay-3 { transition-delay: 0.30s; }
-    .reveal-delay-4 { transition-delay: 0.40s; }
-
-    /* ─── NAV ───────────────────────────────────────────────────────────────── */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      background: var(--bg-nav);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-inner {
-      max-width: 1160px; margin: 0 auto; padding: 0 32px;
-      height: 60px; display: flex; align-items: center; justify-content: space-between;
-    }
-    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
-    .nav-logo-text { font-size: 17px; font-weight: 700; letter-spacing: 0.14em; }
-    .nav-links { display: flex; align-items: center; gap: 4px; }
-    .nav-link {
-      font-size: 13px; font-weight: 500; color: var(--text-2);
-      text-decoration: none; padding: 6px 14px; border-radius: var(--radius-sm);
-      border: 1px solid transparent;
-      transition: color .2s, background .2s, border-color .2s;
-    }
-    .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); border-color: var(--border); }
-    .nav-btn {
-      font-size: 13px; font-weight: 600; color: #fff;
-      text-decoration: none; padding: 7px 18px;
-      border-radius: var(--radius-sm);
-      background: var(--blue); border: 1px solid var(--blue);
-      transition: opacity .2s; display: flex; align-items: center; gap: 7px;
-    }
-    .nav-btn:hover { opacity: .88; }
-
-    /* ─── HERO ──────────────────────────────────────────────────────────────── */
-    .hero { padding: 130px 0 72px; text-align: center; }
-
-    .hero h1 {
-      font-size: clamp(42px, 5.5vw, 70px);
-      font-weight: 400; line-height: 1.1; letter-spacing: -0.035em;
-      color: var(--text); margin-bottom: 22px;
-      max-width: 820px; margin-left: auto; margin-right: auto;
-    }
-    .hero h1 em {
-      font-style: normal;
-      background: linear-gradient(135deg, #60A5FA 0%, #818CF8 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    .hero-sub {
-      font-size: 17px; color: var(--text-2);
-      max-width: 560px; margin: 0 auto 40px; line-height: 1.7;
-    }
-    .hero-actions {
-      display: flex; align-items: center; justify-content: center;
-      gap: 14px; margin-bottom: 72px; flex-wrap: wrap;
-    }
-
-    .btn-primary {
-      display: inline-flex; align-items: center; gap: 9px;
-      font-size: 15px; font-weight: 600; color: #fff;
-      background: var(--blue); padding: 13px 28px;
-      border-radius: var(--radius-sm); text-decoration: none;
-      border: 1px solid var(--blue);
-      transition: opacity .2s, transform .15s;
-      position: relative; overflow: hidden;
-    }
-    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
-    .btn-primary .btn-arrow { transition: transform .25s; }
-    .btn-primary:hover .btn-arrow { transform: translateX(4px); }
-    .btn-tg {
-      display: inline-flex; align-items: center; gap: 9px;
-      font-size: 15px; font-weight: 600; color: var(--text);
-      padding: 13px 28px; border-radius: var(--radius-sm);
-      text-decoration: none; border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      transition: border-color .2s, background .2s, transform .15s;
-    }
-    .btn-tg:hover { border-color: var(--border-h); background: var(--blue-dim); transform: translateY(-1px); }
-    .btn-ghost {
-      display: inline-flex; align-items: center; gap: 7px;
-      font-size: 14px; font-weight: 500; color: var(--text);
-      background: transparent; padding: 11px 22px;
-      border-radius: var(--radius-sm); text-decoration: none;
-      border: 1px solid var(--border);
-      transition: border-color .2s, background .2s, transform .15s;
-    }
-    .btn-ghost:hover { border-color: var(--border-h); background: var(--blue-dim); transform: translateY(-1px); }
-
-    /* ─── HERO DEVICES ──────────────────────────────────────────────────────── */
-    .hero-devices {
-      position: relative; display: flex; align-items: flex-end;
-      justify-content: center; gap: 0; max-width: 1000px; margin: 0 auto;
-      animation: devicesFadeIn 0.9s cubic-bezier(.22,1,.36,1) 0.3s both;
-    }
-    @keyframes devicesFadeIn {
-      from { opacity: 0; transform: translateY(40px) scale(0.97); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
-    /* browser */
-    .browser-frame {
-      width: 720px; flex-shrink: 0;
-      background: #0C0C18;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 14px; overflow: hidden;
-      box-shadow: 0 40px 100px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04);
-    }
-    .browser-bar {
-      height: 38px; background: #101020;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      display: flex; align-items: center; gap: 7px; padding: 0 14px; flex-shrink: 0;
-    }
-    .b-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-    .b-dot-r { background: #FF5F57; }
-    .b-dot-y { background: #FFBD2E; }
-    .b-dot-g { background: #28C840; }
-    .browser-url {
-      flex: 1; max-width: 280px; margin: 0 auto;
-      height: 22px; background: rgba(255,255,255,0.05);
-      border-radius: 5px; display: flex; align-items: center;
-      justify-content: center; gap: 5px;
-      font-size: 11px; color: #4B5563; font-family: var(--mono);
-    }
-    .browser-url-lock { color: var(--green); font-size: 10px; }
-
-    /* dashboard */
-    .dash-inner {
-      display: flex; height: 460px; overflow: hidden;
-    }
-    .dash-sidebar {
-      width: 192px; flex-shrink: 0;
-      background: #090910;
-      border-right: 1px solid rgba(255,255,255,0.05);
-      padding: 18px 0;
-      display: flex; flex-direction: column;
-    }
-    .dash-logo {
-      display: flex; align-items: center; gap: 9px;
-      padding: 0 18px 16px;
-      font-size: 13.5px; font-weight: 700; letter-spacing: 0.12em; color: #fff;
-      border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 10px;
-    }
-    .dash-nav-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 8px 18px; font-size: 12px; color: #4B5563;
-      position: relative; cursor: default;
-    }
-    .dash-nav-item.active {
-      background: rgba(61,142,255,0.09);
-      color: var(--text);
-    }
-    .dash-nav-item.active::after {
-      content: '';
-      position: absolute; right: 0; top: 0; bottom: 0;
-      width: 2px; background: var(--blue); border-radius: 1px 0 0 1px;
-    }
-    .dash-nav-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: currentColor; opacity: 0.5; flex-shrink: 0;
-    }
-    .dash-nav-item.active .dash-nav-dot { background: var(--blue); opacity: 1; }
-
-    .dash-main { flex: 1; padding: 20px 22px; overflow: hidden; background: #0B0B16; display: flex; flex-direction: column; gap: 14px; }
-    .dash-topbar {
-      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
-    }
-    .dash-page-title { font-size: 14px; font-weight: 600; color: var(--text); }
-    .dash-wallet-chip {
-      font-size: 11px; font-weight: 600; color: var(--blue);
-      background: var(--blue-dim); border: 1px solid rgba(61,142,255,0.2);
-      padding: 5px 11px; border-radius: 6px;
-    }
-
-    .dash-metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; flex-shrink: 0; }
-    .dash-metric-card {
-      background: rgba(255,255,255,0.022);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 8px; padding: 12px 14px;
-    }
-    .dash-metric-label { font-size: 9.5px; color: #4B5563; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 5px; }
-    .dash-metric-val { font-size: 19px; font-weight: 700; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
-    .dash-metric-val span { font-size: 11px; font-weight: 500; color: var(--text-2); }
-    .dash-metric-badge {
-      display: inline-flex; align-items: center; gap: 3px;
-      font-size: 9.5px; margin-top: 5px; padding: 2px 6px; border-radius: 4px;
-    }
-    .badge-green { background: var(--green-dim); color: var(--green); }
-    .badge-blue  { background: var(--blue-dim);  color: var(--blue);  }
-
-    /* chart */
-    .dash-chart-wrap { flex-shrink: 0; }
-    .dash-chart-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 7px;
-    }
-    .dash-chart-label { font-size: 9.5px; color: #4B5563; letter-spacing: 0.06em; text-transform: uppercase; }
-    .dash-chart-legend { display: flex; align-items: center; gap: 5px; font-size: 9.5px; color: var(--green); }
-    .dash-chart-legend-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
-    .dash-chart {
-      background: rgba(255,255,255,0.018);
-      border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 6px; padding: 10px 12px 6px;
-      height: 72px; display: flex; align-items: flex-end; gap: 5px;
-      position: relative; overflow: hidden;
-    }
-    .dash-chart::before {
-      content: '';
-      position: absolute; left: 12px; right: 12px;
-      top: 18px; bottom: 22px;
-      border-top: 1px dashed rgba(255,255,255,0.04);
-    }
-    .chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .chart-bar {
-      width: 100%; border-radius: 3px 3px 0 0;
-      background: linear-gradient(to top, rgba(61,142,255,0.55), rgba(61,142,255,0.18));
-      transform-origin: bottom; transform: scaleY(0);
-      transition: transform 0.7s cubic-bezier(.34,1.15,.64,1);
-    }
-    .chart-bar.animated { transform: scaleY(1); }
-    .chart-bar.active-bar {
-      background: linear-gradient(to top, var(--green), rgba(14,186,130,0.25));
-    }
-    .chart-month { font-size: 8px; color: #4B5563; text-align: center; }
-
-    /* table */
-    .dash-table { background: rgba(255,255,255,0.018); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; flex: 1; }
-    .dash-table-head {
-      display: grid; grid-template-columns: 2fr 1.6fr 1fr 1fr;
-      padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 9px; color: #4B5563; letter-spacing: 0.06em; text-transform: uppercase;
-    }
-    .dash-table-row {
-      display: grid; grid-template-columns: 2fr 1.6fr 1fr 1fr;
-      padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
-      font-size: 11px; align-items: center;
-    }
-    .dash-table-row:last-child { border-bottom: none; }
-    .sub-addr { font-family: var(--mono); color: var(--text-2); font-size: 10px; }
-    .sub-plan { color: var(--text); font-size: 11px; }
-    .sub-dots { display: flex; gap: 4px; align-items: center; }
-    .sub-dot  { width: 7px; height: 7px; border-radius: 50%; }
-    .dot-full  { background: var(--green); box-shadow: 0 0 4px rgba(14,186,130,0.5); }
-    .dot-empty { background: rgba(255,255,255,0.1); }
-    .sub-status {
-      font-size: 9.5px; font-weight: 600; padding: 2px 7px;
-      border-radius: 4px; display: inline-block; width: fit-content;
-    }
-    .status-active   { background: var(--green-dim); color: var(--green); }
-    .status-grace    { background: rgba(245,166,35,0.12); color: #F5A623; }
-    .status-trial    { background: var(--blue-dim); color: var(--blue); }
-
-    /* ─── PHONE FRAME ───────────────────────────────────────────────────────── */
-    .phone-frame {
-      width: 218px; flex-shrink: 0;
-      background: #0D0D1C;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 36px; overflow: hidden;
-      box-shadow: 0 40px 80px rgba(0,0,0,0.55);
-      margin-left: -28px; margin-bottom: 14px;
-      position: relative; z-index: 2;
-    }
-    .phone-notch {
-      height: 42px; background: #0F0F1E;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .phone-notch-pill {
-      width: 78px; height: 22px; background: #191930;
-      border-radius: 11px; display: flex; align-items: center;
-      justify-content: center; gap: 8px;
-    }
-    .phone-cam { width: 7px; height: 7px; border-radius: 50%; background: #1C1C30; }
-    .phone-content { background: #07090F; }
-
-    /* phone header */
-    .ph-header {
-      padding: 12px 16px 10px;
-      display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .ph-logo { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: #fff; }
-    .ph-wallet {
-      font-size: 10px; color: #6B7A99;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      padding: 3px 8px; border-radius: 12px;
-    }
-
-    /* phone plans */
-    .ph-plans { padding: 11px 14px 8px; }
-    .ph-section-label {
-      font-size: 9.5px; color: #4B5563; text-transform: uppercase;
-      letter-spacing: 0.12em; margin-bottom: 9px; text-align: center;
-    }
-    .ph-plan-card {
-      background: #0C0F1A;
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 14px; padding: 13px 14px; margin-bottom: 8px;
-      position: relative; overflow: hidden;
-    }
-    .ph-plan-card.featured {
-      background: #0D1526;
-      border-color: rgba(61,142,255,0.28);
-    }
-    .ph-plan-card.featured::before {
-      content: ''; position: absolute; top: -20px; right: -20px;
-      width: 80px; height: 80px;
-      background: radial-gradient(circle, rgba(61,142,255,0.2), transparent 70%);
-      pointer-events: none;
-    }
-    .ph-plan-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; }
-    .ph-plan-name { font-size: 13px; font-weight: 700; color: #fff; }
-    .ph-plan-period { font-size: 10px; color: #6B7A99; margin-bottom: 10px; }
-    .ph-plan-price-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    .ph-plan-price-big { font-size: 20px; font-weight: 800; color: #fff; letter-spacing: -0.03em; line-height: 1; }
-    .ph-plan-price-big span { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.5); margin-left: 2px; }
-    .ph-popular {
-      font-size: 9px; font-weight: 700; color: var(--blue); letter-spacing: 0.04em;
-      background: rgba(61,142,255,0.12); border: 1px solid rgba(61,142,255,0.2);
-      padding: 2px 7px; border-radius: 4px;
-    }
-    .ph-plan-cta-blue {
-      width: 100%; text-align: center;
-      background: linear-gradient(135deg, #3D8EFF, #1F6AE0);
-      color: #fff; font-size: 11.5px; font-weight: 600;
-      padding: 8px; border-radius: 9px; display: block;
-      box-shadow: 0 4px 14px rgba(61,142,255,0.3);
-    }
-    .ph-plan-cta-gray {
-      width: 100%; text-align: center;
-      background: rgba(255,255,255,0.06);
-      color: #6B7A99; font-size: 11.5px; font-weight: 600;
-      padding: 8px; border-radius: 9px; display: block;
-    }
-    .ph-tg-bar {
-      height: 50px; background: #0F0F1E;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      display: flex; align-items: center; justify-content: space-around; padding: 0 20px;
-    }
-    .ph-tg-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; }
-    .ph-tg-line { width: 18px; height: 2px; background: rgba(255,255,255,0.14); border-radius: 1px; }
-    .ph-tg-line.active { background: var(--blue); }
-
-    /* ─── DIVIDER ───────────────────────────────────────────────────────────── */
-    .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 0 32px; }
-
-    /* ─── SECTION COMMON ────────────────────────────────────────────────────── */
-    .section-label {
-      display: inline-flex; align-items: center; gap: 10px;
-      font-size: 11px; font-weight: 500; letter-spacing: 0.3em;
-      text-transform: uppercase; color: var(--blue); margin-bottom: 18px;
-    }
-    .section-label::before {
-      content: ''; display: inline-block;
-      width: 20px; height: 1px; background: var(--blue); opacity: 0.7; flex-shrink: 0;
-    }
-    .section-title {
-      font-size: clamp(28px, 3.5vw, 42px); font-weight: 500;
-      letter-spacing: -0.03em; color: var(--text); line-height: 1.15; margin-bottom: 14px;
-    }
-    .section-sub { font-size: 16px; color: var(--text-2); max-width: 520px; line-height: 1.65; }
-
-    /* ─── FOR WHO ───────────────────────────────────────────────────────────── */
-    .forwho { padding: 96px 0; }
-    .forwho-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-top: 48px; }
-    .who-card {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 28px 24px;
-      transition: border-color .2s, background .2s;
-    }
-    .who-card:hover { border-color: var(--border-h); background: var(--bg-card-h); }
-    .who-emoji { font-size: 28px; margin-bottom: 14px; line-height: 1; }
-    .who-card h3 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
-    .who-card p  { font-size: 13px; color: var(--text-2); line-height: 1.6; }
-
-    /* ─── HOW IT WORKS ──────────────────────────────────────────────────────── */
-    .how { padding: 96px 0; }
-    .steps {
-      display: grid; grid-template-columns: 1fr auto 1fr auto 1fr;
-      align-items: start; gap: 0; margin-top: 56px;
-    }
-    .step { text-align: center; padding: 0 16px; }
-    .step-num {
-      width: 44px; height: 44px; border-radius: 50%;
-      background: var(--blue-dim); border: 1px solid rgba(61,142,255,0.25);
-      color: var(--blue); font-size: 13px; font-weight: 600;
-      display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
-    }
-    .step h3 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
-    .step p   { font-size: 14px; color: var(--text-2); line-height: 1.6; }
-    .step-arrow { color: var(--text-3); padding-top: 14px; font-size: 20px; }
-
-    /* ─── FEATURES ──────────────────────────────────────────────────────────── */
-    .features { padding: 96px 0; }
-    .features-grid {
-      display: grid; grid-template-columns: repeat(4,1fr);
-      gap: 1px; border: 1px solid var(--border);
-      border-radius: var(--radius); overflow: hidden; margin-top: 48px;
-    }
-    .feat {
-      padding: 28px 24px; background: var(--bg-card);
-      transition: background .2s;
-      border-right: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
-    .feat:hover { background: var(--bg-card-h); }
-    .feat:nth-child(4n)  { border-right: none; }
-    .feat:nth-child(n+5) { border-bottom: none; }
-    .feat-icon {
-      width: 36px; height: 36px; border-radius: var(--radius-sm);
-      background: var(--blue-dim); display: flex; align-items: center;
-      justify-content: center; margin-bottom: 14px;
-    }
-    .feat-icon svg { width: 18px; height: 18px; }
-    .feat h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
-    .feat p  { font-size: 13px; color: var(--text-2); line-height: 1.6; }
-
-    /* ─── PAYMENT PAGE SECTION ──────────────────────────────────────────────── */
-    .paypage { padding: 96px 0; }
-    .paypage-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 72px; align-items: center; }
-
-    /* subscribe page mockup */
-    .subscribe-mockup {
-      background: #07090F;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 20px; overflow: hidden;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
-      font-family: var(--font);
-    }
-    .sub-mock-header {
-      padding: 14px 18px 11px;
-      display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .sub-mock-logo { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: #fff; }
-    .sub-mock-wallet {
-      font-size: 10px; color: #6B7A99;
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-      padding: 3px 8px; border-radius: 12px;
-    }
-    .sub-mock-body { padding: 16px 18px 18px; }
-
-    /* back btn */
-    .sub-mock-back {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 10px; padding: 7px 13px; font-size: 11.5px;
-      color: #6B7A99; margin-bottom: 14px;
-    }
-
-    /* hero card */
-    .sub-mock-hero {
-      position: relative;
-      background: linear-gradient(135deg, #0d1526 0%, #111a35 50%, #0a1020 100%);
-      border: 1px solid rgba(61,142,255,0.20);
-      border-radius: 16px; padding: 18px 18px 16px;
-      margin-bottom: 10px; overflow: hidden;
-    }
-    .sub-mock-hero::before {
-      content: ''; position: absolute; top: -30px; right: -20px;
-      width: 120px; height: 120px;
-      background: radial-gradient(circle, rgba(61,142,255,0.2), transparent 70%);
-    }
-    .sub-mock-hero::after {
-      content: ''; position: absolute; bottom: -30px; left: -10px;
-      width: 90px; height: 90px;
-      background: radial-gradient(circle, rgba(124,92,252,0.12), transparent 70%);
-    }
-    .sub-mock-service-dot {
-      display: flex; align-items: center; gap: 5px; margin-bottom: 7px;
-    }
-    .sub-mock-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px var(--green); }
-    .sub-mock-service-name { font-size: 10.5px; color: #6B7A99; font-weight: 500; }
-    .sub-mock-plan-name { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; color: #fff; margin-bottom: 12px; }
-    .sub-mock-price-row { display: flex; align-items: flex-start; gap: 3px; margin-bottom: 4px; }
-    .sub-mock-price-big { font-size: 34px; font-weight: 900; letter-spacing: -0.05em; color: #fff; line-height: 1; }
-    .sub-mock-price-cur { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.45); margin-top: 6px; }
-    .sub-mock-price-period { font-size: 11px; color: rgba(255,255,255,0.4); font-weight: 500; }
-    .sub-mock-trial {
-      display: inline-flex; align-items: center; gap: 5px;
-      background: rgba(14,186,130,0.12); border: 1px solid rgba(14,186,130,0.22);
-      border-radius: 8px; padding: 5px 10px;
-      font-size: 10.5px; color: var(--green); font-weight: 600; margin-top: 10px;
-    }
-
-    /* info card */
-    .sub-mock-info {
-      background: #0C0F1A; border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 12px; overflow: hidden; margin-bottom: 12px;
-    }
-    .sub-mock-info-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 9px 14px; font-size: 11.5px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    .sub-mock-info-row:last-child { border-bottom: none; }
-    .sub-mock-info-label { color: #6B7A99; }
-    .sub-mock-info-value { font-weight: 600; color: var(--text); }
-    .sub-mock-info-value.green { color: var(--green); }
-
-    /* cta btn */
-    .sub-mock-cta {
-      background: linear-gradient(135deg, #3D8EFF 0%, #1F6AE0 100%);
-      color: #fff; font-size: 13px; font-weight: 700;
-      padding: 13px; border-radius: 13px; text-align: center;
-      box-shadow: 0 4px 18px rgba(61,142,255,0.32);
-    }
-
-    /* ─── FEES ──────────────────────────────────────────────────────────────── */
-    .fees { padding: 96px 0; }
-    .fees-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 48px; }
-    .fee-card {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 32px;
-      transition: border-color .2s;
-    }
-    .fee-card:hover { border-color: var(--border-h); }
-    .fee-pct { font-size: 48px; font-weight: 300; letter-spacing: -0.04em; line-height: 1; margin-bottom: 8px; }
-    .fee-pct-blue { color: var(--blue); }
-    .fee-pct-gray { color: var(--text-2); }
-    .fee-label  { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
-    .fee-desc   { font-size: 13px; color: var(--text-2); line-height: 1.6; }
-    .fee-example {
-      margin-top: 48px; background: var(--bg-card);
-      border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
-    }
-    .fee-example-header {
-      padding: 14px 24px; border-bottom: 1px solid var(--border);
-      font-size: 12px; font-weight: 500; color: var(--text-2);
-      letter-spacing: 0.04em; text-transform: uppercase;
-    }
-    .fee-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 13px 24px; border-bottom: 1px solid var(--border); font-size: 14px;
-    }
-    .fee-row:last-child { border-bottom: none; }
-    .fee-row-label { color: var(--text-2); }
-    .fee-row-value { color: var(--text); font-weight: 500; font-family: var(--mono); font-size: 13px; }
-    .fee-row-value.green { color: var(--green); }
-    .fee-row-value.red   { color: #F87171; }
-    .fee-row.total { background: rgba(255,255,255,0.02); }
-    .fee-row.total .fee-row-label { color: var(--text); font-weight: 600; }
-    .fee-row.total .fee-row-value { font-size: 15px; }
-
-    /* ─── ARCHITECTURE ──────────────────────────────────────────────────────── */
-    .arch { padding: 96px 0; }
-    .arch-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
-    .arch-diagram {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 32px 28px; font-family: var(--mono);
-    }
-    .arch-node {
-      padding: 12px 16px; border-radius: var(--radius-sm);
-      border: 1px solid var(--border); margin-bottom: 4px;
-      display: flex; align-items: center; justify-content: space-between;
-      transition: border-color .2s;
-    }
-    .arch-node:hover { border-color: var(--border-h); }
-    .arch-node-name { font-size: 13px; font-weight: 500; color: var(--text); }
-    .arch-node-role { font-size: 11px; color: var(--text-3); margin-top: 1px; }
-    .arch-conn { display: flex; align-items: center; padding: 0 0 0 24px; margin: 2px 0; }
-    .arch-conn-line { width: 1px; height: 20px; background: var(--border); margin-right: 12px; flex-shrink: 0; }
-    .arch-conn-label { font-size: 11px; color: var(--text-3); }
-    .arch-badge {
-      font-size: 10px; padding: 2px 8px; border-radius: 100px;
-      font-weight: 500; letter-spacing: 0.04em; white-space: nowrap;
-    }
-    .badge-blue-sm  { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(61,142,255,0.2); }
-    .badge-green-sm { background: var(--green-dim); color: var(--green); border: 1px solid rgba(14,186,130,0.2); }
-    .badge-muted    { background: rgba(255,255,255,.04); color: var(--text-3); border: 1px solid var(--border); }
-
-    /* ─── CTA BAND ──────────────────────────────────────────────────────────── */
-    .cta-band { padding: 96px 0; }
-    .cta-inner {
-      background: linear-gradient(135deg, rgba(61,142,255,0.08) 0%, rgba(139,92,246,0.06) 100%);
-      border: 1px solid rgba(61,142,255,0.2);
-      border-radius: 20px; padding: 64px 48px; text-align: center;
-    }
-    .cta-title {
-      font-size: clamp(30px, 4vw, 48px); font-weight: 400;
-      letter-spacing: -0.03em; color: var(--text); line-height: 1.15; margin-bottom: 16px;
-    }
-    .cta-sub { font-size: 16px; color: var(--text-2); margin-bottom: 36px; max-width: 480px; margin-left: auto; margin-right: auto; }
-    .cta-actions { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
-
-    /* ─── FOOTER ────────────────────────────────────────────────────────────── */
-    footer { padding: 48px 0 36px; border-top: 1px solid var(--border); }
-    .footer-inner {
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 20px;
-    }
-    .footer-logo {
-      display: flex; align-items: center; gap: 10px;
-      text-decoration: none; color: var(--text-2); font-size: 13px;
-    }
-    .footer-links { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-    .footer-link {
-      font-size: 13px; color: var(--text-3); text-decoration: none;
-      transition: color .2s;
-    }
-    .footer-link:hover { color: var(--text-2); }
-    .footer-right { font-size: 12px; color: var(--text-3); text-align: right; }
-
-    /* ─── RESPONSIVE ────────────────────────────────────────────────────────── */
-    @media (max-width: 1000px) {
-      .browser-frame { width: 560px; }
-      .phone-frame   { width: 185px; }
-      .ph-plan-price-big { font-size: 17px; }
-    }
-    @media (max-width: 860px) {
-      .browser-frame { display: none; }
-      .phone-frame   { margin-left: 0; width: 260px; border-radius: 42px; }
-      .hero-devices  { justify-content: center; }
-      .forwho-grid   { grid-template-columns: 1fr 1fr; }
-      .steps         { grid-template-columns: 1fr; }
-      .step-arrow    { transform: rotate(90deg); margin: 0 auto; }
-      .features-grid { grid-template-columns: 1fr 1fr; }
-      .feat:nth-child(4n)  { border-right: 1px solid var(--border); }
-      .feat:nth-child(2n)  { border-right: none; }
-      .feat:nth-child(n+7) { border-bottom: none; }
-      .feat:nth-child(-n+6){ border-bottom: 1px solid var(--border); }
-      .paypage-inner { grid-template-columns: 1fr; gap: 40px; }
-      .arch-inner    { grid-template-columns: 1fr; gap: 40px; }
-      .fees-grid     { grid-template-columns: 1fr; }
-      .nav-links .nav-link { display: none; }
-      .ph-plan-price-big { font-size: 22px; }
-      .ph-plan-name { font-size: 15px; }
-      .ph-plan-period { font-size: 12px; }
-    }
-    @media (max-width: 600px) {
-      .container   { padding: 0 20px; }
-      .nav-inner   { padding: 0 20px; }
-      .hero        { padding: 100px 0 56px; }
-      .hero h1     { font-size: clamp(34px, 9vw, 52px); }
-      .hero-sub    { font-size: 15px; }
-      .hero-actions { flex-direction: column; align-items: center; gap: 12px; }
-      .btn-primary, .btn-tg { width: 100%; max-width: 320px; justify-content: center; }
-      .forwho-grid { grid-template-columns: 1fr; }
-      .features-grid { grid-template-columns: 1fr; }
-      .feat { border-right: none !important; border-bottom: 1px solid var(--border) !important; }
-      .feat:last-child { border-bottom: none !important; }
-      .cta-inner { padding: 40px 24px; }
-      .cta-actions { flex-direction: column; align-items: center; }
-      .cta-actions .btn-primary,
-      .cta-actions .btn-ghost { width: 100%; max-width: 320px; justify-content: center; }
-      .footer-inner { flex-direction: column; align-items: flex-start; gap: 20px; }
-      .footer-right { text-align: left; }
-      .nav-btn span { display: none; }
-      .nav-btn { padding: 7px 12px; }
-      .phone-frame { width: 240px; border-radius: 38px; }
-      .ph-plan-price-big { font-size: 20px; }
-      .forwho { padding: 64px 0; }
-      .how    { padding: 64px 0; }
-      .features { padding: 64px 0; }
-      .paypage  { padding: 64px 0; }
-      .fees     { padding: 64px 0; }
-      .arch     { padding: 64px 0; }
-    }
+    .chart-fill-anim.animated { opacity: 1; }
   </style>
 </head>
 <body>
 
-  <!-- ── NAV ─────────────────────────────────────────────────────────────── -->
-  <nav>
-    <div class="nav-inner">
-      <a href="#" class="nav-logo">
-        <svg viewBox="0 0 80 80" fill="none" width="32" height="32">
-          <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="white" stroke-width="4" stroke-linecap="round"/>
-          <circle cx="56.7" cy="22.1" r="7.5" fill="url(#navG)"/>
-          <defs><radialGradient id="navG" cx="35%" cy="30%" r="65%">
-            <stop offset="0%" stop-color="#93C5FD"/>
-            <stop offset="100%" stop-color="#2563EB"/>
-          </radialGradient></defs>
-        </svg>
-        <span class="nav-logo-text">ORBIT</span>
+<!-- ── NAV ──────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <svg viewBox="0 0 80 80" fill="none" width="32" height="32">
+        <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="white" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="56.7" cy="22.1" r="7.5" fill="url(#navG)"/>
+        <defs><radialGradient id="navG" cx="35%" cy="30%" r="65%"><stop offset="0%" stop-color="#93C5FD"/><stop offset="100%" stop-color="#2563EB"/></radialGradient></defs>
+      </svg>
+      <span class="nav-logo-text">ORBIT</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#fees"     class="nav-link">Pricing</a>
+      <a href="#arch"     class="nav-link">Docs</a>
+      <a href="https://app.orbit-ton.com/" class="nav-btn" target="_blank" rel="noopener">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Open Dashboard</span>
       </a>
-      <div class="nav-links">
-        <a href="#features" class="nav-link">Features</a>
-        <a href="#fees"     class="nav-link">Pricing</a>
-        <a href="#arch"     class="nav-link">Docs</a>
-        <a href="https://app.orbit-ton.com/" class="nav-btn" target="_blank" rel="noopener">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-          <span>Open Dashboard</span>
-        </a>
-      </div>
     </div>
-  </nav>
+  </div>
+</nav>
 
-  <!-- ── HERO ─────────────────────────────────────────────────────────────── -->
-  <section class="hero">
-    <div class="container">
+<!-- ── HERO ──────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="container">
 
-      <h1>Subscription billing<br/>for <em>Telegram &amp; Web3</em></h1>
+    <h1>Subscription billing<br/>for <em>Telegram &amp; Web3</em></h1>
+    <p class="hero-sub">Charge subscribers automatically every period — no banks, no middlemen, no repeated approvals. Manage everything from a dashboard or Telegram Mini App.</p>
 
-      <p class="hero-sub">
-        Charge subscribers automatically every period — no banks, no middlemen, no repeated approvals.
-        Manage everything from a dashboard or Telegram Mini App.
-      </p>
+    <div class="hero-actions">
+      <a href="https://app.orbit-ton.com/" class="btn-primary" target="_blank" rel="noopener">
+        Open Dashboard
+        <svg class="btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+      </a>
+      <a href="https://t.me/orbit_subpay_bot" class="btn-tg" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.7"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.069l-2.04 9.613c-.153.677-.555.843-1.123.524l-3.1-2.285-1.496 1.44c-.165.165-.304.304-.624.304l.223-3.164 5.75-5.195c.25-.223-.054-.346-.388-.123L6.843 14.5l-3.048-.951c-.662-.207-.675-.662.138-.98l11.91-4.59c.55-.2 1.033.134.719.09z"/></svg>
+        Try in Telegram
+      </a>
+    </div>
 
-      <div class="hero-actions">
-        <a href="https://app.orbit-ton.com/" class="btn-primary" target="_blank" rel="noopener">
-          Open Dashboard
-          <svg class="btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 8h10M9 4l4 4-4 4"/>
-          </svg>
-        </a>
-        <a href="https://t.me/orbit_subpay_bot" class="btn-tg" target="_blank" rel="noopener">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.7">
-            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.069l-2.04 9.613c-.153.677-.555.843-1.123.524l-3.1-2.285-1.496 1.44c-.165.165-.304.304-.624.304l.223-3.164 5.75-5.195c.25-.223-.054-.346-.388-.123L6.843 14.5l-3.048-.951c-.662-.207-.675-.662.138-.98l11.91-4.59c.55-.2 1.033.134.719.09z"/>
-          </svg>
-          Try in Telegram
-        </a>
-      </div>
+    <!-- ── DEVICE MOCKUPS ── -->
+    <div class="hero-devices" id="heroDevices">
 
-      <!-- ── Device mockups ── -->
-      <div class="hero-devices" id="heroDevices">
+      <!-- BROWSER / DASHBOARD -->
+      <div class="browser-frame">
+        <div class="browser-bar">
+          <div class="b-dot b-dot-r"></div>
+          <div class="b-dot b-dot-y"></div>
+          <div class="b-dot b-dot-g"></div>
+          <div class="browser-url">
+            <span class="browser-url-lock">🔒</span>
+            app.orbit-ton.com
+          </div>
+        </div>
 
-        <!-- Browser / Dashboard -->
-        <div class="browser-frame">
-          <div class="browser-bar">
-            <div class="b-dot b-dot-r"></div>
-            <div class="b-dot b-dot-y"></div>
-            <div class="b-dot b-dot-g"></div>
-            <div class="browser-url">
-              <span class="browser-url-lock">🔒</span>
-              app.orbit-ton.com
+        <div class="dash-inner">
+          <!-- SIDEBAR -->
+          <div class="dash-sidebar">
+            <div class="dash-sb-logo">
+              <svg viewBox="0 0 80 80" fill="none" width="20" height="20">
+                <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="white" stroke-width="5" stroke-linecap="round"/>
+                <circle cx="56.7" cy="22.1" r="7.5" fill="#3D8EFF"/>
+              </svg>
+              <span class="dash-sb-logo-text">ORBIT</span>
+            </div>
+            <div class="dash-sb-nav-label">Navigation</div>
+            <!-- Dashboard active -->
+            <div class="dash-sb-item active">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              Dashboard
+            </div>
+            <div class="dash-sb-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+              Services
+            </div>
+            <div class="dash-sb-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+              API Keys
+            </div>
+            <div class="dash-sb-divider"></div>
+            <div class="dash-sb-item">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.49c-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+              Docs / SDK
+            </div>
+            <div class="dash-sb-bottom">
+              <div class="dash-sb-addr">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg>
+                UQDHuS…99y4
+              </div>
             </div>
           </div>
-          <div class="dash-inner">
-            <!-- Sidebar -->
-            <div class="dash-sidebar">
-              <div class="dash-logo">
-                <svg viewBox="0 0 80 80" fill="none" width="17" height="17">
-                  <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="white" stroke-width="5" stroke-linecap="round"/>
-                  <circle cx="56.7" cy="22.1" r="7.5" fill="#3D8EFF"/>
-                </svg>
-                ORBIT
-              </div>
-              <div class="dash-nav-item active"><div class="dash-nav-dot"></div>Overview</div>
-              <div class="dash-nav-item"><div class="dash-nav-dot"></div>Subscriptions</div>
-              <div class="dash-nav-item"><div class="dash-nav-dot"></div>Plans</div>
-              <div class="dash-nav-item"><div class="dash-nav-dot"></div>Charges</div>
-              <div class="dash-nav-item"><div class="dash-nav-dot"></div>Webhooks</div>
-              <div class="dash-nav-item"><div class="dash-nav-dot"></div>API Keys</div>
+
+          <!-- MAIN -->
+          <div class="dash-main">
+            <div class="dash-header">
+              <div class="dash-header-title">ORBIT Dashboard</div>
             </div>
-            <!-- Main -->
-            <div class="dash-main">
-              <div class="dash-topbar">
-                <div class="dash-page-title">Overview — My Service</div>
-                <div class="dash-wallet-chip">UQ…4f3a</div>
-              </div>
-              <div class="dash-metrics">
+            <div class="dash-content">
+
+              <!-- Row 1: 5 metric cards -->
+              <div class="dash-metrics-grid">
+                <!-- All-time Revenue -->
                 <div class="dash-metric-card">
-                  <div class="dash-metric-label">MRR</div>
-                  <div class="dash-metric-val">47.2 <span>TON</span></div>
-                  <div class="dash-metric-badge badge-green">↑ 12%</div>
+                  <div class="dash-mc-head">
+                    <div class="dash-mc-icon icon-blue">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="2.2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </div>
+                    <span class="dash-mc-label">All-time Revenue</span>
+                  </div>
+                  <div class="dash-mc-value">214.00<span class="unit"> TON</span></div>
+                  <div class="dash-mc-sub">Net: 210.79 TON (after 1.5% fee)</div>
                 </div>
+                <!-- MRR est -->
                 <div class="dash-metric-card">
-                  <div class="dash-metric-label">Active Subs</div>
-                  <div class="dash-metric-val">18</div>
-                  <div class="dash-metric-badge badge-blue">+3 this week</div>
+                  <div class="dash-mc-head">
+                    <div class="dash-mc-icon icon-green">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#0EBA82" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    </div>
+                    <span class="dash-mc-label">MRR (est.)</span>
+                  </div>
+                  <div class="dash-mc-value">47.20<span class="unit"> TON</span></div>
+                  <div class="dash-mc-sub">Active subs × price × 30d</div>
                 </div>
+                <!-- Period Revenue -->
                 <div class="dash-metric-card">
-                  <div class="dash-metric-label">Revenue</div>
-                  <div class="dash-metric-val">214 <span>TON</span></div>
-                  <div class="dash-metric-badge badge-green">↑ all time</div>
+                  <div class="dash-mc-head">
+                    <div class="dash-mc-icon icon-blue">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="2.2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    </div>
+                    <span class="dash-mc-label">Period Revenue</span>
+                  </div>
+                  <div class="dash-mc-value">38.40<span class="unit"> TON</span></div>
+                  <div class="dash-mc-sub">24 charges · last 30d</div>
+                </div>
+                <!-- Subscribers -->
+                <div class="dash-metric-card">
+                  <div class="dash-mc-head">
+                    <div class="dash-mc-icon icon-green">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#0EBA82" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <span class="dash-mc-label">Subscribers</span>
+                  </div>
+                  <div class="dash-mc-value">18</div>
+                  <div class="dash-mc-badges">
+                    <span class="mc-badge mc-badge-green">15 active</span>
+                    <span class="mc-badge mc-badge-red">2 cancelled</span>
+                  </div>
+                </div>
+                <!-- New Subs 30d -->
+                <div class="dash-metric-card">
+                  <div class="dash-mc-head">
+                    <div class="dash-mc-icon icon-purple">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#7C5CFC" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                    </div>
+                    <span class="dash-mc-label">New Subs (30d)</span>
+                  </div>
+                  <div class="dash-mc-value">6</div>
+                  <div class="dash-mc-badges">
+                    <span class="mc-badge mc-badge-purple">3 trial</span>
+                  </div>
                 </div>
               </div>
-              <!-- Chart -->
-              <div class="dash-chart-wrap">
-                <div class="dash-chart-header">
-                  <div class="dash-chart-label">Monthly Revenue</div>
-                  <div class="dash-chart-legend"><div class="dash-chart-legend-dot"></div>TON</div>
+
+              <!-- Row 2: churn + chart placeholder top row -->
+              <div class="dash-metrics-row2">
+                <div class="dash-churn-card">
+                  <div class="dash-mc-head">
+                    <div class="dash-mc-icon icon-red">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+                    </div>
+                    <span class="dash-mc-label">Churn Rate</span>
+                  </div>
+                  <div class="dash-mc-value">2.40<span class="unit">%</span></div>
+                  <div class="dash-mc-sub">2 cancelled of 83</div>
                 </div>
-                <div class="dash-chart" id="dashChart">
-                  <div class="chart-bar-wrap"><div class="chart-bar" id="cb0" style="height:38px;--h:38px" data-delay="0"></div><div class="chart-month">Jan</div></div>
-                  <div class="chart-bar-wrap"><div class="chart-bar" id="cb1" style="height:44px;--h:44px" data-delay="80"></div><div class="chart-month">Feb</div></div>
-                  <div class="chart-bar-wrap"><div class="chart-bar" id="cb2" style="height:32px;--h:32px" data-delay="160"></div><div class="chart-month">Mar</div></div>
-                  <div class="chart-bar-wrap"><div class="chart-bar" id="cb3" style="height:40px;--h:40px" data-delay="240"></div><div class="chart-month">Apr</div></div>
-                  <div class="chart-bar-wrap"><div class="chart-bar" id="cb4" style="height:48px;--h:48px" data-delay="320"></div><div class="chart-month">May</div></div>
-                  <div class="chart-bar-wrap"><div class="chart-bar active-bar" id="cb5" style="height:52px;--h:52px" data-delay="400"></div><div class="chart-month">Jun</div></div>
+                <!-- blank filler so grid lines up -->
+                <div></div>
+              </div>
+
+              <!-- Analytics chart -->
+              <div class="dash-chart-section">
+                <div class="dash-chart-head">
+                  <div class="dash-chart-title">Analytics — last 30 days</div>
+                  <div class="dash-chart-controls">
+                    <div class="dash-legend">
+                      <div class="dash-legend-item"><div class="dash-legend-dot" style="background:#00E5CC"></div>Revenue (TON)</div>
+                      <div class="dash-legend-item"><div class="dash-legend-dot" style="background:#7C5CFC"></div>Charges</div>
+                      <div class="dash-legend-item"><div class="dash-legend-dot" style="background:#4B5563"></div>New paid subs</div>
+                      <div class="dash-legend-item"><div class="dash-legend-dot" style="background:#A78BFA"></div>New trials</div>
+                    </div>
+                    <div class="dash-period-btns">
+                      <div class="dash-period-btn">7d</div>
+                      <div class="dash-period-btn active">30d</div>
+                      <div class="dash-period-btn">90d</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <!-- Table -->
-              <div class="dash-table">
-                <div class="dash-table-head">
-                  <span>Subscriber</span><span>Plan</span><span>Deposit</span><span>Status</span>
-                </div>
-                <div class="dash-table-row">
-                  <span class="sub-addr">UQBz…3f1a</span>
-                  <span class="sub-plan">Pro · 5 TON/mo</span>
-                  <span class="sub-dots"><span class="sub-dot dot-full"></span><span class="sub-dot dot-full"></span><span class="sub-dot dot-full"></span></span>
-                  <span class="sub-status status-active">Active</span>
-                </div>
-                <div class="dash-table-row">
-                  <span class="sub-addr">UQAn…8c72</span>
-                  <span class="sub-plan">Basic · 2 TON/mo</span>
-                  <span class="sub-dots"><span class="sub-dot dot-full"></span><span class="sub-dot dot-full"></span><span class="sub-dot dot-empty"></span></span>
-                  <span class="sub-status status-trial">Trial</span>
-                </div>
-                <div class="dash-table-row">
-                  <span class="sub-addr">UQDs…1e90</span>
-                  <span class="sub-plan">Pro · 5 TON/mo</span>
-                  <span class="sub-dots"><span class="sub-dot dot-full"></span><span class="sub-dot dot-empty"></span><span class="sub-dot dot-empty"></span></span>
-                  <span class="sub-status status-grace">Grace</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+                <div class="dash-chart-svg-wrap">
+                  <svg id="analyticsSvg" viewBox="0 0 560 115" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <!-- Revenue gradient -->
+                      <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"   stop-color="#00E5CC" stop-opacity="0.35"/>
+                        <stop offset="100%" stop-color="#00E5CC" stop-opacity="0.03"/>
+                      </linearGradient>
+                      <!-- Charges gradient -->
+                      <linearGradient id="chrGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"   stop-color="#7C5CFC" stop-opacity="0.28"/>
+                        <stop offset="100%" stop-color="#7C5CFC" stop-opacity="0.02"/>
+                      </linearGradient>
+                    </defs>
 
-        <!-- Phone / Telegram Mini App -->
-        <div class="phone-frame">
-          <div class="phone-notch">
-            <div class="phone-notch-pill">
-              <div class="phone-cam"></div>
-            </div>
-          </div>
-          <div class="phone-content">
-            <!-- Header -->
-            <div class="ph-header">
-              <div class="ph-logo">ORBIT</div>
-              <div class="ph-wallet">UQ…4f3a</div>
-            </div>
-            <!-- Plans -->
-            <div class="ph-plans">
-              <div class="ph-section-label">Choose a plan</div>
-              <!-- Pro — featured -->
-              <div class="ph-plan-card featured">
-                <div class="ph-plan-head">
-                  <div class="ph-plan-name">Pro</div>
-                  <div class="ph-popular">Popular</div>
-                </div>
-                <div class="ph-plan-period">Monthly · 7 day trial</div>
-                <div class="ph-plan-price-row">
-                  <div class="ph-plan-price-big">5 <span>TON</span></div>
-                </div>
-                <div class="ph-plan-cta-blue">Subscribe →</div>
-              </div>
-              <!-- Basic -->
-              <div class="ph-plan-card">
-                <div class="ph-plan-head">
-                  <div class="ph-plan-name">Basic</div>
-                </div>
-                <div class="ph-plan-period">Monthly · Free trial</div>
-                <div class="ph-plan-price-row">
-                  <div class="ph-plan-price-big" style="color:#94A3B8">2 <span>TON</span></div>
-                </div>
-                <div class="ph-plan-cta-gray">Subscribe</div>
-              </div>
-            </div>
-            <!-- TG bottom nav -->
-            <div class="ph-tg-bar">
-              <div class="ph-tg-icon">
-                <div class="ph-tg-line active"></div>
-                <div class="ph-tg-line active" style="width:12px"></div>
-                <div class="ph-tg-line active"></div>
-              </div>
-              <div class="ph-tg-icon">
-                <div class="ph-tg-line"></div>
-                <div class="ph-tg-line" style="width:12px"></div>
-              </div>
-              <div class="ph-tg-icon">
-                <div class="ph-tg-line"></div>
-                <div class="ph-tg-line"></div>
-              </div>
-            </div>
-          </div>
-        </div>
+                    <!-- Y-axis grid lines -->
+                    <line x1="40" y1="8"  x2="555" y2="8"  stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+                    <line x1="40" y1="33" x2="555" y2="33" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+                    <line x1="40" y1="58" x2="555" y2="58" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+                    <line x1="40" y1="83" x2="555" y2="83" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
 
-      </div><!-- /.hero-devices -->
-    </div>
-  </section>
+                    <!-- Y-axis labels (left) -->
+                    <text x="35" y="11"  text-anchor="end" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">50</text>
+                    <text x="35" y="36"  text-anchor="end" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">37</text>
+                    <text x="35" y="61"  text-anchor="end" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">24</text>
+                    <text x="35" y="86"  text-anchor="end" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">12</text>
+                    <text x="35" y="108" text-anchor="end" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">0</text>
 
-  <div class="divider"></div>
+                    <!-- X-axis date labels -->
+                    <text x="55"  y="112" text-anchor="middle" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">05-01</text>
+                    <text x="165" y="112" text-anchor="middle" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">05-08</text>
+                    <text x="275" y="112" text-anchor="middle" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">05-15</text>
+                    <text x="385" y="112" text-anchor="middle" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">05-22</text>
+                    <text x="495" y="112" text-anchor="middle" font-size="7.5" fill="#4B5563" font-family="Inter,sans-serif">05-27</text>
 
-  <!-- ── FOR WHO ───────────────────────────────────────────────────────────── -->
-  <section class="forwho">
-    <div class="container">
-      <div class="section-label reveal">Who it's for</div>
-      <h2 class="section-title reveal reveal-delay-1">Built for any product<br/>on Telegram &amp; TON</h2>
-      <div class="forwho-grid">
-        <div class="who-card reveal reveal-delay-1">
-          <div class="who-emoji">📢</div>
-          <h3>Telegram Channels</h3>
-          <p>Monetise your community with paid access. Subscribers pay in TON — bot grants access automatically on charge.</p>
-        </div>
-        <div class="who-card reveal reveal-delay-2">
-          <div class="who-emoji">🛠</div>
-          <h3>SaaS &amp; Tools</h3>
-          <p>Add a subscription tier to any product. REST API + webhooks integrate into your existing backend in minutes.</p>
-        </div>
-        <div class="who-card reveal reveal-delay-3">
-          <div class="who-emoji">🔐</div>
-          <h3>VPN &amp; Access</h3>
-          <p>Gate any digital service by on-chain subscription status. No payment processors, no chargebacks, no blocks.</p>
-        </div>
-        <div class="who-card reveal reveal-delay-4">
-          <div class="who-emoji">🎮</div>
-          <h3>Games &amp; Content</h3>
-          <p>Season passes, premium content, in-game subscriptions — all on-chain. Works for any TON Mini App.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+                    <!-- Revenue area fill -->
+                    <path id="revFill" class="chart-fill-anim"
+                      d="M 42,102 C 80,95 110,70 160,38 C 210,10 260,7 320,10 C 380,13 430,18 490,22 C 510,23 530,24 555,26 L 555,102 Z"
+                      fill="url(#revGrad)"/>
 
-  <div class="divider"></div>
+                    <!-- Charges area fill -->
+                    <path id="chrFill" class="chart-fill-anim"
+                      d="M 42,102 C 75,96 100,82 150,62 C 200,44 255,38 310,40 C 360,42 410,52 460,66 C 490,74 520,84 555,96 L 555,102 Z"
+                      fill="url(#chrGrad)"/>
 
-  <!-- ── HOW IT WORKS ──────────────────────────────────────────────────────── -->
-  <section class="how">
-    <div class="container">
-      <div class="section-label reveal">How it works</div>
-      <h2 class="section-title reveal reveal-delay-1">Three steps.<br/>Billing runs itself after that.</h2>
-      <div class="steps">
-        <div class="step reveal reveal-delay-1">
-          <div class="step-num">01</div>
-          <h3>Register &amp; configure</h3>
-          <p>Open the Dashboard, connect your TON wallet, register your service. Set subscription plans — price, billing period, free trial duration. One 0.3 TON transaction deploys your Factory on-chain.</p>
-        </div>
-        <div class="step-arrow reveal reveal-delay-2">→</div>
-        <div class="step reveal reveal-delay-2">
-          <div class="step-num">02</div>
-          <h3>Share the payment link</h3>
-          <p>Send subscribers a direct link or Telegram bot button. They choose a plan, connect their wallet, deposit 3 billing periods up front — their own personal smart contract holds the funds.</p>
-        </div>
-        <div class="step-arrow reveal reveal-delay-3">→</div>
-        <div class="step reveal reveal-delay-3">
-          <div class="step-num">03</div>
-          <h3>Collect revenue automatically</h3>
-          <p>Every period, ORBIT charges the subscriber's contract and sends the net amount directly to your wallet. Real-time webhooks, MRR tracking, and full subscriber analytics in the dashboard.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+                    <!-- Revenue line -->
+                    <path id="revLine" class="chart-path-anim"
+                      d="M 42,102 C 80,95 110,70 160,38 C 210,10 260,7 320,10 C 380,13 430,18 490,22 C 510,23 530,24 555,26"
+                      fill="none" stroke="#00E5CC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <div class="divider"></div>
-
-  <!-- ── FEATURES ─────────────────────────────────────────────────────────── -->
-  <section class="features" id="features">
-    <div class="container">
-      <div class="section-label reveal">Features</div>
-      <h2 class="section-title reveal reveal-delay-1">Everything you need<br/>to run subscriptions.</h2>
-      <div class="features-grid reveal reveal-delay-2">
-        <div class="feat">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
-          <h3>Dashboard &amp; Mini App</h3>
-          <p>Full web dashboard at app.orbit-ton.com and a Telegram Mini App — manage services, plans, subscribers, and revenue from any device.</p>
-        </div>
-        <div class="feat">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
-          <h3>TON &amp; USDT billing</h3>
-          <p>Accept native TON or any TEP-74 Jetton token — USDT, USDC, and more. Protocol fee is always collected in TON regardless of payment type.</p>
-        </div>
-        <div class="feat">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
-          <h3>Analytics &amp; MRR</h3>
-          <p>Track monthly recurring revenue, subscriber growth, churn, and per-plan revenue. All data derived directly from on-chain charge events.</p>
-        </div>
-        <div class="feat">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div>
-          <h3>Webhooks &amp; REST API</h3>
-          <p>Get notified on every charge, subscription activation, and cancellation. Full REST API with API key scopes — integrate into any backend.</p>
-        </div>
-        <div class="feat">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
-          <h3>Free trial periods</h3>
-          <p>Per-plan configurable trials. Trial duration and billing period set independently. One trial per subscriber per service — enforced at the smart contract level.</p>
-        </div>
-        <div class="feat">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><path d="M3 12h18M3 6h18M3 18h18"/></svg></div>
-          <h3>Grace period &amp; retry</h3>
-          <p>Low deposit triggers a 3-day grace window — up to 5 charge retries with exponential backoff. Significantly reduces involuntary churn.</p>
-        </div>
-        <div class="feat">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-          <h3>Non-custodial</h3>
-          <p>Each subscriber's deposit lives in their own smart contract. You cannot extract more than the agreed amount. No custody risk on either side.</p>
-        </div>
-        <div class="feat">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
-          <h3>Open protocol</h3>
-          <p>Fully open source, MIT-licensed core. Contracts are immutable after deployment — verifiable bytecode hashes published. No upgrade risk for subscribers.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <div class="divider"></div>
-
-  <!-- ── SUBSCRIBER PAYMENT PAGE ───────────────────────────────────────────── -->
-  <section class="paypage">
-    <div class="container">
-      <div class="paypage-inner">
-
-        <!-- Subscribe page mockup — pixel-perfect SubscribePage.tsx -->
-        <div class="subscribe-mockup reveal">
-          <!-- Header -->
-          <div class="sub-mock-header">
-            <div class="sub-mock-logo">ORBIT</div>
-            <div class="sub-mock-wallet">UQ…4f3a</div>
-          </div>
-          <div class="sub-mock-body">
-            <!-- Back -->
-            <div class="sub-mock-back">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M10 13L5 8L10 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Back
-            </div>
-            <!-- Hero card -->
-            <div class="sub-mock-hero">
-              <div class="sub-mock-service-dot">
-                <div class="sub-mock-dot"></div>
-                <div class="sub-mock-service-name">My Telegram Channel</div>
-              </div>
-              <div class="sub-mock-plan-name">Pro Plan</div>
-              <div class="sub-mock-price-row">
-                <div class="sub-mock-price-big">5</div>
-                <div class="sub-mock-price-cur">TON</div>
-              </div>
-              <div class="sub-mock-price-period">charged every month</div>
-              <div class="sub-mock-trial">✦ Starts with 7 day free trial</div>
-            </div>
-            <!-- Info rows -->
-            <div class="sub-mock-info">
-              <div class="sub-mock-info-row">
-                <span class="sub-mock-info-label">Billing cycle</span>
-                <span class="sub-mock-info-value">Every month</span>
-              </div>
-              <div class="sub-mock-info-row">
-                <span class="sub-mock-info-label">Free trial</span>
-                <span class="sub-mock-info-value green">7 days</span>
-              </div>
-              <div class="sub-mock-info-row">
-                <span class="sub-mock-info-label">Deposit required</span>
-                <div style="text-align:right">
-                  <span class="sub-mock-info-value">15.20 TON</span>
-                  <div style="font-size:9px;color:#4B5563;margin-top:1px">3 × price + gas reserve</div>
+                    <!-- Charges line -->
+                    <path id="chrLine" class="chart-path-anim"
+                      d="M 42,102 C 75,96 100,82 150,62 C 200,44 255,38 310,40 C 360,42 410,52 460,66 C 490,74 520,84 555,96"
+                      fill="none" stroke="#7C5CFC" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
                 </div>
               </div>
-              <div class="sub-mock-info-row">
-                <span class="sub-mock-info-label">Cancel anytime</span>
-                <span class="sub-mock-info-value green">Deposit returned ✓</span>
+
+            </div><!-- /.dash-content -->
+          </div><!-- /.dash-main -->
+        </div><!-- /.dash-inner -->
+      </div><!-- /.browser-frame -->
+
+      <!-- PHONE / TELEGRAM MINI APP -->
+      <div class="phone-frame">
+        <div class="phone-notch">
+          <div class="phone-notch-pill"><div class="phone-cam"></div></div>
+        </div>
+        <div class="phone-content">
+          <div class="ph-header">
+            <div class="ph-logo">ORBIT</div>
+            <div class="ph-wallet">UQ…4f3a</div>
+          </div>
+          <div class="ph-plans">
+            <div class="ph-section-label">Choose a plan</div>
+            <div class="ph-plan-card featured">
+              <div class="ph-plan-head">
+                <div class="ph-plan-name">Pro</div>
+                <div class="ph-popular">Popular</div>
               </div>
-            </div>
-            <!-- CTA -->
-            <div class="sub-mock-cta">Subscribe — 15.20 TON deposit</div>
-          </div>
-        </div>
-
-        <div class="reveal reveal-delay-2">
-          <div class="section-label">Payment page</div>
-          <h2 class="section-title">A subscription page<br/>for your service.</h2>
-          <p class="section-sub" style="margin-bottom:20px">
-            Every service gets a hosted payment page — share the link in Telegram, on your website, or anywhere. Subscribers pick a plan, connect their TON wallet, and pay in one transaction.
-          </p>
-          <p class="section-sub" style="margin-bottom:32px">
-            No redirect. No payment processor. No card data. The page opens inside Telegram as a Mini App or as a standalone web app on desktop.
-          </p>
-          <div style="display:flex;flex-direction:column;gap:12px">
-            <div style="display:flex;align-items:center;gap:12px">
-              <div style="width:28px;height:28px;border-radius:50%;background:var(--green-dim);border:1px solid rgba(14,186,130,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="2,6 4.5,9 10,3"/></svg>
+              <div class="ph-plan-period">Monthly · 7 day trial</div>
+              <div class="ph-plan-price-row">
+                <div class="ph-plan-price-big">5 <span>TON</span></div>
               </div>
-              <span style="font-size:14px;color:var(--text-2)">Works on desktop, mobile &amp; Telegram Mini App</span>
+              <div class="ph-plan-cta-blue">Subscribe →</div>
             </div>
-            <div style="display:flex;align-items:center;gap:12px">
-              <div style="width:28px;height:28px;border-radius:50%;background:var(--green-dim);border:1px solid rgba(14,186,130,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="2,6 4.5,9 10,3"/></svg>
+            <div class="ph-plan-card">
+              <div class="ph-plan-head"><div class="ph-plan-name">Basic</div></div>
+              <div class="ph-plan-period">Monthly · Free trial</div>
+              <div class="ph-plan-price-row">
+                <div class="ph-plan-price-big" style="color:#94A3B8">2 <span>TON</span></div>
               </div>
-              <span style="font-size:14px;color:var(--text-2)">One-click subscribe via TON Connect</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px">
-              <div style="width:28px;height:28px;border-radius:50%;background:var(--green-dim);border:1px solid rgba(14,186,130,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="2,6 4.5,9 10,3"/></svg>
-              </div>
-              <span style="font-size:14px;color:var(--text-2)">Subscribers can top up, cancel, or check status</span>
+              <div class="ph-plan-cta-gray">Subscribe</div>
             </div>
           </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <div class="divider"></div>
-
-  <!-- ── FEES ─────────────────────────────────────────────────────────────── -->
-  <section class="fees" id="fees">
-    <div class="container">
-      <div class="section-label reveal">Pricing</div>
-      <h2 class="section-title reveal reveal-delay-1">One fee. Fixed in bytecode.<br/>No surprises.</h2>
-      <p class="section-sub reveal reveal-delay-2">The protocol takes 1.5% on every charge. That's it. No monthly cost, no seat fees, no setup fee. You keep the rest — sent directly to your wallet on every billing cycle.</p>
-      <div class="fees-grid">
-        <div class="fee-card reveal reveal-delay-1">
-          <div class="fee-pct fee-pct-blue">1.5%</div>
-          <div class="fee-label">Protocol fee — per charge</div>
-          <div class="fee-desc">Hardcoded as <code style="font-size:11px;color:var(--blue);font-family:var(--mono)">PROTOCOL_FEE_BPS = 150</code> in Subscription bytecode. No runtime configuration, no operator action can alter it. Collected in TON even for Jetton subscriptions.</div>
-        </div>
-        <div class="fee-card reveal reveal-delay-2">
-          <div class="fee-pct fee-pct-gray">0%</div>
-          <div class="fee-label">Platform fee — free</div>
-          <div class="fee-desc">Dashboard, REST API, webhooks, and Telegram Mini App are free to use. No subscription to ORBIT, no plan tiers. You only pay the on-chain protocol fee when a subscriber is actually charged.</div>
-        </div>
-      </div>
-      <div class="fee-example reveal reveal-delay-2">
-        <div class="fee-example-header">Example — 10 TON / month plan</div>
-        <div class="fee-row">
-          <span class="fee-row-label">Plan price (subscriber pays)</span>
-          <span class="fee-row-value">10.000 TON</span>
-        </div>
-        <div class="fee-row">
-          <span class="fee-row-label">Protocol fee (1.5%)</span>
-          <span class="fee-row-value red">− 0.150 TON</span>
-        </div>
-        <div class="fee-row total">
-          <span class="fee-row-label">You receive</span>
-          <span class="fee-row-value green">9.850 TON</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <div class="divider"></div>
-
-  <!-- ── ARCHITECTURE ──────────────────────────────────────────────────────── -->
-  <section class="arch" id="arch">
-    <div class="container">
-      <div class="arch-inner">
-        <div class="reveal">
-          <div class="section-label">Architecture</div>
-          <h2 class="section-title">Four contracts.<br/>Fully isolated on-chain.</h2>
-          <p class="section-sub" style="margin-bottom:20px">
-            Registry deploys a Factory per service. Factory deploys a Subscription per subscriber. Each layer has one responsibility — funds are never commingled.
-          </p>
-          <p class="section-sub" style="margin-bottom:28px">
-            Contracts are immutable after deployment. No upgrade key, no admin backdoor. Subscribers can verify the exact bytecode their contract runs against published hashes.
-          </p>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <a href="https://github.com/Skiba111/orbit-ton" class="btn-ghost" target="_blank" rel="noopener" style="font-size:13px">
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-              Source Code
-            </a>
-            <a href="https://github.com/Skiba111/orbit-ton/blob/main/docs/SECURITY.md" class="btn-ghost" target="_blank" rel="noopener" style="font-size:13px">
-              23 Security Properties ↗
-            </a>
-          </div>
-        </div>
-        <div class="arch-diagram reveal reveal-delay-2">
-          <div class="arch-node">
-            <div>
-              <div class="arch-node-name">Registry</div>
-              <div class="arch-node-role">Deployed once by ORBIT</div>
-            </div>
-            <span class="arch-badge badge-blue-sm">one per platform</span>
-          </div>
-          <div class="arch-conn">
-            <div class="arch-conn-line"></div>
-            <span class="arch-conn-label">deploys Factory on register (0.3 TON gas)</span>
-          </div>
-          <div class="arch-node">
-            <div>
-              <div class="arch-node-name">Factory</div>
-              <div class="arch-node-role">Holds plans · routes payments</div>
-            </div>
-            <span class="arch-badge badge-muted">one per service</span>
-          </div>
-          <div class="arch-conn">
-            <div class="arch-conn-line"></div>
-            <span class="arch-conn-label">deploys Subscription on OP_SUBSCRIBE</span>
-          </div>
-          <div class="arch-node">
-            <div>
-              <div class="arch-node-name">Subscription</div>
-              <div class="arch-node-role">Holds subscriber deposit · executes billing</div>
-            </div>
-            <span class="arch-badge badge-green-sm">one per subscriber</span>
-          </div>
-          <div class="arch-conn">
-            <div class="arch-conn-line"></div>
-            <span class="arch-conn-label">on every charge: splits payment →</span>
-          </div>
-          <div style="display:flex;gap:8px;padding:4px 0">
-            <div style="flex:1;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:7px;padding:9px 12px;font-size:11px">
-              <div style="color:var(--text-2);margin-bottom:2px">98.5%</div>
-              <div style="color:var(--text);font-size:10px">→ your wallet</div>
-            </div>
-            <div style="flex:1;background:rgba(61,142,255,0.06);border:1px solid rgba(61,142,255,0.15);border-radius:7px;padding:9px 12px;font-size:11px">
-              <div style="color:var(--blue);margin-bottom:2px">1.5%</div>
-              <div style="color:var(--text-2);font-size:10px">→ ORBIT protocol</div>
-            </div>
+          <div class="ph-tg-bar">
+            <div class="ph-tg-icon"><div class="ph-tg-line active"></div><div class="ph-tg-line active" style="width:12px"></div><div class="ph-tg-line active"></div></div>
+            <div class="ph-tg-icon"><div class="ph-tg-line"></div><div class="ph-tg-line" style="width:12px"></div></div>
+            <div class="ph-tg-icon"><div class="ph-tg-line"></div><div class="ph-tg-line"></div></div>
           </div>
         </div>
       </div>
+
+    </div><!-- /.hero-devices -->
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── FOR WHO ────────────────────────────────────────────────────────────── -->
+<section class="forwho">
+  <div class="container">
+    <div class="section-label reveal">Who it's for</div>
+    <h2 class="section-title reveal reveal-delay-1">Built for any product<br/>on Telegram &amp; TON</h2>
+    <div class="forwho-grid">
+      <div class="who-card reveal reveal-delay-1"><div class="who-emoji">📢</div><h3>Telegram Channels</h3><p>Monetise your community with paid access. Subscribers pay in TON — bot grants access automatically on charge.</p></div>
+      <div class="who-card reveal reveal-delay-2"><div class="who-emoji">🛠</div><h3>SaaS &amp; Tools</h3><p>Add a subscription tier to any product. REST API + webhooks integrate into your existing backend in minutes.</p></div>
+      <div class="who-card reveal reveal-delay-3"><div class="who-emoji">🔐</div><h3>VPN &amp; Access</h3><p>Gate any digital service by on-chain subscription status. No payment processors, no chargebacks, no blocks.</p></div>
+      <div class="who-card reveal reveal-delay-4"><div class="who-emoji">🎮</div><h3>Games &amp; Content</h3><p>Season passes, premium content, in-game subscriptions — all on-chain. Works for any TON Mini App.</p></div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <div class="divider"></div>
+<div class="divider"></div>
 
-  <!-- ── CTA BAND ──────────────────────────────────────────────────────────── -->
-  <section class="cta-band">
-    <div class="container">
-      <div class="cta-inner reveal">
-        <h2 class="cta-title">Start collecting subscriptions<br/>on TON today.</h2>
-        <p class="cta-sub">Open the dashboard, register your service, share the link. First subscriber in under 10 minutes.</p>
-        <div class="cta-actions">
-          <a href="https://app.orbit-ton.com/" class="btn-primary" target="_blank" rel="noopener" style="font-size:15px;padding:14px 32px">
-            Open Dashboard
-            <svg class="btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 8h10M9 4l4 4-4 4"/>
-            </svg>
-          </a>
-          <a href="https://t.me/orbit_subpay_bot" class="btn-ghost" target="_blank" rel="noopener" style="font-size:15px;padding:14px 28px">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.7">
-              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.069l-2.04 9.613c-.153.677-.555.843-1.123.524l-3.1-2.285-1.496 1.44c-.165.165-.304.304-.624.304l.223-3.164 5.75-5.195c.25-.223-.054-.346-.388-.123L6.843 14.5l-3.048-.951c-.662-.207-.675-.662.138-.98l11.91-4.59c.55-.2 1.033.134.719.09z"/>
-            </svg>
-            @orbit_subpay_bot
-          </a>
-          <a href="https://github.com/Skiba111/orbit-ton" class="btn-ghost" target="_blank" rel="noopener" style="font-size:14px;padding:14px 24px;color:var(--text-2)">
-            GitHub ↗
-          </a>
+<!-- ── HOW IT WORKS ───────────────────────────────────────────────────────── -->
+<section class="how">
+  <div class="container">
+    <div class="section-label reveal">How it works</div>
+    <h2 class="section-title reveal reveal-delay-1">Three steps.<br/>Billing runs itself after that.</h2>
+    <div class="steps">
+      <div class="step reveal reveal-delay-1">
+        <div class="step-num">01</div>
+        <h3>Register &amp; configure</h3>
+        <p>Open the Dashboard, connect your TON wallet, register your service. Set subscription plans — price, billing period, free trial duration. One 0.3 TON transaction deploys your Factory on-chain.</p>
+      </div>
+      <div class="step-arrow reveal reveal-delay-2">→</div>
+      <div class="step reveal reveal-delay-2">
+        <div class="step-num">02</div>
+        <h3>Share the payment link</h3>
+        <p>Send subscribers a direct link or Telegram bot button. They choose a plan, connect their wallet, deposit 3 billing periods up front — their own personal smart contract holds the funds.</p>
+      </div>
+      <div class="step-arrow reveal reveal-delay-3">→</div>
+      <div class="step reveal reveal-delay-3">
+        <div class="step-num">03</div>
+        <h3>Collect revenue automatically</h3>
+        <p>Every period, ORBIT charges the subscriber's contract and sends the net amount directly to your wallet. Real-time webhooks, MRR tracking, and full subscriber analytics in the dashboard.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── FEATURES ──────────────────────────────────────────────────────────── -->
+<section class="features" id="features">
+  <div class="container">
+    <div class="section-label reveal">Features</div>
+    <h2 class="section-title reveal reveal-delay-1">Everything you need<br/>to run subscriptions.</h2>
+    <div class="features-grid reveal reveal-delay-2">
+      <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div><h3>Dashboard &amp; Mini App</h3><p>Full web dashboard at app.orbit-ton.com and a Telegram Mini App — manage services, plans, subscribers, and revenue from any device.</p></div>
+      <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><h3>TON &amp; USDT billing</h3><p>Accept native TON or any TEP-74 Jetton token — USDT, USDC, and more. Protocol fee is always collected in TON regardless of payment type.</p></div>
+      <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><h3>Analytics &amp; MRR</h3><p>Track monthly recurring revenue, subscriber growth, churn, and per-plan revenue. All data derived directly from on-chain charge events.</p></div>
+      <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div><h3>Webhooks &amp; REST API</h3><p>Get notified on every charge, subscription activation, and cancellation. Full REST API with API key scopes — integrate into any backend.</p></div>
+      <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><h3>Free trial periods</h3><p>Per-plan configurable trials. Trial duration and billing period set independently. One trial per subscriber per service — enforced at the smart contract level.</p></div>
+      <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><path d="M3 12h18M3 6h18M3 18h18"/></svg></div><h3>Grace period &amp; retry</h3><p>Low deposit triggers a 3-day grace window — up to 5 charge retries with exponential backoff. Significantly reduces involuntary churn.</p></div>
+      <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Non-custodial</h3><p>Each subscriber's deposit lives in their own smart contract. You cannot extract more than the agreed amount. No custody risk on either side.</p></div>
+      <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div><h3>Open protocol</h3><p>Fully open source, MIT-licensed core. Contracts are immutable after deployment — verifiable bytecode hashes published. No upgrade risk for subscribers.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── PAYMENT PAGE ───────────────────────────────────────────────────────── -->
+<section class="paypage">
+  <div class="container">
+    <div class="paypage-inner">
+      <div class="subscribe-mockup reveal">
+        <div class="sub-mock-header">
+          <div class="sub-mock-logo">ORBIT</div>
+          <div class="sub-mock-wallet">UQ…4f3a</div>
+        </div>
+        <div class="sub-mock-body">
+          <div class="sub-mock-back">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M10 13L5 8L10 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Back
+          </div>
+          <div class="sub-mock-hero">
+            <div class="sub-mock-service-dot"><div class="sub-mock-dot"></div><div class="sub-mock-service-name">My Telegram Channel</div></div>
+            <div class="sub-mock-plan-name">Pro Plan</div>
+            <div class="sub-mock-price-row">
+              <div class="sub-mock-price-big">5</div>
+              <div class="sub-mock-price-cur">TON</div>
+            </div>
+            <div class="sub-mock-price-period">charged every month</div>
+            <div class="sub-mock-trial">✦ Starts with 7 day free trial</div>
+          </div>
+          <div class="sub-mock-info">
+            <div class="sub-mock-info-row"><span class="sub-mock-info-label">Billing cycle</span><span class="sub-mock-info-value">Every month</span></div>
+            <div class="sub-mock-info-row"><span class="sub-mock-info-label">Free trial</span><span class="sub-mock-info-value green">7 days</span></div>
+            <div class="sub-mock-info-row"><span class="sub-mock-info-label">Deposit required</span><div style="text-align:right"><span class="sub-mock-info-value">15.20 TON</span><div style="font-size:9px;color:#4B5563;margin-top:1px">3 × price + gas reserve</div></div></div>
+            <div class="sub-mock-info-row"><span class="sub-mock-info-label">Cancel anytime</span><span class="sub-mock-info-value green">Deposit returned ✓</span></div>
+          </div>
+          <div class="sub-mock-cta">Subscribe — 15.20 TON deposit</div>
+        </div>
+      </div>
+      <div class="reveal reveal-delay-2">
+        <div class="section-label">Payment page</div>
+        <h2 class="section-title">A subscription page<br/>for your service.</h2>
+        <p class="section-sub" style="margin-bottom:20px">Every service gets a hosted payment page — share the link in Telegram, on your website, or anywhere. Subscribers pick a plan, connect their TON wallet, and pay in one transaction.</p>
+        <p class="section-sub" style="margin-bottom:32px">No redirect. No payment processor. No card data. The page opens inside Telegram as a Mini App or as a standalone web app on desktop.</p>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:50%;background:var(--green-dim);border:1px solid rgba(14,186,130,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="2,6 4.5,9 10,3"/></svg></div><span style="font-size:14px;color:var(--text-2)">Works on desktop, mobile &amp; Telegram Mini App</span></div>
+          <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:50%;background:var(--green-dim);border:1px solid rgba(14,186,130,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="2,6 4.5,9 10,3"/></svg></div><span style="font-size:14px;color:var(--text-2)">One-click subscribe via TON Connect</span></div>
+          <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:50%;background:var(--green-dim);border:1px solid rgba(14,186,130,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="2,6 4.5,9 10,3"/></svg></div><span style="font-size:14px;color:var(--text-2)">Subscribers can top up, cancel, or check status</span></div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- ── FOOTER ────────────────────────────────────────────────────────────── -->
-  <footer>
-    <div class="container">
-      <div class="footer-inner">
-        <a href="#" class="footer-logo">
-          <svg viewBox="0 0 80 80" fill="none" width="18" height="18">
-            <path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/>
-            <circle cx="56.7" cy="22.1" r="7" fill="#3D8EFF"/>
-          </svg>
-          ORBIT Protocol · TON
-        </a>
-        <div class="footer-links">
-          <a href="https://app.orbit-ton.com/"    class="footer-link" target="_blank" rel="noopener">Dashboard</a>
-          <a href="https://t.me/orbit_subpay_bot" class="footer-link" target="_blank" rel="noopener">Telegram Bot</a>
-          <a href="https://github.com/Skiba111/orbit-ton" class="footer-link" target="_blank" rel="noopener">GitHub</a>
+<div class="divider"></div>
+
+<!-- ── FEES ───────────────────────────────────────────────────────────────── -->
+<section class="fees" id="fees">
+  <div class="container">
+    <div class="section-label reveal">Pricing</div>
+    <h2 class="section-title reveal reveal-delay-1">One fee. Fixed in bytecode.<br/>No surprises.</h2>
+    <p class="section-sub reveal reveal-delay-2">The protocol takes 1.5% on every charge. That's it. No monthly cost, no seat fees, no setup fee. You keep the rest — sent directly to your wallet on every billing cycle.</p>
+    <div class="fees-grid">
+      <div class="fee-card reveal reveal-delay-1"><div class="fee-pct fee-pct-blue">1.5%</div><div class="fee-label">Protocol fee — per charge</div><div class="fee-desc">Hardcoded as <code style="font-size:11px;color:var(--blue);font-family:var(--mono)">PROTOCOL_FEE_BPS = 150</code> in Subscription bytecode. No runtime configuration, no operator action can alter it. Collected in TON even for Jetton subscriptions.</div></div>
+      <div class="fee-card reveal reveal-delay-2"><div class="fee-pct fee-pct-gray">0%</div><div class="fee-label">Platform fee — free</div><div class="fee-desc">Dashboard, REST API, webhooks, and Telegram Mini App are free to use. No subscription to ORBIT, no plan tiers. You only pay the on-chain protocol fee when a subscriber is actually charged.</div></div>
+    </div>
+    <div class="fee-example reveal reveal-delay-2">
+      <div class="fee-example-header">Example — 10 TON / month plan</div>
+      <div class="fee-row"><span class="fee-row-label">Plan price (subscriber pays)</span><span class="fee-row-value">10.000 TON</span></div>
+      <div class="fee-row"><span class="fee-row-label">Protocol fee (1.5%)</span><span class="fee-row-value red">− 0.150 TON</span></div>
+      <div class="fee-row total"><span class="fee-row-label">You receive</span><span class="fee-row-value green">9.850 TON</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── ARCHITECTURE ───────────────────────────────────────────────────────── -->
+<section class="arch" id="arch">
+  <div class="container">
+    <div class="arch-inner">
+      <div class="reveal">
+        <div class="section-label">Architecture</div>
+        <h2 class="section-title">Four contracts.<br/>Fully isolated on-chain.</h2>
+        <p class="section-sub" style="margin-bottom:20px">Registry deploys a Factory per service. Factory deploys a Subscription per subscriber. Each layer has one responsibility — funds are never commingled.</p>
+        <p class="section-sub" style="margin-bottom:28px">Contracts are immutable after deployment. No upgrade key, no admin backdoor. Subscribers can verify the exact bytecode their contract runs against published hashes.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <a href="https://github.com/Skiba111/orbit-ton" class="btn-ghost" target="_blank" rel="noopener" style="font-size:13px"><svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Source Code</a>
+          <a href="https://github.com/Skiba111/orbit-ton/blob/main/docs/SECURITY.md" class="btn-ghost" target="_blank" rel="noopener" style="font-size:13px">23 Security Properties ↗</a>
         </div>
-        <div class="footer-right">
-          1.5% protocol fee on every charge<br/>
-          <span style="opacity:.5">Built on TON Blockchain</span>
+      </div>
+      <div class="arch-diagram reveal reveal-delay-2">
+        <div class="arch-node"><div><div class="arch-node-name">Registry</div><div class="arch-node-role">Deployed once by ORBIT</div></div><span class="arch-badge badge-blue-sm">one per platform</span></div>
+        <div class="arch-conn"><div class="arch-conn-line"></div><span class="arch-conn-label">deploys Factory on register (0.3 TON gas)</span></div>
+        <div class="arch-node"><div><div class="arch-node-name">Factory</div><div class="arch-node-role">Holds plans · routes payments</div></div><span class="arch-badge badge-muted">one per service</span></div>
+        <div class="arch-conn"><div class="arch-conn-line"></div><span class="arch-conn-label">deploys Subscription on OP_SUBSCRIBE</span></div>
+        <div class="arch-node"><div><div class="arch-node-name">Subscription</div><div class="arch-node-role">Holds subscriber deposit · executes billing</div></div><span class="arch-badge badge-green-sm">one per subscriber</span></div>
+        <div class="arch-conn"><div class="arch-conn-line"></div><span class="arch-conn-label">on every charge: splits payment →</span></div>
+        <div style="display:flex;gap:8px;padding:4px 0">
+          <div style="flex:1;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:7px;padding:9px 12px;font-size:11px"><div style="color:var(--text-2);margin-bottom:2px">98.5%</div><div style="color:var(--text);font-size:10px">→ your wallet</div></div>
+          <div style="flex:1;background:rgba(61,142,255,0.06);border:1px solid rgba(61,142,255,0.15);border-radius:7px;padding:9px 12px;font-size:11px"><div style="color:var(--blue);margin-bottom:2px">1.5%</div><div style="color:var(--text-2);font-size:10px">→ ORBIT protocol</div></div>
         </div>
       </div>
     </div>
-  </footer>
+  </div>
+</section>
 
-  <script>
-    // ── Scroll reveal ──────────────────────────────────────────────────────────
-    const revealEls = document.querySelectorAll('.reveal');
-    const revealObs = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.classList.add('visible');
-          revealObs.unobserve(e.target);
-        }
-      });
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-    revealEls.forEach(el => revealObs.observe(el));
+<div class="divider"></div>
 
-    // ── Chart animation ────────────────────────────────────────────────────────
-    // Trigger chart bars shortly after page loads (they're in the hero — visible immediately)
-    function animateChart() {
-      const bars = document.querySelectorAll('.chart-bar');
-      bars.forEach((bar, i) => {
-        setTimeout(() => bar.classList.add('animated'), 600 + i * 90);
-      });
-    }
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', animateChart);
-    } else {
-      animateChart();
-    }
-  </script>
+<!-- ── CTA ────────────────────────────────────────────────────────────────── -->
+<section class="cta-band">
+  <div class="container">
+    <div class="cta-inner reveal">
+      <h2 class="cta-title">Start collecting subscriptions<br/>on TON today.</h2>
+      <p class="cta-sub">Open the dashboard, register your service, share the link. First subscriber in under 10 minutes.</p>
+      <div class="cta-actions">
+        <a href="https://app.orbit-ton.com/" class="btn-primary" target="_blank" rel="noopener" style="font-size:15px;padding:14px 32px">Open Dashboard <svg class="btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+        <a href="https://t.me/orbit_subpay_bot" class="btn-ghost" target="_blank" rel="noopener" style="font-size:15px;padding:14px 28px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" opacity="0.7"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.069l-2.04 9.613c-.153.677-.555.843-1.123.524l-3.1-2.285-1.496 1.44c-.165.165-.304.304-.624.304l.223-3.164 5.75-5.195c.25-.223-.054-.346-.388-.123L6.843 14.5l-3.048-.951c-.662-.207-.675-.662.138-.98l11.91-4.59c.55-.2 1.033.134.719.09z"/></svg>@orbit_subpay_bot</a>
+        <a href="https://github.com/Skiba111/orbit-ton" class="btn-ghost" target="_blank" rel="noopener" style="font-size:14px;padding:14px 24px;color:var(--text-2)">GitHub ↗</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ──────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <a href="#" class="footer-logo">
+        <svg viewBox="0 0 80 80" fill="none" width="18" height="18"><path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/><circle cx="56.7" cy="22.1" r="7" fill="#3D8EFF"/></svg>
+        ORBIT Protocol · TON
+      </a>
+      <div class="footer-links">
+        <a href="https://app.orbit-ton.com/"    class="footer-link" target="_blank" rel="noopener">Dashboard</a>
+        <a href="https://t.me/orbit_subpay_bot" class="footer-link" target="_blank" rel="noopener">Telegram Bot</a>
+        <a href="https://github.com/Skiba111/orbit-ton" class="footer-link" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="footer-right">1.5% protocol fee on every charge<br/><span style="opacity:.5">Built on TON Blockchain</span></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Scroll reveal
+  const revealObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); revealObs.unobserve(e.target); } });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+  // Chart animation — trigger shortly after load (chart is in hero, visible immediately)
+  function animateChart() {
+    const paths = document.querySelectorAll('.chart-path-anim, .chart-fill-anim');
+    // Stagger the lines
+    document.getElementById('revFill').style.transitionDelay = '0.3s';
+    document.getElementById('chrFill').style.transitionDelay = '0.5s';
+    document.getElementById('revLine').style.animationDelay  = '0.2s';
+    document.getElementById('chrLine').style.animationDelay  = '0.5s';
+    paths.forEach(p => p.classList.add('animated'));
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', animateChart);
+  } else {
+    setTimeout(animateChart, 400);
+  }
+</script>
 </body>
 </html>

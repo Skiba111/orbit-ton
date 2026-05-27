@@ -1,7 +1,6 @@
 # ORBIT REST API Reference
 
-Base URL: `https://your-backend.com/api/v1`  
-Interactive docs (dev mode): `http://localhost:4000/docs`
+Base URL: `https://api.orbit-ton.com/api/v1`
 
 ---
 

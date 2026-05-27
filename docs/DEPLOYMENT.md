@@ -95,7 +95,7 @@ mnemonicNew(24).then(async m => {
 
 WALLET_MNEMONIC="word1 word2 ... word24"   # wallet that pays for deployment
 FEE_COLLECTOR_PUBKEY="abcdef1234..."        # hex pubkey of the cold fee-collector key
-RELAYER_PUBKEY="52dfadb8..."               # hex pubkey of the relayer key (baked into Registry)
+RELAYER_PUBKEY="<your_relayer_pubkey_hex>" # hex pubkey of the relayer key (baked into Registry)
 TONCENTER_API_KEY="your_key"               # get one at toncenter.com
 NETWORK=testnet                             # testnet | mainnet
 WALLET_VERSION=v5                           # v5 = Tonkeeper/TG Wallet; v4 = older Tonkeeper

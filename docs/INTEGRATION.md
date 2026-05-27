@@ -196,7 +196,7 @@ ORBIT provides **two independent webhook channels**. Use backend webhooks for pr
 Register your endpoint via the Dashboard or API:
 
 ```bash
-curl -X POST https://api.orbit.example/api/v1/services/<serviceId>/webhooks \
+curl -X POST https://api.orbit-ton.com/api/v1/services/<serviceId>/webhooks \
   -H "X-API-Key: orbit_sk_..." \
   -H "Content-Type: application/json" \
   -d '{"url": "https://yourapp.com/orbit/webhook", "events": ["charge.success", "subscription.activated"]}'

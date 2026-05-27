@@ -304,10 +304,16 @@
 
     /* RESPONSIVE */
     @media (max-width:1040px) { .browser-frame { width:620px; } .phone-frame { width:185px; } }
+
+    /* browser-frame-outer wraps the 790px frame for mobile scaling */
+    .browser-frame-outer { flex-shrink:0; }
     @media (max-width:880px) {
-      .browser-frame { display:none; }
-      .phone-frame { margin-left:0; width:260px; border-radius:42px; }
-      .hero-devices { justify-content:center; }
+      /* Keep browser-frame visible but scaled via JS */
+      .browser-frame { width:790px; display:block !important; }
+      .browser-frame-outer { overflow:hidden; flex-shrink:0; }
+      /* Hide phone on mobile — dashboard is the star */
+      .phone-frame { display:none !important; }
+      .hero-devices { justify-content:flex-start; overflow:hidden; padding:0; }
       .forwho-grid { grid-template-columns:1fr 1fr; }
       .steps { grid-template-columns:1fr; } .step-arrow { transform:rotate(90deg); margin:0 auto; }
       .features-grid { grid-template-columns:1fr 1fr; }
@@ -560,6 +566,7 @@
     <div class="hero-devices" id="heroDevices">
 
       <!-- BROWSER / DASHBOARD -->
+      <div class="browser-frame-outer">
       <div class="browser-frame">
         <div class="browser-bar">
           <div class="b-dot b-dot-r"></div>
@@ -775,6 +782,7 @@
           </div><!-- /.dash-main -->
         </div><!-- /.dash-inner -->
       </div><!-- /.browser-frame -->
+      </div><!-- /.browser-frame-outer -->
 
       <!-- PHONE / TELEGRAM MINI APP — pixel-perfect PlansPage.tsx -->
       <div class="phone-frame">
@@ -1133,6 +1141,30 @@
     const wrap = document.getElementById('howTrackWrap');
     if (wrap) howObs.observe(wrap);
   }
+
+  // Mobile dashboard scaling — scale 790px browser frame to fit narrow viewport
+  function scaleDashboard() {
+    var frame = document.querySelector('.browser-frame');
+    var outer = document.querySelector('.browser-frame-outer');
+    if (!frame || !outer) return;
+    if (window.innerWidth > 880) {
+      // Desktop: reset any inline transforms
+      frame.style.transform = '';
+      frame.style.transformOrigin = '';
+      outer.style.height = '';
+      outer.style.width = '';
+      return;
+    }
+    var padding = window.innerWidth < 600 ? 20 : 32;
+    var scale = (window.innerWidth - padding * 2) / 790;
+    frame.style.transform = 'scale(' + scale + ')';
+    frame.style.transformOrigin = 'top left';
+    // outer height = scaled height of frame (browser-bar≈38px + dash-inner 510px = 548px)
+    outer.style.height = Math.round(548 * scale) + 'px';
+    outer.style.width = '100%';
+  }
+  scaleDashboard();
+  window.addEventListener('resize', scaleDashboard);
 
   // Chart animation — trigger shortly after load (chart is in hero, visible immediately)
   function animateChart() {

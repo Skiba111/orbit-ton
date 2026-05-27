@@ -340,6 +340,160 @@
       .forwho, .how, .features, .paypage, .fees, .arch { padding:64px 0; }
     }
 
+    /* ── WHO IT'S FOR — icons ─────────────────────────────────────────────── */
+    .who-icon { width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;flex-shrink:0; }
+    .who-icon-blue   { background:rgba(61,142,255,0.12);  border:1px solid rgba(61,142,255,0.18); }
+    .who-icon-purple { background:rgba(124,92,252,0.12); border:1px solid rgba(124,92,252,0.18); }
+    .who-icon-green  { background:rgba(14,186,130,0.12);  border:1px solid rgba(14,186,130,0.18); }
+    .who-icon-orange { background:rgba(245,166,35,0.12);  border:1px solid rgba(245,166,35,0.18); }
+    /* remove old emoji style */
+    .who-emoji { display:none; }
+
+    /* ── HOW IT WORKS — premium ──────────────────────────────────────────── */
+    .how { padding:96px 0; overflow:hidden; }
+
+    .how-track-wrap {
+      position:relative;
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:24px;
+      margin-top:64px;
+      padding-top:52px; /* space above cards for the circles+line */
+    }
+
+    /* Track line (bg) */
+    .how-track-bg {
+      position:absolute;
+      top:22px;
+      left:calc(100%/6);
+      right:calc(100%/6);
+      height:1px;
+      background:rgba(255,255,255,0.07);
+      z-index:0;
+    }
+    /* Animated gradient line */
+    .how-track-line {
+      position:absolute;
+      top:22px;
+      left:calc(100%/6);
+      width:0;
+      height:1px;
+      background:linear-gradient(90deg, var(--blue), var(--purple), var(--green));
+      box-shadow:0 0 10px rgba(61,142,255,0.5);
+      z-index:1;
+      transition:width 1.4s cubic-bezier(.22,1,.36,1);
+    }
+    .how-track-line.animated { width:calc(100% - 100%/3); }
+
+    /* Step outer */
+    .how-step { position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; }
+
+    /* Numbered circle at top */
+    .how-step-top {
+      position:absolute;
+      top:-52px;
+      display:flex;
+      justify-content:center;
+      width:100%;
+    }
+    .how-step-circle {
+      width:44px; height:44px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:13px; font-weight:700;
+      position:relative;
+      transition:transform .3s;
+    }
+    .how-step-circle:hover { transform:scale(1.08); }
+    .how-step-circle span { position:relative; z-index:1; }
+    .how-circle-blue   { background:rgba(61,142,255,0.15); border:1px solid rgba(61,142,255,0.35); color:var(--blue); box-shadow:0 0 20px rgba(61,142,255,0.2); }
+    .how-circle-purple { background:rgba(124,92,252,0.15); border:1px solid rgba(124,92,252,0.35); color:#A78BFA;    box-shadow:0 0 20px rgba(124,92,252,0.2); }
+    .how-circle-green  { background:rgba(14,186,130,0.15);  border:1px solid rgba(14,186,130,0.35);  color:var(--green); box-shadow:0 0 20px rgba(14,186,130,0.2); }
+
+    .how-circle-ring {
+      position:absolute; inset:-6px;
+      border-radius:50%;
+      border:1px solid currentColor;
+      opacity:0;
+      transform:scale(0.8);
+      transition:opacity .4s, transform .4s;
+    }
+    .how-step-circle:hover .how-circle-ring { opacity:0.18; transform:scale(1); }
+
+    /* Card */
+    .how-step-card {
+      width:100%;
+      position:relative;
+      background:rgba(255,255,255,0.022);
+      border:1px solid rgba(255,255,255,0.07);
+      border-radius:16px;
+      padding:28px 24px 24px;
+      overflow:hidden;
+      transition:border-color .25s, transform .25s, box-shadow .25s;
+    }
+    .how-step-card:hover {
+      transform:translateY(-4px);
+      box-shadow:0 20px 48px rgba(0,0,0,0.3);
+    }
+
+    /* Colored top border */
+    .how-step-card-top {
+      position:absolute; top:0; left:0; right:0; height:2px; border-radius:2px 2px 0 0;
+    }
+    .how-top-blue   { background:linear-gradient(90deg, var(--blue), transparent); }
+    .how-top-purple { background:linear-gradient(90deg, #7C5CFC, transparent); }
+    .how-top-green  { background:linear-gradient(90deg, var(--green), transparent); }
+
+    /* Step also changes border color on hover */
+    .how-step:hover .how-step-card { border-color:rgba(255,255,255,0.14); }
+
+    /* Watermark number */
+    .how-step-watermark {
+      position:absolute;
+      bottom:-18px; right:14px;
+      font-size:96px; font-weight:900;
+      letter-spacing:-0.05em;
+      color:rgba(255,255,255,0.025);
+      pointer-events:none; user-select:none;
+      line-height:1;
+    }
+
+    /* Icon */
+    .how-step-icon-wrap {
+      width:42px; height:42px; border-radius:12px;
+      display:flex; align-items:center; justify-content:center;
+      margin-bottom:16px;
+    }
+    .how-icon-blue   { background:rgba(61,142,255,0.12); border:1px solid rgba(61,142,255,0.2); }
+    .how-icon-purple { background:rgba(124,92,252,0.12); border:1px solid rgba(124,92,252,0.2); }
+    .how-icon-green  { background:rgba(14,186,130,0.12);  border:1px solid rgba(14,186,130,0.2); }
+
+    .how-step-title {
+      font-size:17px; font-weight:600;
+      color:var(--text); margin-bottom:12px;
+      letter-spacing:-0.02em; line-height:1.25;
+    }
+    .how-step-desc {
+      font-size:14px; color:var(--text-2);
+      line-height:1.65; margin-bottom:18px;
+    }
+    .how-step-tag {
+      display:inline-flex; align-items:center;
+      font-size:11px; font-weight:500;
+      color:var(--text-3);
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:100px; padding:3px 10px;
+    }
+    .how-tag-green { color:var(--green); background:var(--green-dim); border-color:rgba(14,186,130,0.2); }
+
+    /* responsive overrides for new how */
+    @media (max-width:860px) {
+      .how-track-wrap { grid-template-columns:1fr; padding-top:0; gap:48px; }
+      .how-track-bg, .how-track-line { display:none; }
+      .how-step-top { position:relative; top:auto; margin-bottom:16px; }
+      .how-step { align-items:flex-start; }
+    }
+
     /* Chart animation */
     @keyframes chartDraw {
       from { stroke-dashoffset: 1200; }
@@ -412,7 +566,7 @@
           <div class="b-dot b-dot-y"></div>
           <div class="b-dot b-dot-g"></div>
           <div class="browser-url">
-            <span class="browser-url-lock">🔒</span>
+            <svg width="9" height="10" viewBox="0 0 9 10" fill="none" style="flex-shrink:0"><rect x="1" y="4.5" width="7" height="5" rx="1" fill="#0EBA82"/><path d="M2.5 4.5V3a2 2 0 0 1 4 0v1.5" stroke="#0EBA82" stroke-width="1.2" stroke-linecap="round"/></svg>
             app.orbit-ton.com
           </div>
         </div>
@@ -622,43 +776,69 @@
         </div><!-- /.dash-inner -->
       </div><!-- /.browser-frame -->
 
-      <!-- PHONE / TELEGRAM MINI APP -->
+      <!-- PHONE / TELEGRAM MINI APP — pixel-perfect PlansPage.tsx -->
       <div class="phone-frame">
         <div class="phone-notch">
           <div class="phone-notch-pill"><div class="phone-cam"></div></div>
         </div>
-        <div class="phone-content">
-          <div class="ph-header">
-            <div class="ph-logo">ORBIT</div>
-            <div class="ph-wallet">UQ…4f3a</div>
+        <!-- .app-header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 9px;border-bottom:1px solid rgba(255,255,255,0.06);background:#07090F;position:sticky;top:0;">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <svg viewBox="0 0 80 80" fill="none" width="14" height="14"><path d="M 62.5,29.0 A 26,26 0 1,1 48.9,17.6" stroke="white" stroke-width="5" stroke-linecap="round"/><circle cx="56.7" cy="22.1" r="7.5" fill="#2E7FFF"/></svg>
+            <span style="font-size:11px;font-weight:700;letter-spacing:0.2em;color:#fff;font-family:'Inter',sans-serif;">ORBIT</span>
           </div>
-          <div class="ph-plans">
-            <div class="ph-section-label">Choose a plan</div>
-            <div class="ph-plan-card featured">
-              <div class="ph-plan-head">
-                <div class="ph-plan-name">Pro</div>
-                <div class="ph-popular">Popular</div>
-              </div>
-              <div class="ph-plan-period">Monthly · 7 day trial</div>
-              <div class="ph-plan-price-row">
-                <div class="ph-plan-price-big">5 <span>TON</span></div>
-              </div>
-              <div class="ph-plan-cta-blue">Subscribe →</div>
+          <!-- WalletChip -->
+          <div style="display:inline-flex;align-items:center;gap:4px;background:#111527;border:1px solid rgba(255,255,255,0.10);border-radius:20px;padding:3px 9px;font-size:10px;font-weight:500;color:#6B7A99;font-family:'Inter',sans-serif;">
+            <div style="width:5px;height:5px;border-radius:50%;background:#2E7FFF;flex-shrink:0;"></div>
+            UQ…4f3a
+          </div>
+        </div>
+        <!-- .page -->
+        <div style="padding:13px 12px 8px;background:#07090F;">
+          <!-- Service title -->
+          <div style="font-size:14px;font-weight:700;letter-spacing:-0.025em;margin-bottom:13px;color:#E8EDF8;font-family:'Inter',sans-serif;">My Service</div>
+          <!-- Plan card 1: Pro — matches plan card from PlansPage.tsx -->
+          <div style="background:#0C0F1A;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:13px 14px;margin-bottom:8px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-15px;right:-15px;width:70px;height:70px;background:#3D8EFF;border-radius:50%;opacity:0.06;filter:blur(20px);pointer-events:none;"></div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:10px;">
+              <div style="font-weight:700;font-size:12.5px;letter-spacing:-0.01em;color:#E8EDF8;font-family:'Inter',sans-serif;">Pro</div>
+              <div style="background:rgba(14,186,130,0.12);color:#0EBA82;border-radius:20px;padding:2px 7px;font-size:9.5px;font-weight:700;letter-spacing:0.02em;white-space:nowrap;flex-shrink:0;font-family:'Inter',sans-serif;">FREE TRIAL</div>
             </div>
-            <div class="ph-plan-card">
-              <div class="ph-plan-head"><div class="ph-plan-name">Basic</div></div>
-              <div class="ph-plan-period">Monthly · Free trial</div>
-              <div class="ph-plan-price-row">
-                <div class="ph-plan-price-big" style="color:#94A3B8">2 <span>TON</span></div>
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;">
+              <div>
+                <div style="font-size:22px;font-weight:800;letter-spacing:-0.04em;color:#E8EDF8;line-height:1;font-family:'Inter',sans-serif;">5<span style="font-size:13px;font-weight:600;color:#6B7A99;margin-left:2px;">TON</span></div>
+                <div style="font-size:10px;color:#6B7A99;margin-top:3px;font-weight:500;font-family:'Inter',sans-serif;">per month</div>
+                <div style="font-size:10px;color:#0EBA82;margin-top:4px;font-weight:600;font-family:'Inter',sans-serif;">✦ 7 days free, then billed</div>
               </div>
-              <div class="ph-plan-cta-gray">Subscribe</div>
+              <div style="width:28px;height:28px;border-radius:50%;background:rgba(61,142,255,0.18);border:1px solid rgba(61,142,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M6 12L10 8L6 4" stroke="#3D8EFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
             </div>
           </div>
-          <div class="ph-tg-bar">
-            <div class="ph-tg-icon"><div class="ph-tg-line active"></div><div class="ph-tg-line active" style="width:12px"></div><div class="ph-tg-line active"></div></div>
-            <div class="ph-tg-icon"><div class="ph-tg-line"></div><div class="ph-tg-line" style="width:12px"></div></div>
-            <div class="ph-tg-icon"><div class="ph-tg-line"></div><div class="ph-tg-line"></div></div>
+          <!-- Plan card 2: Basic -->
+          <div style="background:#0C0F1A;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:13px 14px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-15px;right:-15px;width:70px;height:70px;background:#3D8EFF;border-radius:50%;opacity:0.06;filter:blur(20px);pointer-events:none;"></div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:10px;">
+              <div style="font-weight:700;font-size:12.5px;letter-spacing:-0.01em;color:#E8EDF8;font-family:'Inter',sans-serif;">Basic</div>
+              <div style="background:rgba(14,186,130,0.12);color:#0EBA82;border-radius:20px;padding:2px 7px;font-size:9.5px;font-weight:700;letter-spacing:0.02em;white-space:nowrap;flex-shrink:0;font-family:'Inter',sans-serif;">FREE TRIAL</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;">
+              <div>
+                <div style="font-size:22px;font-weight:800;letter-spacing:-0.04em;color:#E8EDF8;line-height:1;font-family:'Inter',sans-serif;">2<span style="font-size:13px;font-weight:600;color:#6B7A99;margin-left:2px;">TON</span></div>
+                <div style="font-size:10px;color:#6B7A99;margin-top:3px;font-weight:500;font-family:'Inter',sans-serif;">per month</div>
+                <div style="font-size:10px;color:#0EBA82;margin-top:4px;font-weight:600;font-family:'Inter',sans-serif;">✦ 30 days free, then billed</div>
+              </div>
+              <div style="width:28px;height:28px;border-radius:50%;background:rgba(61,142,255,0.18);border:1px solid rgba(61,142,255,0.30);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M6 12L10 8L6 4" stroke="#3D8EFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
           </div>
+        </div>
+        <!-- TG bottom nav -->
+        <div class="ph-tg-bar">
+          <div class="ph-tg-icon"><div class="ph-tg-line active"></div><div class="ph-tg-line active" style="width:12px"></div><div class="ph-tg-line active"></div></div>
+          <div class="ph-tg-icon"><div class="ph-tg-line"></div><div class="ph-tg-line" style="width:12px"></div></div>
+          <div class="ph-tg-icon"><div class="ph-tg-line"></div><div class="ph-tg-line"></div></div>
         </div>
       </div>
 
@@ -674,10 +854,26 @@
     <div class="section-label reveal">Who it's for</div>
     <h2 class="section-title reveal reveal-delay-1">Built for any product<br/>on Telegram &amp; TON</h2>
     <div class="forwho-grid">
-      <div class="who-card reveal reveal-delay-1"><div class="who-emoji">📢</div><h3>Telegram Channels</h3><p>Monetise your community with paid access. Subscribers pay in TON — bot grants access automatically on charge.</p></div>
-      <div class="who-card reveal reveal-delay-2"><div class="who-emoji">🛠</div><h3>SaaS &amp; Tools</h3><p>Add a subscription tier to any product. REST API + webhooks integrate into your existing backend in minutes.</p></div>
-      <div class="who-card reveal reveal-delay-3"><div class="who-emoji">🔐</div><h3>VPN &amp; Access</h3><p>Gate any digital service by on-chain subscription status. No payment processors, no chargebacks, no blocks.</p></div>
-      <div class="who-card reveal reveal-delay-4"><div class="who-emoji">🎮</div><h3>Games &amp; Content</h3><p>Season passes, premium content, in-game subscriptions — all on-chain. Works for any TON Mini App.</p></div>
+      <div class="who-card reveal reveal-delay-1">
+        <div class="who-icon who-icon-blue"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></div>
+        <h3>Telegram Channels</h3>
+        <p>Monetise your community with paid access. Subscribers pay in TON — bot grants access automatically on charge.</p>
+      </div>
+      <div class="who-card reveal reveal-delay-2">
+        <div class="who-icon who-icon-purple"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7C5CFC" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M6 8h.01M10 8h4"/></svg></div>
+        <h3>SaaS &amp; Tools</h3>
+        <p>Add a subscription tier to any product. REST API + webhooks integrate into your existing backend in minutes.</p>
+      </div>
+      <div class="who-card reveal reveal-delay-3">
+        <div class="who-icon who-icon-green"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0EBA82" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>VPN &amp; Access</h3>
+        <p>Gate any digital service by on-chain subscription status. No payment processors, no chargebacks, no blocks.</p>
+      </div>
+      <div class="who-card reveal reveal-delay-4">
+        <div class="who-icon who-icon-orange"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+        <h3>Games &amp; Content</h3>
+        <p>Season passes, premium content, in-game subscriptions — all on-chain. Works for any TON Mini App.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -688,24 +884,71 @@
 <section class="how">
   <div class="container">
     <div class="section-label reveal">How it works</div>
-    <h2 class="section-title reveal reveal-delay-1">Three steps.<br/>Billing runs itself after that.</h2>
-    <div class="steps">
-      <div class="step reveal reveal-delay-1">
-        <div class="step-num">01</div>
-        <h3>Register &amp; configure</h3>
-        <p>Open the Dashboard, connect your TON wallet, register your service. Set subscription plans — price, billing period, free trial duration. One 0.3 TON transaction deploys your Factory on-chain.</p>
+    <h2 class="section-title reveal reveal-delay-1">Three moments.<br/><em style="font-style:normal;background:linear-gradient(135deg,#60A5FA,#818CF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Then it runs forever.</em></h2>
+
+    <div class="how-track-wrap" id="howTrackWrap">
+      <!-- Animated connecting line -->
+      <div class="how-track-bg"></div>
+      <div class="how-track-line" id="howTrackLine"></div>
+
+      <!-- Step 01 -->
+      <div class="how-step reveal reveal-delay-1">
+        <div class="how-step-top">
+          <div class="how-step-circle how-circle-blue">
+            <span>01</span>
+            <div class="how-circle-ring"></div>
+          </div>
+        </div>
+        <div class="how-step-card">
+          <div class="how-step-card-top how-top-blue"></div>
+          <div class="how-step-watermark">01</div>
+          <div class="how-step-icon-wrap how-icon-blue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3D8EFF" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </div>
+          <h3 class="how-step-title">Register &amp; configure</h3>
+          <p class="how-step-desc">Connect your TON wallet in the Dashboard, register your service. Set plans — price, billing period, trial. One 0.3 TON transaction deploys your Factory on-chain.</p>
+          <div class="how-step-tag">~2 min setup</div>
+        </div>
       </div>
-      <div class="step-arrow reveal reveal-delay-2">→</div>
-      <div class="step reveal reveal-delay-2">
-        <div class="step-num">02</div>
-        <h3>Share the payment link</h3>
-        <p>Send subscribers a direct link or Telegram bot button. They choose a plan, connect their wallet, deposit 3 billing periods up front — their own personal smart contract holds the funds.</p>
+
+      <!-- Step 02 -->
+      <div class="how-step reveal reveal-delay-2">
+        <div class="how-step-top">
+          <div class="how-step-circle how-circle-purple">
+            <span>02</span>
+            <div class="how-circle-ring"></div>
+          </div>
+        </div>
+        <div class="how-step-card">
+          <div class="how-step-card-top how-top-purple"></div>
+          <div class="how-step-watermark">02</div>
+          <div class="how-step-icon-wrap how-icon-purple">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C5CFC" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <h3 class="how-step-title">Share the payment link</h3>
+          <p class="how-step-desc">Send subscribers a Telegram button or direct link. They pick a plan, connect wallet, and deposit 3 periods — locked in their own personal smart contract.</p>
+          <div class="how-step-tag">works in TG &amp; browser</div>
+        </div>
       </div>
-      <div class="step-arrow reveal reveal-delay-3">→</div>
-      <div class="step reveal reveal-delay-3">
-        <div class="step-num">03</div>
-        <h3>Collect revenue automatically</h3>
-        <p>Every period, ORBIT charges the subscriber's contract and sends the net amount directly to your wallet. Real-time webhooks, MRR tracking, and full subscriber analytics in the dashboard.</p>
+
+      <!-- Step 03 -->
+      <div class="how-step reveal reveal-delay-3">
+        <div class="how-step-top">
+          <div class="how-step-circle how-circle-green">
+            <span>03</span>
+            <div class="how-circle-ring"></div>
+          </div>
+        </div>
+        <div class="how-step-card">
+          <div class="how-step-card-top how-top-green"></div>
+          <div class="how-step-watermark">03</div>
+          <div class="how-step-icon-wrap how-icon-green">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EBA82" stroke-width="1.8"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <h3 class="how-step-title">Collect revenue automatically</h3>
+          <p class="how-step-desc">Every period ORBIT charges the contract and sends net TON directly to your wallet — no action needed. Webhooks, MRR tracking and analytics update in real time.</p>
+          <div class="how-step-tag how-tag-green">fully automated</div>
+        </div>
       </div>
     </div>
   </div>
@@ -875,6 +1118,21 @@
     entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); revealObs.unobserve(e.target); } });
   }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
   document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+  // How it works — animate connecting line when section enters viewport
+  const howLine = document.getElementById('howTrackLine');
+  if (howLine) {
+    const howObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          setTimeout(() => howLine.classList.add('animated'), 300);
+          howObs.disconnect();
+        }
+      });
+    }, { threshold: 0.3 });
+    const wrap = document.getElementById('howTrackWrap');
+    if (wrap) howObs.observe(wrap);
+  }
 
   // Chart animation — trigger shortly after load (chart is in hero, visible immediately)
   function animateChart() {
